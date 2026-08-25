@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة المكوى - VIP</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* المتغيرات والألوان - أسود، ذهبي، رصاصي */
+        :root {
+            --black-bg: #0d0d0d;
+            --dark-gray: #1a1a1a;
+            --light-gray: #2d2d2d;
+            --text-gray: #a0a0a0;
+            --text-white: #e0e0e0;
+            --gold: #d4af37;
+            --gold-hover: #f1c40f;
+            --gold-gradient: linear-gradient(135deg, #d4af37, #aa8222);
+            --red-danger: #c0392b;
+            --green-success: #27ae60;
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
+        body { background-color: var(--black-bg); color: var(--text-white); overflow: hidden; }
+        
+        /* تأثيرات الأزرار والسكروول */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--black-bg); }
+        ::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 10px; }
+        button { cursor: pointer; border: none; outline: none; transition: var(--transition); }
+        input, select { font-family: 'Cairo', sans-serif; outline: none; }
+
+        /* شاشة الدخول الرئيسية */
+        #main-screen {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            display: flex; justify-content: center; align-items: center; gap: 50px;
+            background: radial-gradient(circle, #1a1a1a 0%, #000000 100%);
+            z-index: 1000; transition: var(--transition);
+        }
+        .login-circle {
+            width: 250px; height: 250px; border-radius: 50%;
+            background: var(--dark-gray); border: 2px solid var(--light-gray);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-size: 24px; font-weight: 700; color: var(--gold);
+            transition: var(--transition); box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .login-circle i { font-size: 60px; margin-bottom: 20px; }
+        .login-circle:hover { border-color: var(--gold); transform: translateY(-10px); box-shadow: 0 15px 40px rgba(212, 175, 55, 0.2); }
+
+        /* الشاشات مخفية افتراضياً */
+        .screen { display: none; width: 100vw; height: 100vh; }
+        .active-screen { display: flex; flex-direction: column; animation: fadeIn 0.5s ease-in-out; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* شريط التنبيهات العلوية - المبيعات اليومية */
+        .top-bar {
+            height: 70px; background: var(--dark-gray); border-bottom: 2px solid var(--gold);
+            display: flex; justify-content: space-between; align-items: center; padding: 0 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .daily-sales-counter { font-size: 26px; font-weight: 800; color: var(--gold); display: flex; align-items: center; gap: 10px;}
+        .daily-sales-counter span { transition: var(--transition); }
+        .daily-sales-counter.increase { color: var(--green-success); transform: scale(1.1); }
+        .daily-sales-counter.decrease { color: var(--red-danger); transform: scale(0.9); }
+        .top-bar-title { font-size: 22px; font-weight: 700; color: var(--text-white); }
+        .top-bar-btn { background: transparent; color: var(--gold); border: 1px solid var(--gold); padding: 8px 20px; border-radius: 8px; font-size: 16px; font-weight: 600;}
+        .top-bar-btn:hover { background: var(--gold-gradient); color: #000; }
+
+        /* تخطيط شاشة نقطة البيع (POS) */
+        #pos-content { display: flex; height: calc(100vh - 70px); }
+        
+        /* القسم الأيمن: المنتجات (الخلايا) */
+        .items-section { flex: 1; padding: 20px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px; align-content: start;}
+        .item-cell {
+            background: var(--dark-gray); border: 1px solid var(--light-gray); border-radius: 15px;
+            padding: 20px; text-align: center; cursor: pointer; transition: var(--transition);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 15px;
+            position: relative; overflow: hidden;
+        }
+        .item-cell:hover { border-color: var(--gold); transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
+        .item-cell::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.1), transparent); transition: 0.5s; }
+        .item-cell:hover::before { left: 100%; }
+        .item-icon { font-size: 40px; color: var(--text-white); transition: var(--transition); }
+        .item-cell:hover .item-icon { color: var(--gold); transform: scale(1.1); }
+        .item-name { font-size: 18px; font-weight: 700; }
+
+        /* القسم الأيسر: سلة المبيعات (الفاتورة) */
+        .cart-section { width: 450px; background: var(--dark-gray); border-right: 2px solid var(--gold); display: flex; flex-direction: column; }
+        .cart-table-wrapper { flex: 1; overflow-y: auto; padding: 15px; }
+        .cart-table { width: 100%; border-collapse: collapse; }
+        .cart-table th { color: var(--text-gray); font-size: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--light-gray); text-align: right; }
+        .cart-table td { padding: 15px 5px; border-bottom: 1px solid var(--light-gray); font-size: 15px; font-weight: 600; }
+        .cart-table .service-type { font-size: 12px; padding: 3px 8px; border-radius: 4px; display: inline-block; }
+        .srv-wash-iron { background: rgba(212, 175, 55, 0.2); color: var(--gold); }
+        .srv-iron { background: var(--light-gray); color: var(--text-gray); }
+        .qty-controls { display: flex; align-items: center; gap: 10px; }
+        .qty-btn { background: transparent; color: var(--gold); border: none; font-size: 18px; }
+        .delete-btn { color: var(--red-danger); background: transparent; border: none; font-size: 16px; margin-right: 10px; }
+
+        /* أسفل السلة: الإجماليات والأزرار */
+        .cart-footer { padding: 20px; background: #111; border-top: 1px solid var(--light-gray); }
+        .cart-total { display: flex; justify-content: space-between; font-size: 24px; font-weight: 800; color: var(--gold); margin-bottom: 15px; }
+        
+        .pos-options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;}
+        .note-input { width: 100%; background: var(--light-gray); border: 1px solid #444; color: white; padding: 10px; border-radius: 8px; }
+        .note-input:focus { border-color: var(--gold); }
+        
+        .print-checkbox { display: flex; align-items: center; gap: 10px; font-size: 16px; color: var(--text-gray); cursor: pointer; margin-bottom: 15px; }
+        .print-checkbox input { accent-color: var(--gold); width: 18px; height: 18px; cursor: pointer;}
+
+        .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn { padding: 15px; border-radius: 8px; font-size: 18px; font-weight: 700; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .btn-cash { background: var(--gold-gradient); color: #000; grid-column: span 2; font-size: 20px; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); }
+        .btn-credit { background: var(--light-gray); color: var(--text-white); border: 1px solid var(--gold); }
+        .btn-credit:hover { background: var(--dark-gray); }
+        
+        /* القوائم المنبثقة (Modals) */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);
+            display: none; justify-content: center; align-items: center; z-index: 2000;
+        }
+        .modal-content {
+            background: var(--dark-gray); border: 2px solid var(--gold); border-radius: 20px;
+            padding: 30px; width: 90%; max-width: 500px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.7); animation: slideUp 0.4s ease-out;
+        }
+        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        
+        .modal-title { font-size: 24px; font-weight: 800; color: var(--gold); text-align: center; margin-bottom: 25px; }
+        
+        /* أزرار اختيار الخدمة */
+        .service-select-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .srv-btn { padding: 25px 15px; border-radius: 15px; background: var(--light-gray); border: 2px solid transparent; text-align: center; transition: var(--transition); }
+        .srv-btn i { font-size: 35px; margin-bottom: 10px; color: var(--text-gray); }
+        .srv-btn .price { font-size: 20px; font-weight: 800; color: var(--gold); margin-top: 10px; display: block; }
+        .srv-btn:hover { border-color: var(--gold); background: rgba(212, 175, 55, 0.05); }
+        .srv-btn:hover i { color: var(--gold); }
+
+        /* حقول الإدخال في القوائم */
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; margin-bottom: 8px; color: var(--text-gray); }
+        .input-group input, .input-group select {
+            width: 100%; padding: 12px; background: var(--black-bg); border: 1px solid var(--light-gray);
+            color: var(--text-white); border-radius: 8px; font-size: 16px; transition: var(--transition);
+        }
+        .input-group input:focus { border-color: var(--gold); box-shadow: 0 0 10px rgba(212, 175, 55, 0.2); }
+        .modal-actions { display: flex; gap: 15px; margin-top: 30px; }
+        .btn-confirm { background: var(--gold-gradient); color: #000; flex: 1; }
+        .btn-cancel { background: var(--light-gray); color: var(--text-white); flex: 1; }
+
+        /* تصميم جدول الفواتير السابقة (Popup) */
+        .invoices-list-modal { max-width: 900px; max-height: 80vh; overflow-y: auto; }
+        .invoices-table { width: 100%; text-align: right; border-collapse: collapse; }
+        .invoices-table th, .invoices-table td { padding: 12px; border-bottom: 1px solid var(--light-gray); }
+        .invoices-table th { color: var(--gold); }
+        .action-icon { cursor: pointer; color: var(--text-gray); font-size: 18px; margin: 0 10px; transition: 0.3s; }
+        .action-icon:hover { color: var(--gold); }
+
+        /* شاشة الآدمن (Admin Dashboard) */
+        #admin-screen { display: none; background: var(--black-bg); overflow-y: auto; }
+        .admin-layout { display: flex; min-height: 100vh; }
+        .admin-sidebar { width: 250px; background: var(--dark-gray); border-left: 2px solid var(--gold); padding: 30px 20px; display: flex; flex-direction: column; gap: 20px; }
+        .admin-sidebar-logo { text-align: center; font-size: 28px; font-weight: 900; color: var(--gold); border-bottom: 1px solid var(--light-gray); padding-bottom: 20px; margin-bottom: 20px; }
+        .admin-nav-btn { background: transparent; text-align: right; color: var(--text-white); font-size: 18px; padding: 12px; border-radius: 8px; transition: 0.3s; }
+        .admin-nav-btn:hover, .admin-nav-btn.active { background: rgba(212, 175, 55, 0.1); color: var(--gold); border-right: 4px solid var(--gold); }
+        .admin-content { flex: 1; padding: 40px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .stat-card { background: var(--dark-gray); padding: 30px; border-radius: 15px; border: 1px solid var(--light-gray); text-align: center; transition: 0.3s; }
+        .stat-card:hover { border-color: var(--gold); transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        .stat-icon { font-size: 40px; color: var(--gold); margin-bottom: 15px; }
+        .stat-title { color: var(--text-gray); font-size: 18px; margin-bottom: 10px; }
+        .stat-value { font-size: 32px; font-weight: 900; color: var(--text-white); }
+        .stat-value.profit { color: var(--green-success); }
+        .admin-section { display: none; }
+        .admin-section.active { display: block; animation: fadeIn 0.4s; }
+        
+        /* تنسيق طباعة الفاتورة الحرارية (80mm) */
+        #print-area { display: none; }
+        @media print {
+            body * { visibility: hidden; }
+            #print-area { display: block; visibility: visible; position: absolute; left: 0; top: 0; width: 80mm; padding: 10px; background: white; color: black; font-family: 'Cairo', sans-serif; font-size: 12px; }
+            #print-area * { visibility: visible; }
+            .print-logo { text-align: center; margin-bottom: 10px; }
+            .print-logo i { font-size: 40px; color: black; }
+            .print-header { text-align: center; font-size: 18px; font-weight: 800; border-bottom: 1px dashed black; padding-bottom: 10px; margin-bottom: 10px; }
+            .print-info { margin-bottom: 10px; line-height: 1.6; }
+            .print-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+            .print-table th, .print-table td { text-align: center; padding: 5px; border-bottom: 1px solid #ddd; }
+            .print-total { text-align: center; font-size: 16px; font-weight: 800; border-top: 1px dashed black; padding-top: 10px; margin-bottom: 20px; }
+            .print-footer { text-align: center; font-size: 10px; border-top: 1px solid black; padding-top: 5px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- الشاشة الرئيسية (اختيار الحساب) -->
+    <div id="main-screen">
+        <button class="login-circle" onclick="showPOS()">
+            <i class="fa-solid fa-cash-register"></i>
+            نقطة البيع
+        </button>
+        <button class="login-circle" onclick="openAdminLogin()">
+            <i class="fa-solid fa-user-tie"></i>
+            الآدمن
+        </button>
+    </div>
+
+    <!-- شاشة نقطة البيع POS -->
+    <div id="pos-screen" class="screen">
+        <div class="top-bar">
+            <div class="top-bar-title"><i class="fa-solid fa-shirt" style="color:var(--gold); margin-left:10px;"></i> مكوى اللمسة الذهبية</div>
+            <div class="daily-sales-counter" id="daily-sales-display">
+                مبيعات اليوم: <span id="daily-sales-val">0</span> د.ع
+            </div>
+            <div>
+                <button class="top-bar-btn" onclick="openPreviousInvoices()"><i class="fa-solid fa-receipt"></i> الفواتير السابقة</button>
+                <button class="top-bar-btn" onclick="openExpensesModal()"><i class="fa-solid fa-money-bill-wave"></i> صرفيات</button>
+                <button class="top-bar-btn" style="border-color:var(--red-danger); color:var(--red-danger);" onclick="exitToMain()"><i class="fa-solid fa-right-from-bracket"></i> خروج</button>
+            </div>
+        </div>
+        
+        <div id="pos-content">
+            <!-- قائمة المبيعات (اليسار) -->
+            <div class="cart-section">
+                <div class="cart-table-wrapper">
+                    <table class="cart-table">
+                        <thead>
+                            <tr>
+                                <th style="width:5%">#</th>
+                                <th style="width:35%">القطعة</th>
+                                <th style="width:20%">السعر</th>
+                                <th style="width:25%">العدد</th>
+                                <th style="width:15%">المجموع</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cart-items">
+                            <!-- Items will be injected here via JS -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="cart-footer">
+                    <div class="pos-options">
+                        <input type="text" id="cart-notes" class="note-input" placeholder="ملاحظات عامة على الفاتورة (اختياري)...">
+                    </div>
+                    <label class="print-checkbox">
+                        <input type="checkbox" id="auto-print" checked> طباعة الفاتورة تلقائياً
+                    </label>
+                    <div class="cart-total">
+                        <span>المجموع الكلي:</span>
+                        <span id="cart-total-val">0 د.ع</span>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn btn-cash" onclick="checkout('cash')"><i class="fa-solid fa-hand-holding-dollar"></i> بيع كاش (حفظ)</button>
+                        <button class="btn btn-credit" onclick="openCreditModal()"><i class="fa-solid fa-book-open"></i> بيع آجل</button>
+                        <!-- زر تعديل الفاتورة يظهر فقط عند التعديل -->
+                        <button class="btn btn-cash" id="btn-save-edit" style="display:none; background:var(--green-success);" onclick="saveEditedInvoice()"><i class="fa-solid fa-check-double"></i> حفظ التعديلات</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- المنتجات (اليمين) -->
+            <div class="items-section" id="items-grid">
+                <!-- Items generated via JS based on the provided image -->
+            </div>
+        </div>
+    </div>
+
+    <!-- شاشة الآدمن -->
+    <div id="admin-screen" class="screen">
+        <div class="admin-layout">
+            <div class="admin-sidebar">
+                <div class="admin-sidebar-logo">لوحة الإدارة</div>
+                <button class="admin-nav-btn active" onclick="switchAdminTab('dashboard')"><i class="fa-solid fa-chart-pie"></i> الإحصائيات الشاملة</button>
+                <button class="admin-nav-btn" onclick="switchAdminTab('debts')"><i class="fa-solid fa-address-book"></i> الديون والذمم</button>
+                <button class="admin-nav-btn" onclick="switchAdminTab('costs')"><i class="fa-solid fa-building-columns"></i> التكاليف التشغيلية</button>
+                <button class="admin-nav-btn" style="margin-top:auto; color:var(--red-danger);" onclick="exitToMain()"><i class="fa-solid fa-right-from-bracket"></i> تسجيل خروج</button>
+            </div>
+            <div class="admin-content">
+                <!-- قسم الإحصائيات -->
+                <div id="admin-dashboard" class="admin-section active">
+                    <h2 style="margin-bottom:30px; color:var(--gold);">الملخص المالي (الشهر الحالي)</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <i class="fa-solid fa-coins stat-icon"></i>
+                            <div class="stat-title">إجمالي مبيعات الشهر</div>
+                            <div class="stat-value" id="admin-month-sales">0 د.ع</div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fa-solid fa-money-bill-transfer stat-icon"></i>
+                            <div class="stat-title">المصروفات اليومية</div>
+                            <div class="stat-value" style="color:var(--red-danger);" id="admin-month-expenses">0 د.ع</div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fa-solid fa-building stat-icon"></i>
+                            <div class="stat-title">التكاليف التشغيلية الثابتة</div>
+                            <div class="stat-value" style="color:var(--red-danger);" id="admin-month-costs">0 د.ع</div>
+                        </div>
+                        <div class="stat-card" style="border-color:var(--gold);">
+                            <i class="fa-solid fa-sack-dollar stat-icon"></i>
+                            <div class="stat-title">صافي الربح</div>
+                            <div class="stat-value profit" id="admin-net-profit">0 د.ع</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- قسم التكاليف التشغيلية (الرواتب، الإيجار...) -->
+                <div id="admin-costs" class="admin-section">
+                    <h2 style="margin-bottom:30px; color:var(--gold);">التكاليف التشغيلية (تخصم من الربح الشهري)</h2>
+                    <div style="background:var(--dark-gray); padding:20px; border-radius:15px; margin-bottom:20px;">
+                        <div class="input-group">
+                            <label>نوع التكلفة (إيجار، راتب عامل، كهرباء، مواد غسيل)</label>
+                            <input type="text" id="cost-name" placeholder="مثال: راتب أحمد">
+                        </div>
+                        <div class="input-group">
+                            <label>المبلغ (د.ع)</label>
+                            <input type="number" id="cost-amount">
+                        </div>
+                        <button class="btn btn-confirm" onclick="addOperatingCost()">إضافة تكلفة تشغيلية</button>
+                    </div>
+                    <table class="cart-table">
+                        <thead><tr><th>التاريخ</th><th>النوع</th><th>المبلغ</th></tr></thead>
+                        <tbody id="costs-table-body"></tbody>
+                    </table>
+                </div>
+
+                <!-- قسم الديون -->
+                <div id="admin-debts" class="admin-section">
+                    <h2 style="margin-bottom:30px; color:var(--gold);">سجل الديون (البيع الآجل)</h2>
+                    <table class="cart-table">
+                        <thead><tr><th>التاريخ</th><th>الزبون</th><th>رقم الهاتف</th><th>رقم الفاتورة</th><th>المبلغ المتبقي</th><th>الإجراء</th></tr></thead>
+                        <tbody id="debts-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals (Popups) -->
+    <!-- 1. تسجيل دخول الآدمن -->
+    <div id="modal-admin-login" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-title">تسجيل دخول الإدارة</div>
+            <div class="input-group">
+                <label>كلمة المرور</label>
+                <input type="password" id="admin-password" placeholder="أدخل رمز الدخول..." onkeyup="if(event.key === 'Enter') checkAdminPassword()">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" onclick="checkAdminPassword()">دخول</button>
+                <button class="btn btn-cancel" onclick="closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. اختيار نوع الخدمة -->
+    <div id="modal-service" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-title" id="service-item-name">اسم القطعة</div>
+            <div class="service-select-btns">
+                <button class="srv-btn" onclick="addToCartSelected('wash_iron')">
+                    <i class="fa-solid fa-jug-detergent"></i>
+                    <div>غسيل وكوي</div>
+                    <span class="price" id="price-wash">0</span>
+                </button>
+                <button class="srv-btn" onclick="addToCartSelected('iron_only')">
+                    <i class="fa-solid fa-temperature-arrow-up"></i>
+                    <div>كوي فقط</div>
+                    <span class="price" id="price-iron">0</span>
+                </button>
+            </div>
+            <div class="modal-actions"><button class="btn btn-cancel" style="width:100%" onclick="closeModals()">إلغاء</button></div>
+        </div>
+    </div>
+
+    <!-- 3. البيع الآجل (الدين) -->
+    <div id="modal-credit" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-title">تفاصيل البيع الآجل</div>
+            <div class="input-group">
+                <label>اسم الزبون</label>
+                <input type="text" id="credit-name" placeholder="اسم الزبون...">
+            </div>
+            <div class="input-group">
+                <label>رقم الهاتف</label>
+                <input type="text" id="credit-phone" placeholder="رقم الهاتف...">
+            </div>
+            <div class="input-group">
+                <label>المبلغ المدفوع مقدماً (إن وجد)</label>
+                <input type="number" id="credit-paid" value="0">
+            </div>
+            <div style="text-align:center; margin-bottom:15px; color:var(--red-danger); display:none;" id="credit-warning">
+                <i class="fa-solid fa-triangle-exclamation"></i> يوجد ديون سابقة على هذا الزبون!
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" onclick="confirmCreditSale()">حفظ وطباعة</button>
+                <button class="btn btn-cancel" onclick="closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. الصرفيات اليومية -->
+    <div id="modal-expenses" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-title">إضافة مصروف يومي</div>
+            <div class="input-group">
+                <label>تفاصيل الصرف (مثال: بنزين مولدة، ضيافة...)</label>
+                <input type="text" id="expense-detail" placeholder="التفاصيل...">
+            </div>
+            <div class="input-group">
+                <label>المبلغ (د.ع)</label>
+                <input type="number" id="expense-amount">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background:var(--red-danger); color:white;" onclick="saveExpense()">خصم من صندوق اليوم</button>
+                <button class="btn btn-cancel" onclick="closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. الفواتير السابقة -->
+    <div id="modal-invoices" class="modal-overlay">
+        <div class="modal-content invoices-list-modal">
+            <div class="modal-title">سجل الفواتير (بحث وتعديل)</div>
+            <input type="text" class="note-input" style="margin-bottom:20px;" placeholder="ابحث برقم الفاتورة أو اسم الزبون..." onkeyup="filterInvoices(this.value)">
+            <table class="invoices-table">
+                <thead><tr><th>الوقت</th><th>رقم الفاتورة</th><th>النوع</th><th>المبلغ</th><th>إجراءات</th></tr></thead>
+                <tbody id="invoices-list-body"></tbody>
+            </table>
+            <div class="modal-actions"><button class="btn btn-cancel" style="width:100%" onclick="closeModals()">إغلاق</button></div>
+        </div>
+    </div>
+
+    <!-- 6. هيكل الطباعة (مخفي للطباعة الحرارية) -->
+    <div id="print-area">
+        <div class="print-logo"><i class="fa-solid fa-shirt"></i></div>
+        <div class="print-header">مكوى اللمسة الذهبية VIP</div>
+        <div class="print-info">
+            التاريخ: <span id="p-date"></span><br>
+            الوقت: <span id="p-time"></span><br>
+            رقم الفاتورة: <b id="p-inv"></b><br>
+            نوع البيع: <span id="p-type"></span><br>
+            <span id="p-customer-row" style="display:none;">الزبون: <b id="p-customer"></b></span>
+        </div>
+        <table class="print-table">
+            <thead><tr><th>القطعة</th><th>النوع</th><th>العدد</th><th>السعر</th></tr></thead>
+            <tbody id="p-items"></tbody>
+        </table>
+        <div class="print-total">المجموع: <span id="p-total"></span> د.ع</div>
+        <div class="print-info" id="p-notes-row" style="display:none;">ملاحظات: <span id="p-notes"></span></div>
+        <div class="print-footer">
+            العنوان: الكوفة، النجف الأشرف<br>
+            هاتف: 07800000000<br>
+            جودة نضمنها وسرعة نتميز بها
+        </div>
+    </div>
+
+    <script>
+        /**
+         * محاكي قاعدة البيانات (Local Storage Simulation for Firebase)
+         * هذا المحرك يضمن حفظ البيانات وعدم ضياعها. عند استبداله بـ Firebase، 
+         * يتم فقط تغيير دوال الحفظ والجلب أدناه للاتصال بالسحابة.
+         */
+        const DB = {
+            init: function() {
+                if(!localStorage.getItem('laundry_data')) {
+                    localStorage.setItem('laundry_data', JSON.stringify({
+                        invoices: [], expenses: [], operatingCosts: [], debts: [], dailySalesTotal: 0, lastDate: new Date().toDateString()
+                    }));
+                }
+                this.checkNewDay();
+            },
+            getData: function() { return JSON.parse(localStorage.getItem('laundry_data')); },
+            saveData: function(data) { localStorage.setItem('laundry_data', JSON.stringify(data)); updateUI(); },
+            checkNewDay: function() {
+                let data = this.getData();
+                if(data.lastDate !== new Date().toDateString()) {
+                    data.dailySalesTotal = 0; // تصفير مبيعات اليوم فقط (المبيعات الشهرية تحسب من الفواتير)
+                    data.lastDate = new Date().toDateString();
+                    this.saveData(data);
+                }
+            }
+        };
+        DB.init();
+
+        // قائمة الأسعار حسب الصورة المرفقة
+        const itemsCatalog = [
+            { id: 'suit', name: 'بدلة رجالية', icon: 'fa-user-tie', prices: { wash_iron: 8000, iron_only: 5000 } },
+            { id: 'abaya', name: 'عباءة نسائية', icon: 'fa-person-dress', prices: { wash_iron: 6000, iron_only: 4000 } },
+            { id: 'arabic', name: 'الزي العربي', icon: 'fa-user-nurse', prices: { wash_iron: 4000, iron_only: 3000 } },
+            { id: 'military', name: 'بدلة عسكرية', icon: 'fa-person-military-rifle', prices: { wash_iron: 6000, iron_only: 5000 } },
+            { id: 'coat', name: 'كوت', icon: 'fa-user-secret', prices: { wash_iron: 6000, iron_only: 4000 } },
+            { id: 'jacket', name: 'جاكيت', icon: 'fa-shirt', prices: { wash_iron: 5000, iron_only: 4000 } },
+            { id: 'labcoat', name: 'لابكوت', icon: 'fa-user-doctor', prices: { wash_iron: 4000, iron_only: 3000 } },
+            { id: 'shirt', name: 'قميص', icon: 'fa-shirt', prices: { wash_iron: 3000, iron_only: 2000 } },
+            { id: 'pants', name: 'بنطلون', icon: 'fa-person', prices: { wash_iron: 3000, iron_only: 2000 } },
+            { id: 'tshirt', name: 'تيشيرت', icon: 'fa-shirt', prices: { wash_iron: 3000, iron_only: 2000 } }
+        ];
+
+        let currentCart = [];
+        let editingInvoiceId = null; // للاحتفاظ برقم الفاتورة في حالة التعديل
+        let pendingItem = null; // العنصر الذي تم النقر عليه بانتظار تحديد نوع الخدمة
+
+        // بناء الواجهة (الخلايا)
+        function renderItems() {
+            const grid = document.getElementById('items-grid');
+            grid.innerHTML = '';
+            itemsCatalog.forEach(item => {
+                const cell = document.createElement('div');
+                cell.className = 'item-cell';
+                cell.onclick = () => openServiceModal(item);
+                cell.innerHTML = `
+                    <i class="fa-solid ${item.icon} item-icon"></i>
+                    <div class="item-name">${item.name}</div>
+                `;
+                grid.appendChild(cell);
+            });
+        }
+
+        // التحكم بالشاشات والقوائم
+        function showPOS() { document.getElementById('main-screen').style.display = 'none'; document.getElementById('pos-screen').classList.add('active-screen'); }
+        function exitToMain() { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen')); document.getElementById('main-screen').style.display = 'flex'; }
+        function openAdminLogin() { document.getElementById('modal-admin-login').style.display = 'flex'; }
+        function closeModals() { document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none'); }
+        
+        function checkAdminPassword() {
+            if(document.getElementById('admin-password').value === 'ahmed2003') {
+                closeModals();
+                document.getElementById('main-screen').style.display = 'none';
+                document.getElementById('admin-screen').classList.add('active-screen');
+                document.getElementById('admin-password').value = '';
+                updateAdminDashboard();
+            } else { alert('رمز الدخول خاطئ!'); }
+        }
+
+        // إضافة للـ Cart
+        function openServiceModal(item) {
+            pendingItem = item;
+            document.getElementById('service-item-name').innerText = item.name;
+            document.getElementById('price-wash').innerText = item.prices.wash_iron + ' د.ع';
+            document.getElementById('price-iron').innerText = item.prices.iron_only + ' د.ع';
+            document.getElementById('modal-service').style.display = 'flex';
+        }
+
+        function addToCartSelected(serviceType) {
+            const price = pendingItem.prices[serviceType];
+            const serviceName = serviceType === 'wash_iron' ? 'غسيل وكوي' : 'كوي فقط';
+            
+            // تحقق إذا كان العنصر موجود بنفس نوع الخدمة
+            const existing = currentCart.find(i => i.id === pendingItem.id && i.service === serviceType);
+            if(existing) {
+                existing.qty += 1;
+            } else {
+                currentCart.push({ id: pendingItem.id, name: pendingItem.name, service: serviceType, serviceName: serviceName, price: price, qty: 1 });
+            }
+            
+            closeModals();
+            renderCart();
+        }
+
+        function removeCartItem(index) {
+            currentCart.splice(index, 1);
+            renderCart();
+        }
+
+        function renderCart() {
+            const tbody = document.getElementById('cart-items');
+            tbody.innerHTML = '';
+            let total = 0;
+            currentCart.forEach((item, index) => {
+                const itemTotal = item.price * item.qty;
+                total += itemTotal;
+                const serviceClass = item.service === 'wash_iron' ? 'srv-wash-iron' : 'srv-iron';
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${item.name} <br> <span class="service-type ${serviceClass}">${item.serviceName}</span></td>
+                        <td>${item.price.toLocaleString()}</td>
+                        <td>
+                            <div class="qty-controls">
+                                <button class="qty-btn" onclick="currentCart[${index}].qty++; renderCart();">+</button>
+                                ${item.qty}
+                                <button class="qty-btn" onclick="if(currentCart[${index}].qty>1){currentCart[${index}].qty--; renderCart();}else{removeCartItem(${index})}">-</button>
+                            </div>
+                        </td>
+                        <td>
+                            <button class="delete-btn" onclick="removeCartItem(${index})"><i class="fa-solid fa-trash"></i></button>
+                            ${itemTotal.toLocaleString()}
+                        </td>
+                    </tr>
+                `;
+            });
+            document.getElementById('cart-total-val').innerText = total.toLocaleString() + ' د.ع';
+            
+            // حفظ مسودة تلقائية في LocalStorage
+            localStorage.setItem('cart_draft', JSON.stringify(currentCart));
+        }
+
+        // توليد رقم فاتورة عشوائي ذكي لا يتكرر
+        function generateInvoiceID() {
+            return 'INV-' + Math.random().toString(36).substr(2, 6).toUpperCase() + Date.now().toString().slice(-4);
+        }
+
+        // إتمام البيع (كاش)
+        function checkout(type) {
+            if(currentCart.length === 0) return alert('السلة فارغة!');
+            
+            const total = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const notes = document.getElementById('cart-notes').value;
+            const invoice = {
+                id: generateInvoiceID(),
+                date: new Date().toLocaleDateString(),
+                time: new Date().toLocaleTimeString(),
+                timestamp: Date.now(),
+                type: type, // 'cash' or 'credit'
+                items: [...currentCart],
+                total: total,
+                notes: notes,
+                customer: null // سيملأ في البيع الآجل
+            };
+
+            finalizeSale(invoice);
+        }
+
+        // البيع الآجل
+        function openCreditModal() {
+            if(currentCart.length === 0) return alert('السلة فارغة!');
+            document.getElementById('credit-name').value = '';
+            document.getElementById('credit-phone').value = '';
+            document.getElementById('credit-paid').value = '0';
+            
+            // التحقق الذكي من الديون عند الكتابة
+            document.getElementById('credit-phone').onkeyup = function() {
+                const db = DB.getData();
+                const hasDebt = db.debts.find(d => d.phone === this.value && d.remaining > 0);
+                document.getElementById('credit-warning').style.display = hasDebt ? 'block' : 'none';
+            };
+            
+            document.getElementById('modal-credit').style.display = 'flex';
+        }
+
+        function confirmCreditSale() {
+            const name = document.getElementById('credit-name').value;
+            const phone = document.getElementById('credit-phone').value;
+            const paid = parseFloat(document.getElementById('credit-paid').value) || 0;
+            const total = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            
+            if(!name || !phone) return alert('يرجى إدخال اسم الزبون ورقم الهاتف');
+            
+            const invoice = {
+                id: generateInvoiceID(),
+                date: new Date().toLocaleDateString(),
+                time: new Date().toLocaleTimeString(),
+                timestamp: Date.now(),
+                type: 'credit',
+                items: [...currentCart],
+                total: total,
+                notes: document.getElementById('cart-notes').value,
+                customer: { name, phone, paid, remaining: total - paid }
+            };
+
+            // تسجيل الدين
+            let db = DB.getData();
+            db.debts.push({
+                date: invoice.date,
+                name: name,
+                phone: phone,
+                invoiceId: invoice.id,
+                total: total,
+                paid: paid,
+                remaining: total - paid
+            });
+            DB.saveData(db);
+
+            finalizeSale(invoice);
+            closeModals();
+        }
+
+        // حفظ وطباعة الفاتورة (العملية النهائية)
+        function finalizeSale(invoice) {
+            let db = DB.getData();
+            
+            // إذا كان هذا حفظ لتعديل فاتورة سابقة
+            if(editingInvoiceId) {
+                // العثور على الفاتورة القديمة
+                const oldIndex = db.invoices.findIndex(i => i.id === editingInvoiceId);
+                const oldTotal = db.invoices[oldIndex].total;
+                
+                // تحديث بياناتها
+                invoice.id = editingInvoiceId; // الاحتفاظ بنفس الرقم
+                db.invoices[oldIndex] = invoice;
+                
+                // تعديل مبيعات اليوم (طرح القديم وإضافة الجديد)
+                db.dailySalesTotal = (db.dailySalesTotal - oldTotal) + invoice.total;
+                
+                editingInvoiceId = null;
+                document.getElementById('btn-save-edit').style.display = 'none';
+                document.querySelector('.btn-cash').style.display = 'flex';
+                document.querySelector('.btn-credit').style.display = 'flex';
+            } else {
+                // فاتورة جديدة
+                db.invoices.push(invoice);
+                // إضافة المجموع للمبيعات اليومية فقط إذا كان كاش (أو الجزء المدفوع من الآجل)
+                let actualCash = invoice.type === 'cash' ? invoice.total : (invoice.customer ? invoice.customer.paid : 0);
+                db.dailySalesTotal += actualCash;
+            }
+
+            DB.saveData(db);
+
+            // الطباعة
+            if(document.getElementById('auto-print').checked) {
+                printInvoice(invoice);
+            }
+
+            // تصفير السلة
+            currentCart = [];
+            document.getElementById('cart-notes').value = '';
+            localStorage.removeItem('cart_draft');
+            renderCart();
+        }
+
+        // الصرفيات
+        function openExpensesModal() { document.getElementById('modal-expenses').style.display = 'flex'; }
+        function saveExpense() {
+            const detail = document.getElementById('expense-detail').value;
+            const amount = parseFloat(document.getElementById('expense-amount').value);
+            if(!detail || !amount) return alert('يرجى ملء الحقول');
+
+            let db = DB.getData();
+            db.expenses.push({
+                date: new Date().toLocaleDateString(),
+                detail: detail,
+                amount: amount
+            });
+            
+            // خصم من مبيعات اليوم
+            db.dailySalesTotal -= amount;
+            DB.saveData(db);
+            closeModals();
+            document.getElementById('expense-detail').value = '';
+            document.getElementById('expense-amount').value = '';
+        }
+
+        // الفواتير السابقة والتعديل
+        function openPreviousInvoices() {
+            const db = DB.getData();
+            const tbody = document.getElementById('invoices-list-body');
+            tbody.innerHTML = '';
+            // ترتيب من الأحدث للأقدم
+            const sorted = db.invoices.sort((a,b) => b.timestamp - a.timestamp);
+            sorted.forEach(inv => {
+                let typeStr = inv.type === 'cash' ? 'نقدي' : 'آجل';
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${inv.time} <br><small>${inv.date}</small></td>
+                        <td>${inv.id}</td>
+                        <td>${typeStr}</td>
+                        <td>${inv.total.toLocaleString()}</td>
+                        <td>
+                            <i class="fa-solid fa-eye action-icon" onclick='printInvoice(${JSON.stringify(inv)})' title="طباعة"></i>
+                            <i class="fa-solid fa-pen action-icon" onclick='editInvoice("${inv.id}")' title="تعديل"></i>
+                        </td>
+                    </tr>
+                `;
+            });
+            document.getElementById('modal-invoices').style.display = 'flex';
+        }
+
+        function filterInvoices(val) {
+            // منطق فلترة للجدول... (بسيط)
+            const rows = document.getElementById('invoices-list-body').getElementsByTagName('tr');
+            for(let i=0; i<rows.length; i++) {
+                if(rows[i].innerText.toLowerCase().includes(val.toLowerCase())) rows[i].style.display = '';
+                else rows[i].style.display = 'none';
+            }
+        }
+
+        function editInvoice(id) {
+            const db = DB.getData();
+            const invoice = db.invoices.find(i => i.id === id);
+            if(invoice) {
+                currentCart = [...invoice.items];
+                document.getElementById('cart-notes').value = invoice.notes || '';
+                editingInvoiceId = invoice.id;
+                renderCart();
+                closeModals();
+                
+                // إظهار زر التعديل وإخفاء أزرار البيع الطبيعية
+                document.getElementById('btn-save-edit').style.display = 'flex';
+                document.querySelector('.btn-cash').style.display = 'none';
+                document.querySelector('.btn-credit').style.display = 'none';
+            }
+        }
+        
+        function saveEditedInvoice() {
+            const total = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const notes = document.getElementById('cart-notes').value;
+            // نسترجع النوع الأصلي للفاتورة
+            const db = DB.getData();
+            const oldInvoice = db.invoices.find(i => i.id === editingInvoiceId);
+            
+            const invoice = {
+                date: oldInvoice.date, // الحفاظ على التاريخ
+                time: new Date().toLocaleTimeString(), // تحديث وقت التعديل
+                timestamp: oldInvoice.timestamp,
+                type: oldInvoice.type,
+                items: [...currentCart],
+                total: total,
+                notes: notes,
+                customer: oldInvoice.customer
+            };
+            finalizeSale(invoice);
+        }
+
+        // دالة الطباعة (تجهيز الـ DOM ثم نافذة الطباعة)
+        function printInvoice(invoice) {
+            document.getElementById('p-date').innerText = invoice.date;
+            document.getElementById('p-time').innerText = invoice.time;
+            document.getElementById('p-inv').innerText = invoice.id;
+            document.getElementById('p-type').innerText = invoice.type === 'cash' ? 'نقدي' : 'آجل';
+            
+            if(invoice.type === 'credit' && invoice.customer) {
+                document.getElementById('p-customer-row').style.display = 'block';
+                document.getElementById('p-customer').innerText = invoice.customer.name;
+            } else {
+                document.getElementById('p-customer-row').style.display = 'none';
+            }
+
+            const tbody = document.getElementById('p-items');
+            tbody.innerHTML = '';
+            invoice.items.forEach(item => {
+                tbody.innerHTML += `<tr>
+                    <td>${item.name}</td>
+                    <td>${item.serviceName}</td>
+                    <td>${item.qty}</td>
+                    <td>${item.price * item.qty}</td>
+                </tr>`;
+            });
+            document.getElementById('p-total').innerText = invoice.total.toLocaleString();
+            
+            if(invoice.notes) {
+                document.getElementById('p-notes-row').style.display = 'block';
+                document.getElementById('p-notes').innerText = invoice.notes;
+            } else {
+                document.getElementById('p-notes-row').style.display = 'none';
+            }
+
+            window.print();
+        }
+
+        // تحديث واجهة المستخدم (حركة الأرقام)
+        function animateValue(obj, start, end, duration) {
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                obj.innerHTML = Math.floor(progress * (end - start) + start).toLocaleString();
+                if (progress < 1) { window.requestAnimationFrame(step); }
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        let lastSalesTotal = 0;
+        function updateUI() {
+            const db = DB.getData();
+            const display = document.getElementById('daily-sales-val');
+            const wrapper = document.getElementById('daily-sales-display');
+            
+            if(db.dailySalesTotal > lastSalesTotal) {
+                wrapper.classList.add('increase'); setTimeout(()=>wrapper.classList.remove('increase'), 500);
+            } else if (db.dailySalesTotal < lastSalesTotal) {
+                wrapper.classList.add('decrease'); setTimeout(()=>wrapper.classList.remove('decrease'), 500);
+            }
+            
+            animateValue(display, lastSalesTotal, db.dailySalesTotal, 500);
+            lastSalesTotal = db.dailySalesTotal;
+            
+            // تحديث الآدمن إذا كان مفتوحاً
+            if(document.getElementById('admin-screen').classList.contains('active-screen')) {
+                updateAdminDashboard();
+            }
+        }
+
+        // --------------- وظائف الآدمن ---------------
+        function switchAdminTab(tab) {
+            document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.admin-nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`admin-${tab}`).classList.add('active');
+            event.target.classList.add('active');
+            updateAdminDashboard();
+        }
+
+        function updateAdminDashboard() {
+            const db = DB.getData();
+            
+            // الحسابات الشهرية (ببساطة نجمع كل الفواتير المحفوظة - في الواقع تفلتر حسب الشهر)
+            let totalSales = db.invoices.reduce((sum, i) => sum + i.total, 0);
+            let totalExpenses = db.expenses.reduce((sum, e) => sum + e.amount, 0);
+            let totalCosts = db.operatingCosts.reduce((sum, c) => sum + c.amount, 0);
+            let netProfit = totalSales - totalExpenses - totalCosts;
+
+            document.getElementById('admin-month-sales').innerText = totalSales.toLocaleString() + ' د.ع';
+            document.getElementById('admin-month-expenses').innerText = totalExpenses.toLocaleString() + ' د.ع';
+            document.getElementById('admin-month-costs').innerText = totalCosts.toLocaleString() + ' د.ع';
+            document.getElementById('admin-net-profit').innerText = netProfit.toLocaleString() + ' د.ع';
+
+            // جداول التكاليف
+            const costsTbody = document.getElementById('costs-table-body');
+            costsTbody.innerHTML = '';
+            db.operatingCosts.forEach(c => {
+                costsTbody.innerHTML += `<tr><td>${c.date}</td><td>${c.name}</td><td>${c.amount.toLocaleString()}</td></tr>`;
+            });
+
+            // جداول الديون
+            const debtsTbody = document.getElementById('debts-table-body');
+            debtsTbody.innerHTML = '';
+            db.debts.forEach((d, index) => {
+                debtsTbody.innerHTML += `<tr>
+                    <td>${d.date}</td><td>${d.name}</td><td>${d.phone}</td><td>${d.invoiceId}</td>
+                    <td style="color:var(--red-danger); font-weight:bold;">${d.remaining.toLocaleString()}</td>
+                    <td><button class="top-bar-btn" onclick="payDebt(${index})">تسديد دفعة</button></td>
+                </tr>`;
+            });
+        }
+
+        function addOperatingCost() {
+            const name = document.getElementById('cost-name').value;
+            const amount = parseFloat(document.getElementById('cost-amount').value);
+            if(!name || !amount) return alert('الرجاء الإدخال بشكل صحيح');
+            
+            let db = DB.getData();
+            db.operatingCosts.push({ date: new Date().toLocaleDateString(), name, amount });
+            DB.saveData(db);
+            document.getElementById('cost-name').value = '';
+            document.getElementById('cost-amount').value = '';
+        }
+
+        function payDebt(index) {
+            let db = DB.getData();
+            let debt = db.debts[index];
+            let pay = prompt(`المبلغ المتبقي على ${debt.name} هو ${debt.remaining}. أدخل مبلغ التسديد:`);
+            if(pay) {
+                pay = parseFloat(pay);
+                if(pay > 0 && pay <= debt.remaining) {
+                    debt.remaining -= pay;
+                    debt.paid += pay;
+                    // إضافة التسديد لمبيعات اليوم
+                    db.dailySalesTotal += pay; 
+                    if(debt.remaining === 0) {
+                        alert('تم تسديد الدين بالكامل!');
+                    }
+                    DB.saveData(db);
+                } else { alert('مبلغ غير صحيح'); }
+            }
+        }
+
+        // تهيئة النظام عند الفتح
+        window.onload = () => {
+            renderItems();
+            // استرجاع المسودة إن وجدت
+            if(localStorage.getItem('cart_draft')) {
+                currentCart = JSON.parse(localStorage.getItem('cart_draft'));
+                renderCart();
+            }
+            updateUI();
+        };
+    </script>
+</body>
+</html>
