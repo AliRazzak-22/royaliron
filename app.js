@@ -50,6 +50,14 @@ async function initializeDB() {
         const snapshot = await get(child(dbRef, `royal_data`));
         if (snapshot.exists()) {
             localData = snapshot.val();
+            
+            // 🔴 الحل السحري لإصلاح تلف المصفوفات القادم من فايربيس بعد عمليات الحذف
+            localData.invoices = Object.values(localData.invoices || {});
+            localData.catalog = Object.values(localData.catalog || {});
+            localData.expenses = Object.values(localData.expenses || {});
+            localData.operatingCosts = Object.values(localData.operatingCosts || {});
+            localData.debts = Object.values(localData.debts || {});
+
             // التحقق من اليوم الجديد لتصفير مبيعات اليوم فقط
             if(localData.lastDate !== new Date().toDateString()) {
                 localData.dailySalesCash = 0;
@@ -67,7 +75,6 @@ async function initializeDB() {
                 { id: 'coat', name: 'كوت', icon: 'fa-user-secret', prices: { wash_iron: 6000, iron_only: 4000 } },
                 { id: 'shirt', name: 'قميص', icon: 'fa-shirt', prices: { wash_iron: 3000, iron_only: 2000 } }
             ];
-            // التأكد من وجود المصفوفات الفارغة لتجنب الأخطاء
             localData.invoices = []; localData.expenses = []; localData.operatingCosts = []; localData.debts = [];
             saveDataToCloud();
         }
@@ -77,7 +84,6 @@ async function initializeDB() {
         renderItems();
         updateUI();
 
-        // استرجاع المسودة إن وجدت محلياً
         if(localStorage.getItem('cart_draft')) {
             currentCart = JSON.parse(localStorage.getItem('cart_draft'));
             renderCart();
