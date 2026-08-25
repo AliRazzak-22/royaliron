@@ -1,7 +1,9 @@
-// ==================== تهيئة Firebase ====================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, set, get, onValue, push, update, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+// استيراد مكتبات Firebase (النسخة الحديثة Modular v10) عبر CDN لتعمل فوراً في المتصفح
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics.js";
+import { getDatabase, ref, set, get, child, update, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
+// إعدادات Firebase الخاصة بك
 const firebaseConfig = {
     apiKey: "AIzaSyDtuPp8juKTJFSZv6Cdmtrli2NfFDKUnkw",
     authDomain: "roylairon.firebaseapp.com",
@@ -13,951 +15,610 @@ const firebaseConfig = {
     measurementId: "G-KXKMGMZSNX"
 };
 
+// تهيئة Firebase
 const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+const analytics = getAnalytics(app);
+const database = getDatabase(app);
+const dbRef = ref(database);
 
-// ==================== المتغيرات العامة ====================
+// المتغيرات العامة
+let localData = {
+    catalog: [],
+    invoices: [],
+    expenses: [],
+    operatingCosts: [],
+    debts: [],
+    dailySalesCash: 0,
+    dailySalesElectronic: 0,
+    lastDate: new Date().toDateString()
+};
 let currentCart = [];
-let currentServiceChoice = null;
-let currentInvoiceView = null;
-let services = [];
-let settings = {};
-let dailyExpenses = [];
-let operationalExpenses = [];
-let allInvoices = [];
-let selectedIcon = '👔';
-let adminPassword = 'ahmed2003';
+let editingInvoiceId = null; 
+let pendingItem = null;
 
-// ==================== الأيقونات المتاحة ====================
-const iconLibrary = [
-    '👔', '👕', '👖', '👗', '👘', '🕌', '🧥', '🧵', '🧶', '🧣',
-    '🧤', '🧦', '👚', '🩳', '🩲', '🩱', '🩰', '👟', '👞', '👠',
-    '👡', '👢', '🎽', '🏃', '🏋️', '🤵', '👰', '🤶', '🎅', '🧙',
-    '🧝', '🧛', '🧟', '🦸', '🦹', '🧑', '👨', '👩', '👴', '👵',
-    '👶', '🛏️', '🛋️', '🪑', '🛌', '🪟', '🚪', '🧻', '🧺', '🪣'
+// مكتبة اللوغوات المتوفرة لإضافتها للخدمات (FontAwesome)
+const availableIcons = [
+    'fa-shirt', 'fa-user-tie', 'fa-person-dress', 'fa-user-nurse', 'fa-person-military-rifle',
+    'fa-user-secret', 'fa-user-doctor', 'fa-person', 'fa-socks', 'fa-mitten', 
+    'fa-hat-cowboy', 'fa-graduation-cap', 'fa-baby-carriage', 'fa-bed', 'fa-rug',
+    'fa-mattress-pillow', 'fa-towel', 'fa-bag-shopping', 'fa-shoe-prints'
 ];
 
-// ==================== التخزين المحلي (طبقة الحماية) ====================
-function saveToLocal(key, data) {
+// دالة جلب البيانات من السحابة عند تشغيل النظام
+async function initializeDB() {
     try {
-        localStorage.setItem(key, JSON.stringify(data));
-    } catch (e) {
-        console.error('خطأ في الحفظ المحلي:', e);
-    }
-}
-
-function getFromLocal(key) {
-    try {
-        const data = localStorage.getItem(key);
-        return data ? JSON.parse(data) : null;
-    } catch (e) {
-        console.error('خطأ في القراءة المحلية:', e);
-        return null;
-    }
-}
-
-// ==================== مزامنة Firebase ====================
-function syncToFirebase(path, data) {
-    set(ref(db, path), data).catch(err => console.error('خطأ في المزامنة:', err));
-}
-
-function syncCartToLocal() {
-    saveToLocal('roylairon_cart', currentCart);
-}
-
-function loadCartFromLocal() {
-    const saved = getFromLocal('roylairon_cart');
-    if (saved && Array.isArray(saved)) {
-        currentCart = saved;
-        renderCart();
-    }
-}
-
-// ==================== التنقل بين الشاشات ====================
-function backToMain() {
-    document.querySelectorAll('.pos-screen, .admin-screen').forEach(el => el.classList.add('hidden'));
-    document.getElementById('mainScreen').classList.remove('hidden');
-}
-
-function openPOS() {
-    document.getElementById('mainScreen').classList.add('hidden');
-    document.getElementById('posScreen').classList.remove('hidden');
-    loadCartFromLocal();
-    loadServices();
-    loadDailySales();
-}
-
-function openAdminLogin() {
-    document.getElementById('adminLoginModal').classList.remove('hidden');
-    document.getElementById('adminPassword').value = '';
-    setTimeout(() => document.getElementById('adminPassword').focus(), 100);
-}
-
-function closeAdminLogin() {
-    document.getElementById('adminLoginModal').classList.add('hidden');
-}
-
-function verifyAdmin() {
-    const pass = document.getElementById('adminPassword').value;
-    if (pass === adminPassword) {
-        closeAdminLogin();
-        openAdminScreen();
-    } else {
-        alert('رمز الدخول غير صحيح!');
-        document.getElementById('adminPassword').value = '';
-    }
-}
-
-function openAdminScreen() {
-    document.getElementById('mainScreen').classList.add('hidden');
-    document.getElementById('adminScreen').classList.remove('hidden');
-    loadAdminData();
-}
-
-// ==================== إدارة المودالات ====================
-function closeModal(id) {
-    document.getElementById(id).classList.add('hidden');
-}
-
-function openExpensesModal() {
-    document.getElementById('expensesModal').classList.remove('hidden');
-    document.getElementById('expenseAmount').value = '';
-    document.getElementById('expenseNote').value = '';
-}
-
-function openAddServiceModal() {
-    document.getElementById('addServiceModal').classList.remove('hidden');
-    document.getElementById('serviceName').value = '';
-    document.getElementById('serviceWashPrice').value = '';
-    document.getElementById('serviceIronPrice').value = '';
-    renderIconPicker();
-}
-
-function openHistoryModal() {
-    document.getElementById('historyModal').classList.remove('hidden');
-    loadInvoices();
-}
-
-// ==================== إدارة الخدمات ====================
-function renderIconPicker() {
-    const grid = document.getElementById('iconGrid');
-    grid.innerHTML = '';
-    iconLibrary.forEach(icon => {
-        const div = document.createElement('div');
-        div.className = 'icon-option' + (icon === selectedIcon ? ' selected' : '');
-        div.textContent = icon;
-        div.onclick = () => {
-            selectedIcon = icon;
-            renderIconPicker();
-        };
-        grid.appendChild(div);
-    });
-}
-
-function loadServices() {
-    // محاولة التحميل من المحلي أولاً
-    const localServices = getFromLocal('roylairon_services');
-    if (localServices && localServices.length > 0) {
-        services = localServices;
-        renderServices();
-    }
-    
-    // المزامنة مع Firebase
-    onValue(ref(db, 'services'), (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            services = data;
-            saveToLocal('roylairon_services', services);
-            renderServices();
+        const snapshot = await get(child(dbRef, `royal_data`));
+        if (snapshot.exists()) {
+            localData = snapshot.val();
+            // التحقق من اليوم الجديد لتصفير مبيعات اليوم فقط
+            if(localData.lastDate !== new Date().toDateString()) {
+                localData.dailySalesCash = 0;
+                localData.dailySalesElectronic = 0;
+                localData.lastDate = new Date().toDateString();
+                saveDataToCloud();
+            }
+        } else {
+            // بيانات افتراضية إذا كانت قاعدة البيانات فارغة (الكتالوج الأساسي)
+            localData.catalog = [
+                { id: 'suit', name: 'بدلة رجالية', icon: 'fa-user-tie', prices: { wash_iron: 8000, iron_only: 5000 } },
+                { id: 'abaya', name: 'عباءة نسائية', icon: 'fa-person-dress', prices: { wash_iron: 6000, iron_only: 4000 } },
+                { id: 'arabic', name: 'الزي العربي', icon: 'fa-user-nurse', prices: { wash_iron: 4000, iron_only: 3000 } },
+                { id: 'military', name: 'بدلة عسكرية', icon: 'fa-person-military-rifle', prices: { wash_iron: 6000, iron_only: 5000 } },
+                { id: 'coat', name: 'كوت', icon: 'fa-user-secret', prices: { wash_iron: 6000, iron_only: 4000 } },
+                { id: 'shirt', name: 'قميص', icon: 'fa-shirt', prices: { wash_iron: 3000, iron_only: 2000 } }
+            ];
+            // التأكد من وجود المصفوفات الفارغة لتجنب الأخطاء
+            localData.invoices = []; localData.expenses = []; localData.operatingCosts = []; localData.debts = [];
+            saveDataToCloud();
         }
+        
+        // إخفاء شاشة التحميل وبدء النظام
+        document.getElementById('loading-screen').style.display = 'none';
+        renderItems();
+        updateUI();
+
+        // استرجاع المسودة إن وجدت محلياً
+        if(localStorage.getItem('cart_draft')) {
+            currentCart = JSON.parse(localStorage.getItem('cart_draft'));
+            renderCart();
+        }
+
+    } catch (error) {
+        console.error("Firebase Error:", error);
+        alert("حدث خطأ في الاتصال بقاعدة البيانات. يرجى التحقق من الإنترنت.");
+    }
+}
+
+// دالة الحفظ في السحابة
+function saveDataToCloud() {
+    set(ref(database, 'royal_data'), localData).then(() => {
+        updateUI();
+    }).catch((error) => {
+        alert("فشل في حفظ البيانات: " + error.message);
     });
 }
 
-function renderServices() {
-    const grid = document.getElementById('servicesGrid');
+// إتاحة الدوال على كائن الـ window لتعمل مع أحداث HTML (onclick)
+window.showPOS = () => { document.getElementById('main-screen').style.display = 'none'; document.getElementById('pos-screen').classList.add('active-screen'); };
+window.exitToMain = () => { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen')); document.getElementById('main-screen').style.display = 'flex'; };
+window.openAdminLogin = () => { document.getElementById('modal-admin-login').style.display = 'flex'; };
+window.closeModals = () => { document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none'); };
+
+window.checkAdminPassword = () => {
+    if(document.getElementById('admin-password').value === 'ahmed2003') {
+        window.closeModals();
+        document.getElementById('main-screen').style.display = 'none';
+        document.getElementById('admin-screen').classList.add('active-screen');
+        document.getElementById('admin-password').value = '';
+        window.updateAdminDashboard();
+    } else { alert('رمز الدخول خاطئ!'); }
+};
+
+// ---------------- بناء الواجهة (الخلايا) ----------------
+function renderItems() {
+    const grid = document.getElementById('items-grid');
     grid.innerHTML = '';
-    services.forEach((service, index) => {
-        const cell = document.createElement('div');
-        cell.className = 'service-cell';
-        cell.innerHTML = `
-            <span class="service-icon">${service.icon || '👔'}</span>
-            <div class="service-name">${service.name}</div>
-            <div class="service-prices">
-                <div class="wash-price">غسل وكوي: ${service.washPrice} د.ع</div>
-                <div class="iron-price">كوي فقط: ${service.ironPrice} د.ع</div>
-            </div>
-        `;
-        cell.onclick = () => showServiceChoice(service);
-        cell.style.animationDelay = `${index * 0.05}s`;
-        grid.appendChild(cell);
-    });
-}
-
-function showServiceChoice(service) {
-    currentServiceChoice = service;
-    document.getElementById('serviceChoiceName').textContent = service.name;
-    document.getElementById('serviceChoiceModal').classList.remove('hidden');
-}
-
-function addToCartWithService(serviceType) {
-    if (!currentServiceChoice) return;
-    
-    const service = currentServiceChoice;
-    const price = serviceType === 'wash' ? service.washPrice : service.ironPrice;
-    
-    // البحث عن نفس العنصر في القائمة
-    const existingIndex = currentCart.findIndex(item => 
-        item.serviceId === service.id && item.serviceType === serviceType
-    );
-    
-    if (existingIndex > -1) {
-        currentCart[existingIndex].quantity += 1;
-        currentCart[existingIndex].total = currentCart[existingIndex].quantity * price;
-    } else {
-        currentCart.push({
-            id: Date.now(),
-            serviceId: service.id,
-            serviceName: service.name,
-            serviceIcon: service.icon || '👔',
-            serviceType: serviceType,
-            serviceTypeLabel: serviceType === 'wash' ? 'غسل وكوي' : 'كوي فقط',
-            quantity: 1,
-            price: price,
-            total: price
+    if(localData.catalog) {
+        localData.catalog.forEach(item => {
+            const cell = document.createElement('div');
+            cell.className = 'item-cell';
+            cell.onclick = () => window.openServiceModal(item);
+            cell.innerHTML = `
+                <i class="fa-solid ${item.icon} item-icon"></i>
+                <div class="item-name">${item.name}</div>
+            `;
+            grid.appendChild(cell);
         });
     }
-    
-    closeModal('serviceChoiceModal');
-    currentServiceChoice = null;
-    syncCartToLocal();
-    renderCart();
-    animateCartAdd();
 }
 
-function animateCartAdd() {
-    // تأثير بصري عند الإضافة
-    const cartSection = document.querySelector('.cart-section');
-    cartSection.style.animation = 'none';
-    setTimeout(() => {
-        cartSection.style.animation = 'pulse-cart 0.5s ease';
-    }, 10);
-}
-
-function addService() {
-    const name = document.getElementById('serviceName').value.trim();
-    const washPrice = parseFloat(document.getElementById('serviceWashPrice').value);
-    const ironPrice = parseFloat(document.getElementById('serviceIronPrice').value);
+// ---------------- إضافة خدمة جديدة (الكتالوج) ----------------
+window.openAddServiceModal = () => {
+    document.getElementById('new-srv-name').value = '';
+    document.getElementById('new-srv-price-wash').value = '';
+    document.getElementById('new-srv-price-iron').value = '';
     
-    if (!name || !washPrice || !ironPrice) {
-        alert('يرجى ملء جميع الحقول');
-        return;
+    // بناء شبكة الأيقونات
+    const iconGrid = document.getElementById('icon-picker');
+    iconGrid.innerHTML = '';
+    availableIcons.forEach(icon => {
+        const iDiv = document.createElement('div');
+        iDiv.className = 'icon-option';
+        iDiv.innerHTML = `<i class="fa-solid ${icon}"></i>`;
+        iDiv.onclick = function() {
+            document.querySelectorAll('.icon-option').forEach(el => el.classList.remove('selected'));
+            this.classList.add('selected');
+            document.getElementById('new-srv-icon').value = icon;
+        };
+        iconGrid.appendChild(iDiv);
+    });
+    // اختيار افتراضي
+    iconGrid.firstChild.classList.add('selected');
+    document.getElementById('new-srv-icon').value = availableIcons[0];
+    
+    document.getElementById('modal-add-service').style.display = 'flex';
+};
+
+window.saveNewService = () => {
+    const name = document.getElementById('new-srv-name').value;
+    const icon = document.getElementById('new-srv-icon').value;
+    const priceWash = parseFloat(document.getElementById('new-srv-price-wash').value);
+    const priceIron = parseFloat(document.getElementById('new-srv-price-iron').value);
+
+    if(!name || isNaN(priceWash) || isNaN(priceIron)) return alert('الرجاء إدخال الاسم والأسعار بشكل صحيح.');
+
+    const newItem = {
+        id: 'item_' + Date.now(),
+        name: name,
+        icon: icon,
+        prices: { wash_iron: priceWash, iron_only: priceIron }
+    };
+
+    if(!localData.catalog) localData.catalog = [];
+    localData.catalog.push(newItem);
+    saveDataToCloud();
+    renderItems();
+    window.closeModals();
+};
+
+// ---------------- نظام السلة (الـ Cart) ----------------
+window.openServiceModal = (item) => {
+    pendingItem = item;
+    document.getElementById('service-item-name').innerText = item.name;
+    document.getElementById('price-wash').innerText = item.prices.wash_iron.toLocaleString() + ' د.ع';
+    document.getElementById('price-iron').innerText = item.prices.iron_only.toLocaleString() + ' د.ع';
+    document.getElementById('modal-service').style.display = 'flex';
+};
+
+window.addToCartSelected = (serviceType) => {
+    const price = pendingItem.prices[serviceType];
+    const serviceName = serviceType === 'wash_iron' ? 'غسيل وكوي' : 'كوي فقط';
+    
+    const existing = currentCart.find(i => i.id === pendingItem.id && i.service === serviceType);
+    if(existing) {
+        existing.qty += 1;
+    } else {
+        currentCart.push({ id: pendingItem.id, name: pendingItem.name, service: serviceType, serviceName: serviceName, price: price, qty: 1 });
     }
     
-    const newService = {
-        id: Date.now().toString(),
-        name: name,
-        icon: selectedIcon,
-        washPrice: washPrice,
-        ironPrice: ironPrice,
-        createdAt: new Date().toISOString()
-    };
-    
-    services.push(newService);
-    saveToLocal('roylairon_services', services);
-    syncToFirebase('services', services);
-    renderServices();
-    closeModal('addServiceModal');
-}
+    window.closeModals();
+    renderCart();
+};
 
-// ==================== إدارة القائمة ====================
+window.removeCartItem = (index) => { currentCart.splice(index, 1); renderCart(); };
+window.increaseQty = (index) => { currentCart[index].qty++; renderCart(); };
+window.decreaseQty = (index) => { 
+    if(currentCart[index].qty > 1) { currentCart[index].qty--; renderCart(); }
+    else { window.removeCartItem(index); }
+};
+
 function renderCart() {
-    const tbody = document.getElementById('cartItems');
+    const tbody = document.getElementById('cart-items');
     tbody.innerHTML = '';
     let total = 0;
-    
     currentCart.forEach((item, index) => {
-        total += item.total;
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${index + 1}</td>
-            <td>${item.serviceIcon} ${item.serviceName}</td>
-            <td>
-                <button onclick="changeQuantity(${index}, -1)" class="qty-btn">-</button>
-                ${item.quantity}
-                <button onclick="changeQuantity(${index}, 1)" class="qty-btn">+</button>
-            </td>
-            <td><span class="service-badge ${item.serviceType}">${item.serviceTypeLabel}</span></td>
-            <td>${item.price}</td>
-            <td>${item.total}</td>
-            <td><button class="delete-btn" onclick="removeFromCart(${index})">🗑️</button></td>
+        const itemTotal = item.price * item.qty;
+        total += itemTotal;
+        const serviceClass = item.service === 'wash_iron' ? 'srv-wash-iron' : 'srv-iron';
+        tbody.innerHTML += `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${item.name} <br><span class="service-type ${serviceClass}">${item.serviceName}</span></td>
+                <td>${item.price.toLocaleString()}</td>
+                <td>
+                    <div class="qty-controls">
+                        <button class="qty-btn" onclick="window.increaseQty(${index})">+</button>
+                        ${item.qty}
+                        <button class="qty-btn" onclick="window.decreaseQty(${index})">-</button>
+                    </div>
+                </td>
+                <td>
+                    <button class="delete-btn" onclick="window.removeCartItem(${index})"><i class="fa-solid fa-trash"></i></button>
+                    ${itemTotal.toLocaleString()}
+                </td>
+            </tr>
         `;
-        tbody.appendChild(row);
     });
-    
-    document.getElementById('totalAmount').textContent = total;
-    document.getElementById('cartCount').textContent = `${currentCart.length} قطعة`;
+    document.getElementById('cart-total-val').innerText = total.toLocaleString() + ' د.ع';
+    localStorage.setItem('cart_draft', JSON.stringify(currentCart));
 }
 
-function changeQuantity(index, delta) {
-    if (currentCart[index]) {
-        currentCart[index].quantity += delta;
-        if (currentCart[index].quantity <= 0) {
-            currentCart.splice(index, 1);
-        } else {
-            currentCart[index].total = currentCart[index].quantity * currentCart[index].price;
-        }
-        syncCartToLocal();
-        renderCart();
-    }
+function generateInvoiceID() {
+    return 'ROYAL-' + Math.random().toString(36).substr(2, 4).toUpperCase() + Date.now().toString().slice(-4);
 }
 
-function removeFromCart(index) {
-    currentCart.splice(index, 1);
-    syncCartToLocal();
-    renderCart();
-}
-
-// ==================== إتمام البيع ====================
-function completeSale(paymentType) {
-    if (currentCart.length === 0) {
-        alert('القائمة فارغة!');
-        return;
-    }
-    
-    const total = currentCart.reduce((sum, item) => sum + item.total, 0);
-    const note = document.getElementById('cartNote').value.trim();
-    const now = new Date();
-    
-    // توليد رقم فاتورة من 5 أرقام
-    const invoiceNumber = generateInvoiceNumber();
+// ---------------- نظام البيع ----------------
+window.checkout = (type) => { // type: 'cash', 'credit', 'electronic'
+    if(currentCart.length === 0) return alert('السلة فارغة!');
+    const total = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    const notes = document.getElementById('cart-notes').value;
     
     const invoice = {
-        id: invoiceNumber,
-        number: invoiceNumber,
-        date: now.toLocaleDateString('ar-IQ'),
-        time: now.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        timestamp: now.toISOString(),
-        type: 'sale',
-        paymentType: paymentType,
-        items: JSON.parse(JSON.stringify(currentCart)),
+        id: generateInvoiceID(),
+        date: new Date().toLocaleDateString(),
+        time: new Date().toLocaleTimeString(),
+        timestamp: Date.now(),
+        type: type, 
+        items: [...currentCart],
         total: total,
-        note: note,
-        shopInfo: settings
+        notes: notes,
+        customer: null
     };
-    
-    // حفظ الفاتورة
-    allInvoices.push(invoice);
-    saveToLocal('roylairon_invoices', allInvoices);
-    syncToFirebase(`invoices/${invoiceNumber}`, invoice);
-    
-    // تحديث المبيعات اليومية
-    updateDailySales(total);
-    
-    // طباعة الفاتورة
-    printInvoice(invoice);
-    
-    // مسح القائمة
-    currentCart = [];
-    syncCartToLocal();
-    document.getElementById('cartNote').value = '';
-    renderCart();
-    
-    // إظهار رسالة نجاح
-    showSuccessMessage(`تم البيع بنجاح! رقم الفاتورة: ${invoiceNumber}`);
-}
+    finalizeSale(invoice);
+};
 
-function generateInvoiceNumber() {
-    let number;
-    do {
-        number = Math.floor(10000 + Math.random() * 90000).toString();
-    } while (allInvoices.some(inv => inv.number === number));
-    return number;
-}
-
-function updateDailySales(amount) {
-    const today = new Date().toLocaleDateString('ar-IQ');
-    let dailyData = getFromLocal('roylairon_daily_sales') || {};
-    
-    if (!dailyData[today]) {
-        dailyData[today] = { total: 0, cash: 0, electronic: 0, expenses: 0 };
-    }
-    
-    dailyData[today].total += amount;
-    
-    saveToLocal('roylairon_daily_sales', dailyData);
-    syncToFirebase('daily_sales', dailyData);
-    
-    loadDailySales();
-}
-
-function loadDailySales() {
-    const today = new Date().toLocaleDateString('ar-IQ');
-    const dailyData = getFromLocal('roylairon_daily_sales') || {};
-    
-    let total = 0;
-    let expenses = 0;
-    
-    if (dailyData[today]) {
-        total = dailyData[today].total || 0;
-        expenses = dailyData[today].expenses || 0;
-    }
-    
-    const netTotal = total - expenses;
-    const displayEl = document.getElementById('dailySales');
-    displayEl.textContent = netTotal;
-    
-    // تأثير حركي
-    displayEl.classList.remove('changed');
-    void displayEl.offsetWidth;
-    displayEl.classList.add('changed');
-}
-
-function showSuccessMessage(message) {
-    // إظهار رسالة نجاح أنيقة
-    const toast = document.createElement('div');
-    toast.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: linear-gradient(135deg, #2E7D32, #4CAF50);
-        color: white;
-        padding: 15px 25px;
-        border-radius: 15px;
-        font-size: 1.1rem;
-        font-weight: 700;
-        z-index: 2000;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        animation: slideIn 0.3s ease;
-    `;
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.style.animation = 'slideOut 0.3s ease forwards';
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-}
-
-// ==================== الصرفيات ====================
-function saveExpense() {
-    const amount = parseFloat(document.getElementById('expenseAmount').value);
-    const note = document.getElementById('expenseNote').value.trim();
-    
-    if (!amount || amount <= 0) {
-        alert('يرجى إدخال مبلغ صحيح');
-        return;
-    }
-    
-    const now = new Date();
-    const expense = {
-        id: Date.now().toString(),
-        amount: amount,
-        note: note,
-        date: now.toLocaleDateString('ar-IQ'),
-        time: now.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' }),
-        timestamp: now.toISOString()
-    };
-    
-    dailyExpenses.push(expense);
-    saveToLocal('roylairon_daily_expenses', dailyExpenses);
-    syncToFirebase('daily_expenses', dailyExpenses);
-    
-    // تحديث المبيعات اليومية بخصم الصرفيات
-    const today = new Date().toLocaleDateString('ar-IQ');
-    let dailyData = getFromLocal('roylairon_daily_sales') || {};
-    if (!dailyData[today]) {
-        dailyData[today] = { total: 0, cash: 0, electronic: 0, expenses: 0 };
-    }
-    dailyData[today].expenses += amount;
-    saveToLocal('roylairon_daily_sales', dailyData);
-    syncToFirebase('daily_sales', dailyData);
-    
-    closeModal('expensesModal');
-    loadDailySales();
-    showSuccessMessage('تم تسجيل الصرف بنجاح');
-}
-
-// ==================== الفواتير السابقة ====================
-function loadInvoices() {
-    const localInvoices = getFromLocal('roylairon_invoices') || [];
-    
-    onValue(ref(db, 'invoices'), (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            allInvoices = Object.values(data);
-        } else {
-            allInvoices = localInvoices;
-        }
-        renderInvoiceList(allInvoices);
-    });
-}
-
-function renderInvoiceList(invoices) {
-    const list = document.getElementById('invoiceList');
-    list.innerHTML = '';
-    
-    // ترتيب تنازلي حسب التاريخ
-    const sorted = [...invoices].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    
-    sorted.forEach(invoice => {
-        const item = document.createElement('div');
-        item.className = 'invoice-item';
-        item.innerHTML = `
-            <span class="invoice-num">#${invoice.number}</span>
-            <span class="invoice-date">${invoice.date} - ${invoice.time}</span>
-            <span class="invoice-total">${invoice.total} د.ع</span>
-            <span class="invoice-type">${invoice.paymentType === 'cash' ? '💰' : '💳'}</span>
-        `;
-        item.onclick = () => viewInvoice(invoice);
-        list.appendChild(item);
-    });
-}
-
-function viewInvoice(invoice) {
-    currentInvoiceView = invoice;
-    const details = document.getElementById('invoiceDetails');
-    details.innerHTML = `
-        <div class="invoice-view-content">
-            <h3>فاتورة رقم: ${invoice.number}</h3>
-            <p>التاريخ: ${invoice.date}</p>
-            <p>الوقت: ${invoice.time}</p>
-            <p>نوع الدفع: ${invoice.paymentType === 'cash' ? 'كاش' : 'إلكتروني'}</p>
-            <hr>
-            <table class="admin-table">
-                <thead>
-                    <tr>
-                        <th>القطعة</th>
-                        <th>العدد</th>
-                        <th>الخدمة</th>
-                        <th>السعر</th>
-                        <th>المجموع</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${invoice.items.map(item => `
-                        <tr>
-                            <td>${item.serviceIcon} ${item.serviceName}</td>
-                            <td>${item.quantity}</td>
-                            <td>${item.serviceTypeLabel}</td>
-                            <td>${item.price}</td>
-                            <td>${item.total}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-            ${invoice.note ? `<p class="invoice-note">📝 ملاحظة: ${invoice.note}</p>` : ''}
-            <div class="total-display">
-                <span>المجموع الكلي:</span>
-                <span class="total-number">${invoice.total} د.ع</span>
-            </div>
-        </div>
-    `;
-    document.getElementById('viewInvoiceModal').classList.remove('hidden');
-}
-
-function printInvoiceFromView() {
-    if (currentInvoiceView) {
-        printInvoice(currentInvoiceView);
-    }
-}
-
-// ==================== الطباعة ====================
-function printInvoice(invoice) {
-    const printWindow = window.open('', '_blank', 'width=400,height=600');
-    
-    const itemsHtml = invoice.items.map(item => `
-        <div class="print-item">
-            <span>${item.serviceName}</span>
-            <span>${item.quantity} × ${item.price}</span>
-            <span>${item.total}</span>
-        </div>
-        <div class="print-item-detail">
-            <small>${item.serviceTypeLabel}</small>
-        </div>
-    `).join('');
-    
-    printWindow.document.write(`
-        <!DOCTYPE html>
-        <html dir="rtl">
-        <head>
-            <title>فاتورة ${invoice.number}</title>
-            <style>
-                @page {
-                    margin: 0;
-                    size: 80mm auto;
-                }
-                body {
-                    font-family: 'Cairo', sans-serif;
-                    width: 80mm;
-                    margin: 0;
-                    padding: 10px;
-                    font-size: 12px;
-                    color: #000;
-                }
-                .print-header {
-                    text-align: center;
-                    border-bottom: 2px dashed #000;
-                    padding-bottom: 10px;
-                    margin-bottom: 10px;
-                }
-                .print-logo {
-                    font-size: 24px;
-                    text-align: center;
-                }
-                .print-title {
-                    font-size: 18px;
-                    font-weight: bold;
-                    text-align: center;
-                }
-                .print-info {
-                    text-align: center;
-                    font-size: 11px;
-                    margin: 5px 0;
-                }
-                .print-items {
-                    margin: 10px 0;
-                    border-bottom: 2px dashed #000;
-                    padding-bottom: 10px;
-                }
-                .print-item {
-                    display: flex;
-                    justify-content: space-between;
-                    padding: 3px 0;
-                }
-                .print-item-detail {
-                    font-size: 10px;
-                    color: #555;
-                    padding-right: 10px;
-                }
-                .print-total {
-                    text-align: center;
-                    font-size: 16px;
-                    font-weight: bold;
-                    margin: 10px 0;
-                }
-                .print-footer {
-                    text-align: center;
-                    font-size: 10px;
-                    margin-top: 20px;
-                    border-top: 2px dashed #000;
-                    padding-top: 10px;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="print-header">
-                <div class="print-logo">👑</div>
-                <div class="print-title">${settings.shopName || 'رويال آيرون'}</div>
-            </div>
-            <div class="print-info">
-                <div>فاتورة رقم: ${invoice.number}</div>
-                <div>التاريخ: ${invoice.date}</div>
-                <div>الوقت: ${invoice.time}</div>
-                <div>نوع الدفع: ${invoice.paymentType === 'cash' ? 'كاش 💰' : 'إلكتروني 💳'}</div>
-            </div>
-            <div class="print-items">
-                ${itemsHtml}
-            </div>
-            ${invoice.note ? `<div class="print-info">📝 ملاحظة: ${invoice.note}</div>` : ''}
-            <div class="print-total">
-                المجموع الكلي: ${invoice.total} د.ع
-            </div>
-            <div class="print-footer">
-                ${settings.shopAddress || ''}<br>
-                ${settings.shopPhone || ''}<br>
-                ${settings.shopInstagram ? `انستغرام: ${settings.shopInstagram}<br>` : ''}
-                ${settings.shopTikTok ? `تيك توك: ${settings.shopTikTok}` : ''}
-            </div>
-            <script>
-                window.onload = function() {
-                    window.print();
-                    setTimeout(function() {
-                        window.close();
-                    }, 500);
-                };
-            </script>
-        </body>
-        </html>
-    `);
-    
-    printWindow.document.close();
-}
-
-// ==================== بيانات الأدمن ====================
-function loadAdminData() {
-    loadAdminStats();
-    loadAdminSales();
-    loadAdminExpenses();
-    loadAdminServices();
-    loadSettings();
-}
-
-function loadAdminStats() {
-    const dailyData = getFromLocal('roylairon_daily_sales') || {};
-    const today = new Date().toLocaleDateString('ar-IQ');
-    const currentMonth = new Date().toLocaleDateString('ar-IQ', { month: 'long', year: 'numeric' });
-    
-    let todayTotal = dailyData[today]?.total || 0;
-    let monthTotal = 0;
-    
-    Object.keys(dailyData).forEach(date => {
-        if (date.includes(new Date().getFullYear()) || true) {
-            monthTotal += dailyData[date].total || 0;
-        }
-    });
-    
-    const opExpenses = getFromLocal('roylairon_operational_expenses') || [];
-    const totalOpExpenses = opExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-    
-    document.getElementById('adminTodaySales').textContent = todayTotal;
-    document.getElementById('adminMonthSales').textContent = monthTotal;
-    document.getElementById('adminExpenses').textContent = totalOpExpenses;
-    document.getElementById('adminNetProfit').textContent = monthTotal - totalOpExpenses;
-}
-
-function loadAdminSales() {
-    const invoices = getFromLocal('roylairon_invoices') || [];
-    const tbody = document.getElementById('adminSalesTable');
-    tbody.innerHTML = '';
-    
-    const sorted = [...invoices].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    
-    sorted.forEach(invoice => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>#${invoice.number}</td>
-            <td>${invoice.date}</td>
-            <td>${invoice.time}</td>
-            <td>${invoice.paymentType === 'cash' ? 'كاش' : 'إلكتروني'}</td>
-            <td>${invoice.items.reduce((sum, item) => sum + item.quantity, 0)}</td>
-            <td>${invoice.total}</td>
-            <td>${invoice.paymentType === 'cash' ? '💰' : '💳'}</td>
-            <td><button class="delete-btn" onclick="viewInvoiceFromAdmin('${invoice.number}')">👁️</button></td>
-        `;
-        tbody.appendChild(row);
-    });
-}
-
-function viewInvoiceFromAdmin(number) {
-    const invoice = allInvoices.find(inv => inv.number === number);
-    if (invoice) {
-        viewInvoice(invoice);
-    }
-}
-
-function loadAdminExpenses() {
-    const opExpenses = getFromLocal('roylairon_operational_expenses') || [];
-    const dailyExp = getFromLocal('roylairon_daily_expenses') || [];
-    
-    const opList = document.getElementById('operationalExpensesList');
-    opList.innerHTML = '';
-    opExpenses.forEach(exp => {
-        const div = document.createElement('div');
-        div.className = 'invoice-item';
-        div.innerHTML = `
-            <span>${exp.name}</span>
-            <span>${exp.amount} د.ع</span>
-            <span>${exp.date || ''}</span>
-        `;
-        opList.appendChild(div);
-    });
-    
-    const dailyList = document.getElementById('dailyExpensesList');
-    dailyList.innerHTML = '';
-    dailyExp.forEach(exp => {
-        const div = document.createElement('div');
-        div.className = 'invoice-item';
-        div.innerHTML = `
-            <span>${exp.note || 'صرف'}</span>
-            <span>${exp.amount} د.ع</span>
-            <span>${exp.date} ${exp.time}</span>
-        `;
-        dailyList.appendChild(div);
-    });
-}
-
-function loadAdminServices() {
-    const list = document.getElementById('adminServicesList');
-    list.innerHTML = '';
-    services.forEach(service => {
-        const div = document.createElement('div');
-        div.className = 'invoice-item';
-        div.innerHTML = `
-            <span>${service.icon} ${service.name}</span>
-            <span>غسل: ${service.washPrice} د.ع</span>
-            <span>كوي: ${service.ironPrice} د.ع</span>
-            <button class="delete-btn" onclick="deleteService('${service.id}')">🗑️</button>
-        `;
-        list.appendChild(div);
-    });
-}
-
-function deleteService(id) {
-    if (!confirm('هل أنت متأكد من حذف هذه الخدمة؟')) return;
-    
-    services = services.filter(s => s.id !== id);
-    saveToLocal('roylairon_services', services);
-    syncToFirebase('services', services);
-    renderServices();
-    loadAdminServices();
-}
-
-function openAddOperationalExpense() {
-    document.getElementById('operationalExpenseModal').classList.remove('hidden');
-    document.getElementById('opExpenseName').value = '';
-    document.getElementById('opExpenseAmount').value = '';
-}
-
-function saveOperationalExpense() {
-    const name = document.getElementById('opExpenseName').value.trim();
-    const amount = parseFloat(document.getElementById('opExpenseAmount').value);
-    
-    if (!name || !amount) {
-        alert('يرجى ملء جميع الحقول');
-        return;
-    }
-    
-    const expense = {
-        id: Date.now().toString(),
-        name: name,
-        amount: amount,
-        date: new Date().toLocaleDateString('ar-IQ'),
-        timestamp: new Date().toISOString()
-    };
-    
-    const opExpenses = getFromLocal('roylairon_operational_expenses') || [];
-    opExpenses.push(expense);
-    saveToLocal('roylairon_operational_expenses', opExpenses);
-    syncToFirebase('operational_expenses', opExpenses);
-    
-    closeModal('operationalExpenseModal');
-    loadAdminExpenses();
-    loadAdminStats();
-    showSuccessMessage('تم حفظ المصروف التشغيلي');
-}
-
-// ==================== الإعدادات ====================
-function loadSettings() {
-    const localSettings = getFromLocal('roylairon_settings');
-    if (localSettings) {
-        settings = localSettings;
-        document.getElementById('shopName').value = settings.shopName || '';
-        document.getElementById('shopAddress').value = settings.shopAddress || '';
-        document.getElementById('shopPhone').value = settings.shopPhone || '';
-        document.getElementById('shopInstagram').value = settings.shopInstagram || '';
-        document.getElementById('shopTikTok').value = settings.shopTikTok || '';
-    }
-}
-
-function saveSettings() {
-    settings = {
-        shopName: document.getElementById('shopName').value.trim(),
-        shopAddress: document.getElementById('shopAddress').value.trim(),
-        shopPhone: document.getElementById('shopPhone').value.trim(),
-        shopInstagram: document.getElementById('shopInstagram').value.trim(),
-        shopTikTok: document.getElementById('shopTikTok').value.trim()
-    };
-    
-    saveToLocal('roylairon_settings', settings);
-    syncToFirebase('settings', settings);
-    showSuccessMessage('تم حفظ الإعدادات');
-}
-
-function changeAdminPassword() {
-    const newPass = document.getElementById('newAdminPass').value;
-    if (newPass.length < 4) {
-        alert('الرمز يجب أن يكون 4 أحرف على الأقل');
-        return;
-    }
-    
-    adminPassword = newPass;
-    saveToLocal('roylairon_admin_pass', adminPassword);
-    document.getElementById('newAdminPass').value = '';
-    showSuccessMessage('تم تغيير رمز الأدمن');
-}
-
-// ==================== التبويبات ====================
-function switchTab(tab) {
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-    
-    event.target.classList.add('active');
-    document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.add('active');
-}
-
-// ==================== اختصارات لوحة المفاتيح ====================
+// اختصار الكيبورد (Ctrl + S) للبيع كاش
 document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 's') {
+    if (e.ctrlKey && (e.key === 's' || e.key === 'S')) {
         e.preventDefault();
-        if (!document.getElementById('posScreen').classList.contains('hidden')) {
-            completeSale('cash');
+        // تأكد من أن شاشة POS هي المفتوحة وأنه لا توجد فاتورة قيد التعديل
+        if(document.getElementById('pos-screen').classList.contains('active-screen') && !editingInvoiceId) {
+            window.checkout('cash');
         }
     }
 });
 
-// ==================== التهيئة الأولية ====================
-function initializeAppData() {
-    // تحميل رمز الأدمن المحفوظ
-    const savedPass = getFromLocal('roylairon_admin_pass');
-    if (savedPass) {
-        adminPassword = savedPass;
+// البيع الآجل
+window.openCreditModal = () => {
+    if(currentCart.length === 0) return alert('السلة فارغة!');
+    document.getElementById('credit-name').value = '';
+    document.getElementById('credit-phone').value = '';
+    document.getElementById('credit-paid').value = '0';
+    
+    document.getElementById('credit-phone').onkeyup = function() {
+        const hasDebt = (localData.debts || []).find(d => d.phone === this.value && d.remaining > 0);
+        document.getElementById('credit-warning').style.display = hasDebt ? 'block' : 'none';
+    };
+    document.getElementById('modal-credit').style.display = 'flex';
+};
+
+window.confirmCreditSale = () => {
+    const name = document.getElementById('credit-name').value;
+    const phone = document.getElementById('credit-phone').value;
+    const paid = parseFloat(document.getElementById('credit-paid').value) || 0;
+    const total = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    
+    if(!name || !phone) return alert('يرجى إدخال اسم الزبون ورقم الهاتف');
+    
+    const invoice = {
+        id: generateInvoiceID(),
+        date: new Date().toLocaleDateString(),
+        time: new Date().toLocaleTimeString(),
+        timestamp: Date.now(),
+        type: 'credit',
+        items: [...currentCart],
+        total: total,
+        notes: document.getElementById('cart-notes').value,
+        customer: { name, phone, paid, remaining: total - paid }
+    };
+
+    if(!localData.debts) localData.debts = [];
+    localData.debts.push({
+        date: invoice.date, name: name, phone: phone, invoiceId: invoice.id,
+        total: total, paid: paid, remaining: total - paid
+    });
+
+    finalizeSale(invoice);
+    window.closeModals();
+};
+
+function finalizeSale(invoice) {
+    if(!localData.invoices) localData.invoices = [];
+    
+    if(editingInvoiceId) {
+        const oldIndex = localData.invoices.findIndex(i => i.id === editingInvoiceId);
+        const oldInvoice = localData.invoices[oldIndex];
+        
+        invoice.id = editingInvoiceId; 
+        localData.invoices[oldIndex] = invoice;
+        
+        // تعديل الصندوق اليومي (طرح القديم وإضافة الجديد حسب النوع)
+        if(oldInvoice.type === 'cash') localData.dailySalesCash -= oldInvoice.total;
+        if(oldInvoice.type === 'electronic') localData.dailySalesElectronic -= oldInvoice.total;
+        
+        if(invoice.type === 'cash') localData.dailySalesCash += invoice.total;
+        if(invoice.type === 'electronic') localData.dailySalesElectronic += invoice.total;
+        
+        editingInvoiceId = null;
+        document.getElementById('btn-save-edit').style.display = 'none';
+        document.querySelector('.btn-cash').style.display = 'flex';
+        document.querySelector('.btn-electronic').style.display = 'flex';
+        document.querySelector('.btn-credit').style.display = 'flex';
+    } else {
+        localData.invoices.push(invoice);
+        if(invoice.type === 'cash') localData.dailySalesCash += invoice.total;
+        if(invoice.type === 'electronic') localData.dailySalesElectronic += invoice.total;
+        if(invoice.type === 'credit' && invoice.customer) localData.dailySalesCash += invoice.customer.paid; // نعتبر الدفعة المقدمة كاش
+    }
+
+    saveDataToCloud();
+
+    if(document.getElementById('auto-print').checked) window.printInvoice(invoice);
+
+    currentCart = [];
+    document.getElementById('cart-notes').value = '';
+    localStorage.removeItem('cart_draft');
+    renderCart();
+}
+
+// ---------------- الصرفيات ----------------
+window.openExpensesModal = () => { document.getElementById('modal-expenses').style.display = 'flex'; };
+window.saveExpense = () => {
+    const detail = document.getElementById('expense-detail').value;
+    const amount = parseFloat(document.getElementById('expense-amount').value);
+    if(!detail || isNaN(amount)) return alert('يرجى ملء الحقول');
+
+    if(!localData.expenses) localData.expenses = [];
+    localData.expenses.push({ date: new Date().toLocaleDateString(), detail: detail, amount: amount });
+    
+    // الصرف يخصم من الكاش فقط وليس من الإلكتروني
+    localData.dailySalesCash -= amount;
+    saveDataToCloud();
+    window.closeModals();
+    document.getElementById('expense-detail').value = '';
+    document.getElementById('expense-amount').value = '';
+};
+
+// ---------------- الفواتير السابقة (عرض، تعديل، طباعة) ----------------
+window.openPreviousInvoices = () => {
+    const tbody = document.getElementById('invoices-list-body');
+    tbody.innerHTML = '';
+    const sorted = (localData.invoices || []).sort((a,b) => b.timestamp - a.timestamp);
+    sorted.forEach(inv => {
+        let typeStr = inv.type === 'cash' ? 'نقدي (كاش)' : (inv.type === 'electronic' ? 'إلكتروني' : 'آجل');
+        tbody.innerHTML += `
+            <tr>
+                <td>${inv.date}</td>
+                <td>${inv.id}</td>
+                <td>${typeStr}</td>
+                <td>${inv.total.toLocaleString()}</td>
+                <td>
+                    <i class="fa-solid fa-eye action-icon" onclick='window.viewInvoice("${inv.id}")' title="عرض الفاتورة"></i>
+                    <i class="fa-solid fa-pen action-icon" onclick='window.editInvoice("${inv.id}")' title="تعديل"></i>
+                </td>
+            </tr>
+        `;
+    });
+    document.getElementById('modal-invoices').style.display = 'flex';
+};
+
+window.filterInvoices = (val) => {
+    const rows = document.getElementById('invoices-list-body').getElementsByTagName('tr');
+    for(let i=0; i<rows.length; i++) {
+        if(rows[i].innerText.toLowerCase().includes(val.toLowerCase())) rows[i].style.display = '';
+        else rows[i].style.display = 'none';
+    }
+};
+
+window.editInvoice = (id) => {
+    const invoice = localData.invoices.find(i => i.id === id);
+    if(invoice) {
+        currentCart = [...invoice.items];
+        document.getElementById('cart-notes').value = invoice.notes || '';
+        editingInvoiceId = invoice.id;
+        renderCart();
+        window.closeModals();
+        
+        document.getElementById('btn-save-edit').style.display = 'flex';
+        document.querySelector('.btn-cash').style.display = 'none';
+        document.querySelector('.btn-electronic').style.display = 'none';
+        document.querySelector('.btn-credit').style.display = 'none';
+    }
+};
+
+window.saveEditedInvoice = () => {
+    const total = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    const oldInvoice = localData.invoices.find(i => i.id === editingInvoiceId);
+    
+    const invoice = {
+        date: oldInvoice.date, 
+        time: new Date().toLocaleTimeString(), 
+        timestamp: oldInvoice.timestamp,
+        type: oldInvoice.type,
+        items: [...currentCart],
+        total: total,
+        notes: document.getElementById('cart-notes').value,
+        customer: oldInvoice.customer
+    };
+    finalizeSale(invoice);
+};
+
+// عرض الفاتورة دون طباعة
+window.viewInvoice = (id) => {
+    const invoice = localData.invoices.find(i => i.id === id);
+    if(!invoice) return;
+    
+    document.getElementById('view-inv-id').innerText = invoice.id;
+    document.getElementById('view-inv-date').innerText = invoice.date + ' ' + invoice.time;
+    document.getElementById('view-inv-type').innerText = invoice.type === 'cash' ? 'نقدي' : (invoice.type === 'electronic' ? 'إلكتروني' : 'آجل');
+    
+    if(invoice.type === 'credit' && invoice.customer) {
+        document.getElementById('view-inv-customer-row').style.display = 'block';
+        document.getElementById('view-inv-customer').innerText = invoice.customer.name;
+    } else {
+        document.getElementById('view-inv-customer-row').style.display = 'none';
+    }
+
+    const tbody = document.getElementById('view-inv-items');
+    tbody.innerHTML = '';
+    invoice.items.forEach(item => {
+        tbody.innerHTML += `<tr><td>${item.name}</td><td>${item.serviceName}</td><td>${item.qty}</td><td>${(item.price * item.qty).toLocaleString()}</td></tr>`;
+    });
+    document.getElementById('view-inv-total').innerText = invoice.total.toLocaleString();
+    
+    // ربط زر الطباعة في نافذة العرض
+    document.getElementById('btn-print-from-view').onclick = () => window.printInvoice(invoice);
+
+    document.getElementById('modal-invoices').style.display = 'none';
+    document.getElementById('modal-view-invoice').style.display = 'flex';
+};
+
+// الطباعة الحرارية
+window.printInvoice = (invoice) => {
+    document.getElementById('p-date').innerText = invoice.date;
+    document.getElementById('p-time').innerText = invoice.time;
+    document.getElementById('p-inv').innerText = invoice.id;
+    document.getElementById('p-type').innerText = invoice.type === 'cash' ? 'نقدي' : (invoice.type === 'electronic' ? 'إلكتروني' : 'آجل');
+    
+    if(invoice.type === 'credit' && invoice.customer) {
+        document.getElementById('p-customer-row').style.display = 'block';
+        document.getElementById('p-customer').innerText = invoice.customer.name;
+    } else {
+        document.getElementById('p-customer-row').style.display = 'none';
+    }
+
+    const tbody = document.getElementById('p-items');
+    tbody.innerHTML = '';
+    invoice.items.forEach(item => {
+        tbody.innerHTML += `<tr><td>${item.name}</td><td>${item.serviceName}</td><td>${item.qty}</td><td>${item.price * item.qty}</td></tr>`;
+    });
+    document.getElementById('p-total').innerText = invoice.total.toLocaleString();
+    
+    if(invoice.notes) {
+        document.getElementById('p-notes-row').style.display = 'block';
+        document.getElementById('p-notes').innerText = invoice.notes;
+    } else {
+        document.getElementById('p-notes-row').style.display = 'none';
+    }
+
+    window.print();
+};
+
+// ---------------- تحديث الـ UI (مبيعات اليوم) ----------------
+let lastSalesTotal = 0;
+function updateUI() {
+    // مبيعات اليوم الكلية (كاش + إلكتروني) للعرض في الشريط العلوي
+    let dailyTotal = (localData.dailySalesCash || 0) + (localData.dailySalesElectronic || 0);
+    const display = document.getElementById('daily-sales-val');
+    const wrapper = document.getElementById('daily-sales-display');
+    
+    if(dailyTotal > lastSalesTotal) {
+        wrapper.classList.add('increase'); setTimeout(()=>wrapper.classList.remove('increase'), 500);
+    } else if (dailyTotal < lastSalesTotal) {
+        wrapper.classList.add('decrease'); setTimeout(()=>wrapper.classList.remove('decrease'), 500);
     }
     
-    // تحميل الإعدادات
-    const localSettings = getFromLocal('roylairon_settings');
-    if (localSettings) {
-        settings = localSettings;
-    }
+    animateValue(display, lastSalesTotal, dailyTotal, 500);
+    lastSalesTotal = dailyTotal;
     
-    // تحميل الخدمات الافتراضية إذا لم توجد
-    if (!getFromLocal('roylairon_services')) {
-        const defaultServices = [
-            { id: 's1', name: 'قميص', icon: '👔', washPrice: 4000, ironPrice: 2000 },
-            { id: 's2', name: 'بنطلون', icon: '👖', washPrice: 3000, ironPrice: 1500 },
-            { id: 's3', name: 'دشداشة', icon: '🕌', washPrice: 5000, ironPrice: 2500 },
-            { id: 's4', name: 'فستان', icon: '👗', washPrice: 6000, ironPrice: 3000 },
-            { id: 's5', name: 'جاكيت', icon: '🧥', washPrice: 8000, ironPrice: 4000 },
-            { id: 's6', name: 'تنورة', icon: '👘', washPrice: 4000, ironPrice: 2000 },
-            { id: 's7', name: 'بلوزة', icon: '👚', washPrice: 3500, ironPrice: 1750 },
-            { id: 's8', name: 'بدلة', icon: '🤵', washPrice: 10000, ironPrice: 5000 },
-            { id: 's9', name: 'لحاف', icon: '🛏️', washPrice: 12000, ironPrice: 6000 },
-            { id: 's10', name: 'ستارة', icon: '🪟', washPrice: 8000, ironPrice: 4000 },
-            { id: 's11', name: 'مفرش', icon: '🛋️', washPrice: 7000, ironPrice: 3500 },
-            { id: 's12', name: 'منديل', icon: '🧻', washPrice: 2000, ironPrice: 1000 }
-        ];
-        saveToLocal('roylairon_services', defaultServices);
-        syncToFirebase('services', defaultServices);
+    if(document.getElementById('admin-screen').classList.contains('active-screen')) {
+        window.updateAdminDashboard();
     }
 }
 
-// ==================== بدء التشغيل ====================
-initializeAppData();
-loadSettings();
-loadServices();
+function animateValue(obj, start, end, duration) {
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        obj.innerHTML = Math.floor(progress * (end - start) + start).toLocaleString();
+        if (progress < 1) { window.requestAnimationFrame(step); }
+    };
+    window.requestAnimationFrame(step);
+}
 
-// دالة عامة للوصول من HTML
-window.completeSale = completeSale;
-window.saveExpense = saveExpense;
-window.addService = addService;
-window.openExpensesModal = openExpensesModal;
-window.openAddServiceModal = openAddServiceModal;
-window.openHistoryModal = openHistoryModal;
-window.closeModal = closeModal;
-window.showServiceChoice = showServiceChoice;
-window.addToCartWithService = addToCartWithService;
-window.changeQuantity = changeQuantity;
-window.removeFromCart = removeFromCart;
-window.viewInvoice = viewInvoice;
-window.printInvoiceFromView = printInvoiceFromView;
-window.openPOS = openPOS;
-window.openAdminLogin = openAdminLogin;
-window.closeAdminLogin = closeAdminLogin;
-window.verifyAdmin = verifyAdmin;
-window.backToMain = backToMain;
-window.switchTab = switchTab;
-window.openAddOperationalExpense = openAddOperationalExpense;
-window.saveOperationalExpense = saveOperationalExpense;
-window.saveSettings = saveSettings;
-window.changeAdminPassword = changeAdminPassword;
-window.deleteService = deleteService;
-window.viewInvoiceFromAdmin = viewInvoiceFromAdmin;
+// ---------------- وظائف الآدمن ----------------
+window.switchAdminTab = (tab) => {
+    document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.admin-nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`admin-${tab}`).classList.add('active');
+    event.target.classList.add('active');
+    window.updateAdminDashboard();
+};
+
+window.updateAdminDashboard = () => {
+    // حساب المبيعات مفصلة (كاش وإلكتروني)
+    let totalSalesCash = 0;
+    let totalSalesElectronic = 0;
+    
+    (localData.invoices || []).forEach(i => {
+        if(i.type === 'cash') totalSalesCash += i.total;
+        else if (i.type === 'electronic') totalSalesElectronic += i.total;
+        else if (i.type === 'credit' && i.customer) totalSalesCash += i.customer.paid; // نعتبر الدفعة من الآجل كاش
+    });
+    
+    // سداد الديون السابقة (يعتبر كاش)
+    (localData.debts || []).forEach(d => {
+        if(d.paid > 0) {
+            // ملاحظة: لضمان دقة بالغة يجب فصل الدفعات المسبقة، ولكن للتبسيط نعتبر السداد كاش
+            // تمت إضافته أثناء إنشاء الدين للفاتورة كـ customer.paid، لذا يجب عدم تكراره إذا لم نقم بسداد لاحق.
+        }
+    });
+
+    let totalExpenses = (localData.expenses || []).reduce((sum, e) => sum + e.amount, 0);
+    let totalCosts = (localData.operatingCosts || []).reduce((sum, c) => sum + c.amount, 0);
+    let netProfit = (totalSalesCash + totalSalesElectronic) - totalExpenses - totalCosts;
+
+    document.getElementById('admin-month-sales-cash').innerText = totalSalesCash.toLocaleString() + ' د.ع';
+    document.getElementById('admin-month-sales-electronic').innerText = totalSalesElectronic.toLocaleString() + ' د.ع';
+    document.getElementById('admin-month-expenses').innerText = totalExpenses.toLocaleString() + ' د.ع';
+    document.getElementById('admin-month-costs').innerText = totalCosts.toLocaleString() + ' د.ع';
+    document.getElementById('admin-net-profit').innerText = netProfit.toLocaleString() + ' د.ع';
+
+    const costsTbody = document.getElementById('costs-table-body');
+    costsTbody.innerHTML = '';
+    (localData.operatingCosts || []).forEach(c => {
+        costsTbody.innerHTML += `<tr><td>${c.date}</td><td>${c.name}</td><td>${c.amount.toLocaleString()}</td></tr>`;
+    });
+
+    const debtsTbody = document.getElementById('debts-table-body');
+    debtsTbody.innerHTML = '';
+    (localData.debts || []).forEach((d, index) => {
+        debtsTbody.innerHTML += `<tr>
+            <td>${d.name}</td><td>${d.invoiceId}</td>
+            <td style="color:var(--red-danger); font-weight:bold;">${d.remaining.toLocaleString()}</td>
+            <td><button class="top-bar-btn" onclick="window.payDebt(${index})">تسديد دفعة</button></td>
+        </tr>`;
+    });
+};
+
+window.addOperatingCost = () => {
+    const name = document.getElementById('cost-name').value;
+    const amount = parseFloat(document.getElementById('cost-amount').value);
+    if(!name || isNaN(amount)) return alert('الرجاء الإدخال بشكل صحيح');
+    
+    if(!localData.operatingCosts) localData.operatingCosts = [];
+    localData.operatingCosts.push({ date: new Date().toLocaleDateString(), name, amount });
+    saveDataToCloud();
+    document.getElementById('cost-name').value = '';
+    document.getElementById('cost-amount').value = '';
+};
+
+window.payDebt = (index) => {
+    let debt = localData.debts[index];
+    let pay = prompt(`المبلغ المتبقي على ${debt.name} هو ${debt.remaining.toLocaleString()}. أدخل مبلغ التسديد (نقدي):`);
+    if(pay) {
+        pay = parseFloat(pay);
+        if(pay > 0 && pay <= debt.remaining) {
+            debt.remaining -= pay;
+            debt.paid += pay;
+            localData.dailySalesCash += pay; // تسديد الديون يعتبر كاش في الصندوق
+            
+            if(debt.remaining === 0) alert('تم تسديد الدين بالكامل!');
+            saveDataToCloud();
+        } else { alert('مبلغ غير صحيح'); }
+    }
+};
+
+// بدء تشغيل النظام بالاتصال بقاعدة البيانات
+window.onload = initializeDB;
