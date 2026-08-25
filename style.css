@@ -101,10 +101,34 @@ input, select { font-family: 'Cairo', sans-serif; outline: none; }
 
 /* القسم الأيمن: المنتجات (50%) */
 .items-section-container { flex: 1; min-width: 50%; max-width: 50%; display: flex; flex-direction: column; background: var(--black-bg); }
-.items-header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--light-gray); }
+
+/* --- بداية الكود المعدل للأزرار والترويسة --- */
+.items-header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--light-gray); width: 100%; background: var(--black-bg); }
 .items-header h3 { color: var(--gold); }
-.btn-add-service { background: var(--light-gray); color: var(--text-white); border: 1px solid var(--gold); padding: 8px 15px; border-radius: 8px; font-weight: bold; }
-.btn-add-service:hover { background: var(--gold); color: #000; }
+.header-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;}
+
+.btn-royal-action {
+    background: var(--dark-gray);
+    color: var(--text-white);
+    border: 1px solid var(--light-gray);
+    padding: 8px 15px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 14px;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.btn-royal-action:hover {
+    background: var(--gold);
+    color: #000;
+    border-color: var(--gold);
+    box-shadow: 0 4px 10px rgba(212, 175, 55, 0.3);
+}
+/* --- نهاية الكود المعدل --- */
+
+/* الكود المتبقي يبقى كما هو بدون تغيير */
 .items-section { flex: 1; padding: 20px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; align-content: start;}
 .item-cell {
     background: var(--dark-gray); border: 1px solid var(--light-gray); border-radius: 15px;
