@@ -379,68 +379,79 @@ window.saveExpense = () => {
     document.getElementById('expense-amount').value = '';
 };
 
-// ---------------- الفواتير السابقة (عرض، تعديل، طباعة) ----------------
-window.openPreviousInvoices = () => {
-    const tbody = document.getElementById('invoices-list-body');
-    tbody.innerHTML = '';
-    const sorted = (localData.invoices || []).sort((a,b) => b.timestamp - a.timestamp);
-    sorted.forEach(inv => {
-        let typeStr = inv.type === 'cash' ? 'نقدي (كاش)' : (inv.type === 'electronic' ? 'إلكتروني' : 'آجل');
-        tbody.innerHTML += `
-            <tr>
-                <td>${inv.date}</td>
-                <td>${inv.id}</td>
-                <td>${typeStr}</td>
-                <td>${inv.total.toLocaleString()}</td>
-                <td>
-                    <i class="fa-solid fa-eye action-icon" onclick='window.viewInvoice("${inv.id}")' title="عرض الفاتورة"></i>
-                    <i class="fa-solid fa-pen action-icon" onclick='window.editInvoice("${inv.id}")' title="تعديل"></i>
-                </td>
-            </tr>
-        `;
-    });
-    document.getElementById('modal-invoices').style.display = 'flex';
-};
-
-window.filterInvoices = (val) => {
-    const rows = document.getElementById('invoices-list-body').getElementsByTagName('tr');
-    for(let i=0; i<rows.length; i++) {
-        if(rows[i].innerText.toLowerCase().includes(val.toLowerCase())) rows[i].style.display = '';
-        else rows[i].style.display = 'none';
-    }
-};
-
-window.editInvoice = (id) => {
-    const invoice = localData.invoices.find(i => i.id === id);
-    if(invoice) {
-        currentCart = [...invoice.items];
-        document.getElementById('cart-notes').value = invoice.notes || '';
-        editingInvoiceId = invoice.id;
-        renderCart();
-        window.closeModals();
-        
-        document.getElementById('btn-save-edit').style.display = 'flex';
-        document.querySelector('.btn-cash').style.display = 'none';
-        document.querySelector('.btn-electronic').style.display = 'none';
-        document.querySelector('.btn-credit').style.display = 'none';
-    }
-};
-
-window.saveEditedInvoice = () => {
-    const total = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    const oldInvoice = localData.invoices.find(i => i.id === editingInvoiceId);
+// ---------------- تعديل وحذف خدمة (الكتالوج) ----------------
+window.openEditServiceModal = () => {
+    if(!localData.catalog || localData.catalog.length === 0) return alert('لا توجد خدمات لتعديلها');
     
-    const invoice = {
-        date: oldInvoice.date, 
-        time: new Date().toLocaleTimeString(), 
-        timestamp: oldInvoice.timestamp,
-        type: oldInvoice.type,
-        items: [...currentCart],
-        total: total,
-        notes: document.getElementById('cart-notes').value,
-        customer: oldInvoice.customer
-    };
-    finalizeSale(invoice);
+    const select = document.getElementById('edit-srv-select');
+    select.innerHTML = '<option value="" disabled selected>-- اختر الخدمة --</option>';
+    localData.catalog.forEach(item => {
+        select.innerHTML += `<option value="${item.id}">${item.name}</option>`;
+    });
+    
+    document.getElementById('edit-srv-name').value = '';
+    document.getElementById('edit-srv-price-wash').value = '';
+    document.getElementById('edit-srv-price-iron').value = '';
+    document.getElementById('modal-edit-service').style.display = 'flex';
+};
+
+window.loadServiceToEdit = () => {
+    const id = document.getElementById('edit-srv-select').value;
+    const item = localData.catalog.find(i => i.id === id);
+    if(item) {
+        document.getElementById('edit-srv-name').value = item.name;
+        document.getElementById('edit-srv-price-wash').value = item.prices.wash_iron;
+        document.getElementById('edit-srv-price-iron').value = item.prices.iron_only;
+    }
+};
+
+window.saveEditedService = () => {
+    const id = document.getElementById('edit-srv-select').value;
+    if(!id) return alert('الرجاء اختيار خدمة أولاً');
+    
+    const name = document.getElementById('edit-srv-name').value;
+    const priceWash = parseFloat(document.getElementById('edit-srv-price-wash').value);
+    const priceIron = parseFloat(document.getElementById('edit-srv-price-iron').value);
+
+    if(!name || isNaN(priceWash) || isNaN(priceIron)) return alert('الرجاء إدخال البيانات بشكل صحيح');
+
+    const index = localData.catalog.findIndex(i => i.id === id);
+    if(index > -1) {
+        localData.catalog[index].name = name;
+        localData.catalog[index].prices.wash_iron = priceWash;
+        localData.catalog[index].prices.iron_only = priceIron;
+        
+        saveDataToCloud();
+        renderItems();
+        window.closeModals();
+        alert('تم تعديل الخدمة بنجاح!');
+    }
+};
+
+window.openDeleteServiceModal = () => {
+    if(!localData.catalog || localData.catalog.length === 0) return alert('لا توجد خدمات لحذفها');
+    
+    const select = document.getElementById('delete-srv-select');
+    select.innerHTML = '<option value="" disabled selected>-- اختر الخدمة لحذفها --</option>';
+    localData.catalog.forEach(item => {
+        select.innerHTML += `<option value="${item.id}">${item.name}</option>`;
+    });
+    
+    document.getElementById('modal-delete-service').style.display = 'flex';
+};
+
+window.confirmDeleteService = () => {
+    const id = document.getElementById('delete-srv-select').value;
+    if(!id) return alert('الرجاء اختيار خدمة أولاً');
+    
+    const index = localData.catalog.findIndex(i => i.id === id);
+    if(index > -1) {
+        localData.catalog.splice(index, 1);
+        saveDataToCloud();
+        renderItems();
+        window.closeModals();
+        alert('تم حذف الخدمة بنجاح!');
+    }
 };
 
 // عرض الفاتورة دون طباعة
