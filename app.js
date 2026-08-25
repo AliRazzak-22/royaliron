@@ -1,9 +1,9 @@
-// استيراد مكتبات Firebase (النسخة الحديثة Modular v10) عبر CDN لتعمل فوراً في المتصفح
+// استيراد مكتبات Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics.js";
-import { getDatabase, ref, set, get, child, update, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
-// إعدادات Firebase الخاصة بك
+// إعدادات Firebase الخاصة بمكوى رويال
 const firebaseConfig = {
     apiKey: "AIzaSyDtuPp8juKTJFSZv6Cdmtrli2NfFDKUnkw",
     authDomain: "roylairon.firebaseapp.com",
@@ -23,20 +23,13 @@ const dbRef = ref(database);
 
 // المتغيرات العامة
 let localData = {
-    catalog: [],
-    invoices: [],
-    expenses: [],
-    operatingCosts: [],
-    debts: [],
-    dailySalesCash: 0,
-    dailySalesElectronic: 0,
-    lastDate: new Date().toDateString()
+    catalog: [], invoices: [], expenses: [], operatingCosts: [], debts: [],
+    dailySalesCash: 0, dailySalesElectronic: 0, lastDate: new Date().toDateString()
 };
 let currentCart = [];
 let editingInvoiceId = null; 
 let pendingItem = null;
 
-// مكتبة اللوغوات المتوفرة لإضافتها للخدمات (FontAwesome)
 const availableIcons = [
     'fa-shirt', 'fa-user-tie', 'fa-person-dress', 'fa-user-nurse', 'fa-person-military-rifle',
     'fa-user-secret', 'fa-user-doctor', 'fa-person', 'fa-socks', 'fa-mitten', 
@@ -51,14 +44,14 @@ async function initializeDB() {
         if (snapshot.exists()) {
             localData = snapshot.val();
             
-            // 🔴 الحل السحري لإصلاح تلف المصفوفات القادم من فايربيس بعد عمليات الحذف
+            // 🔴 الحل السحري لإصلاح تلف المصفوفات القادم من فايربيس
             localData.invoices = Object.values(localData.invoices || {});
             localData.catalog = Object.values(localData.catalog || {});
             localData.expenses = Object.values(localData.expenses || {});
             localData.operatingCosts = Object.values(localData.operatingCosts || {});
             localData.debts = Object.values(localData.debts || {});
 
-            // التحقق من اليوم الجديد لتصفير مبيعات اليوم فقط
+            // تصفير مبيعات اليوم إذا بدأ يوم جديد
             if(localData.lastDate !== new Date().toDateString()) {
                 localData.dailySalesCash = 0;
                 localData.dailySalesElectronic = 0;
@@ -66,7 +59,6 @@ async function initializeDB() {
                 saveDataToCloud();
             }
         } else {
-            // بيانات افتراضية إذا كانت قاعدة البيانات فارغة (الكتالوج الأساسي)
             localData.catalog = [
                 { id: 'suit', name: 'بدلة رجالية', icon: 'fa-user-tie', prices: { wash_iron: 8000, iron_only: 5000 } },
                 { id: 'abaya', name: 'عباءة نسائية', icon: 'fa-person-dress', prices: { wash_iron: 6000, iron_only: 4000 } },
@@ -79,7 +71,6 @@ async function initializeDB() {
             saveDataToCloud();
         }
         
-        // إخفاء شاشة التحميل وبدء النظام
         document.getElementById('loading-screen').style.display = 'none';
         renderItems();
         updateUI();
@@ -88,14 +79,12 @@ async function initializeDB() {
             currentCart = JSON.parse(localStorage.getItem('cart_draft'));
             renderCart();
         }
-
     } catch (error) {
         console.error("Firebase Error:", error);
         alert("حدث خطأ في الاتصال بقاعدة البيانات. يرجى التحقق من الإنترنت.");
     }
 }
 
-// دالة الحفظ في السحابة
 function saveDataToCloud() {
     set(ref(database, 'royal_data'), localData).then(() => {
         updateUI();
@@ -104,7 +93,7 @@ function saveDataToCloud() {
     });
 }
 
-// إتاحة الدوال على كائن الـ window لتعمل مع أحداث HTML (onclick)
+// ---------------- الأزرار العامة ----------------
 window.showPOS = () => { document.getElementById('main-screen').style.display = 'none'; document.getElementById('pos-screen').classList.add('active-screen'); };
 window.exitToMain = () => { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen')); document.getElementById('main-screen').style.display = 'flex'; };
 window.openAdminLogin = () => { document.getElementById('modal-admin-login').style.display = 'flex'; };
@@ -123,6 +112,7 @@ window.checkAdminPassword = () => {
 // ---------------- بناء الواجهة (الخلايا) ----------------
 function renderItems() {
     const grid = document.getElementById('items-grid');
+    if(!grid) return; // حماية إضافية
     grid.innerHTML = '';
     if(localData.catalog) {
         localData.catalog.forEach(item => {
@@ -138,13 +128,12 @@ function renderItems() {
     }
 }
 
-// ---------------- إضافة خدمة جديدة (الكتالوج) ----------------
+// ---------------- إضافة/تعديل/حذف خدمة (الكتالوج) ----------------
 window.openAddServiceModal = () => {
     document.getElementById('new-srv-name').value = '';
     document.getElementById('new-srv-price-wash').value = '';
     document.getElementById('new-srv-price-iron').value = '';
     
-    // بناء شبكة الأيقونات
     const iconGrid = document.getElementById('icon-picker');
     iconGrid.innerHTML = '';
     availableIcons.forEach(icon => {
@@ -158,7 +147,6 @@ window.openAddServiceModal = () => {
         };
         iconGrid.appendChild(iDiv);
     });
-    // اختيار افتراضي
     iconGrid.firstChild.classList.add('selected');
     document.getElementById('new-srv-icon').value = availableIcons[0];
     
@@ -171,20 +159,79 @@ window.saveNewService = () => {
     const priceWash = parseFloat(document.getElementById('new-srv-price-wash').value);
     const priceIron = parseFloat(document.getElementById('new-srv-price-iron').value);
 
-    if(!name || isNaN(priceWash) || isNaN(priceIron)) return alert('الرجاء إدخال الاسم والأسعار بشكل صحيح.');
+    if(!name || isNaN(priceWash) || isNaN(priceIron)) return alert('الرجاء إدخال البيانات بشكل صحيح.');
 
     const newItem = {
         id: 'item_' + Date.now(),
-        name: name,
-        icon: icon,
+        name: name, icon: icon,
         prices: { wash_iron: priceWash, iron_only: priceIron }
     };
 
-    if(!localData.catalog) localData.catalog = [];
     localData.catalog.push(newItem);
     saveDataToCloud();
     renderItems();
     window.closeModals();
+};
+
+window.openEditServiceModal = () => {
+    if(!localData.catalog || localData.catalog.length === 0) return alert('لا توجد خدمات لتعديلها');
+    const select = document.getElementById('edit-srv-select');
+    select.innerHTML = '<option value="" disabled selected>-- اختر الخدمة --</option>';
+    localData.catalog.forEach(item => { select.innerHTML += `<option value="${item.id}">${item.name}</option>`; });
+    document.getElementById('edit-srv-name').value = '';
+    document.getElementById('edit-srv-price-wash').value = '';
+    document.getElementById('edit-srv-price-iron').value = '';
+    document.getElementById('modal-edit-service').style.display = 'flex';
+};
+
+window.loadServiceToEdit = () => {
+    const id = document.getElementById('edit-srv-select').value;
+    const item = localData.catalog.find(i => i.id === id);
+    if(item) {
+        document.getElementById('edit-srv-name').value = item.name;
+        document.getElementById('edit-srv-price-wash').value = item.prices.wash_iron;
+        document.getElementById('edit-srv-price-iron').value = item.prices.iron_only;
+    }
+};
+
+window.saveEditedService = () => {
+    const id = document.getElementById('edit-srv-select').value;
+    const name = document.getElementById('edit-srv-name').value;
+    const priceWash = parseFloat(document.getElementById('edit-srv-price-wash').value);
+    const priceIron = parseFloat(document.getElementById('edit-srv-price-iron').value);
+
+    if(!id || !name || isNaN(priceWash) || isNaN(priceIron)) return alert('الرجاء إدخال البيانات بشكل صحيح');
+
+    const index = localData.catalog.findIndex(i => i.id === id);
+    if(index > -1) {
+        localData.catalog[index].name = name;
+        localData.catalog[index].prices.wash_iron = priceWash;
+        localData.catalog[index].prices.iron_only = priceIron;
+        saveDataToCloud();
+        renderItems();
+        window.closeModals();
+    }
+};
+
+window.openDeleteServiceModal = () => {
+    if(!localData.catalog || localData.catalog.length === 0) return alert('لا توجد خدمات لحذفها');
+    const select = document.getElementById('delete-srv-select');
+    select.innerHTML = '<option value="" disabled selected>-- اختر الخدمة لحذفها --</option>';
+    localData.catalog.forEach(item => { select.innerHTML += `<option value="${item.id}">${item.name}</option>`; });
+    document.getElementById('modal-delete-service').style.display = 'flex';
+};
+
+window.confirmDeleteService = () => {
+    const id = document.getElementById('delete-srv-select').value;
+    if(!id) return alert('الرجاء اختيار خدمة أولاً');
+    
+    const index = localData.catalog.findIndex(i => i.id === id);
+    if(index > -1) {
+        localData.catalog.splice(index, 1);
+        saveDataToCloud();
+        renderItems();
+        window.closeModals();
+    }
 };
 
 // ---------------- نظام السلة (الـ Cart) ----------------
@@ -201,11 +248,8 @@ window.addToCartSelected = (serviceType) => {
     const serviceName = serviceType === 'wash_iron' ? 'غسيل وكوي' : 'كوي فقط';
     
     const existing = currentCart.find(i => i.id === pendingItem.id && i.service === serviceType);
-    if(existing) {
-        existing.qty += 1;
-    } else {
-        currentCart.push({ id: pendingItem.id, name: pendingItem.name, service: serviceType, serviceName: serviceName, price: price, qty: 1 });
-    }
+    if(existing) existing.qty += 1;
+    else currentCart.push({ id: pendingItem.id, name: pendingItem.name, service: serviceType, serviceName: serviceName, price: price, qty: 1 });
     
     window.closeModals();
     renderCart();
@@ -254,47 +298,31 @@ function generateInvoiceID() {
 }
 
 // ---------------- نظام البيع ----------------
-window.checkout = (type) => { // type: 'cash', 'credit', 'electronic'
+window.checkout = (type) => {
     if(currentCart.length === 0) return alert('السلة فارغة!');
     const total = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    const notes = document.getElementById('cart-notes').value;
     
     const invoice = {
-        id: generateInvoiceID(),
-        date: new Date().toLocaleDateString(),
-        time: new Date().toLocaleTimeString(),
-        timestamp: Date.now(),
-        type: type, 
-        items: [...currentCart],
-        total: total,
-        notes: notes,
-        customer: null
+        id: generateInvoiceID(), date: new Date().toLocaleDateString(), time: new Date().toLocaleTimeString(),
+        timestamp: Date.now(), type: type, items: [...currentCart], total: total,
+        notes: document.getElementById('cart-notes').value, customer: null
     };
     finalizeSale(invoice);
 };
 
-// اختصار الكيبورد (Ctrl + S) للبيع كاش
+// اختصار الكيبورد (Ctrl + S)
 document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && (e.key === 's' || e.key === 'S')) {
         e.preventDefault();
-        // تأكد من أن شاشة POS هي المفتوحة وأنه لا توجد فاتورة قيد التعديل
         if(document.getElementById('pos-screen').classList.contains('active-screen') && !editingInvoiceId) {
             window.checkout('cash');
         }
     }
 });
 
-// البيع الآجل
 window.openCreditModal = () => {
     if(currentCart.length === 0) return alert('السلة فارغة!');
-    document.getElementById('credit-name').value = '';
-    document.getElementById('credit-phone').value = '';
-    document.getElementById('credit-paid').value = '0';
-    
-    document.getElementById('credit-phone').onkeyup = function() {
-        const hasDebt = (localData.debts || []).find(d => d.phone === this.value && d.remaining > 0);
-        document.getElementById('credit-warning').style.display = hasDebt ? 'block' : 'none';
-    };
+    document.getElementById('credit-name').value = ''; document.getElementById('credit-phone').value = ''; document.getElementById('credit-paid').value = '0';
     document.getElementById('modal-credit').style.display = 'flex';
 };
 
@@ -307,21 +335,13 @@ window.confirmCreditSale = () => {
     if(!name || !phone) return alert('يرجى إدخال اسم الزبون ورقم الهاتف');
     
     const invoice = {
-        id: generateInvoiceID(),
-        date: new Date().toLocaleDateString(),
-        time: new Date().toLocaleTimeString(),
-        timestamp: Date.now(),
-        type: 'credit',
-        items: [...currentCart],
-        total: total,
-        notes: document.getElementById('cart-notes').value,
-        customer: { name, phone, paid, remaining: total - paid }
+        id: generateInvoiceID(), date: new Date().toLocaleDateString(), time: new Date().toLocaleTimeString(),
+        timestamp: Date.now(), type: 'credit', items: [...currentCart], total: total,
+        notes: document.getElementById('cart-notes').value, customer: { name, phone, paid, remaining: total - paid }
     };
 
-    if(!localData.debts) localData.debts = [];
     localData.debts.push({
-        date: invoice.date, name: name, phone: phone, invoiceId: invoice.id,
-        total: total, paid: paid, remaining: total - paid
+        date: invoice.date, name: name, phone: phone, invoiceId: invoice.id, total: total, paid: paid, remaining: total - paid
     });
 
     finalizeSale(invoice);
@@ -329,138 +349,111 @@ window.confirmCreditSale = () => {
 };
 
 function finalizeSale(invoice) {
-    if(!localData.invoices) localData.invoices = [];
+    localData.invoices.push(invoice);
+    if(invoice.type === 'cash') localData.dailySalesCash += invoice.total;
+    if(invoice.type === 'electronic') localData.dailySalesElectronic += invoice.total;
+    if(invoice.type === 'credit' && invoice.customer) localData.dailySalesCash += invoice.customer.paid;
+
+    saveDataToCloud();
+    if(document.getElementById('auto-print').checked) window.printInvoice(invoice);
+
+    currentCart = []; document.getElementById('cart-notes').value = '';
+    localStorage.removeItem('cart_draft'); renderCart();
+}
+
+// ---------------- الفواتير السابقة (عرض، تعديل، حذف) ----------------
+window.openPreviousInvoices = () => {
+    const tbody = document.getElementById('invoices-list-body');
+    tbody.innerHTML = '';
+    const sorted = (localData.invoices || []).sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0));
+    sorted.forEach(inv => {
+        let typeStr = inv.type === 'cash' ? 'نقدي (كاش)' : (inv.type === 'electronic' ? 'إلكتروني' : 'آجل');
+        tbody.innerHTML += `
+            <tr>
+                <td>${inv.date}</td>
+                <td>${inv.id}</td>
+                <td>${typeStr}</td>
+                <td>${inv.total.toLocaleString()}</td>
+                <td>
+                    <i class="fa-solid fa-eye action-icon" onclick='window.viewInvoice("${inv.id}")' title="عرض"></i>
+                    <i class="fa-solid fa-pen action-icon" style="color: #4a90e2;" onclick='window.editInvoice("${inv.id}")' title="تعديل"></i>
+                    <i class="fa-solid fa-trash action-icon" style="color: var(--red-danger);" onclick='window.deleteInvoice("${inv.id}")' title="حذف"></i>
+                </td>
+            </tr>
+        `;
+    });
+    document.getElementById('modal-invoices').style.display = 'flex';
+};
+
+window.filterInvoices = (val) => {
+    const rows = document.getElementById('invoices-list-body').getElementsByTagName('tr');
+    for(let i=0; i<rows.length; i++) {
+        if(rows[i].innerText.toLowerCase().includes(val.toLowerCase())) rows[i].style.display = '';
+        else rows[i].style.display = 'none';
+    }
+};
+
+window.editInvoice = (id) => {
+    const invoice = localData.invoices.find(i => i.id === id);
+    if(invoice) {
+        currentCart = JSON.parse(JSON.stringify(invoice.items));
+        document.getElementById('cart-notes').value = invoice.notes || '';
+        editingInvoiceId = invoice.id;
+        renderCart();
+        window.closeModals();
+        
+        document.getElementById('btn-save-edit').style.display = 'flex';
+        document.querySelector('.btn-cash').style.display = 'none';
+        document.querySelector('.btn-electronic').style.display = 'none';
+        document.querySelector('.btn-credit').style.display = 'none';
+    }
+};
+
+window.saveEditedInvoice = () => {
+    const newTotal = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    const oldIndex = localData.invoices.findIndex(i => i.id === editingInvoiceId);
+    const oldInvoice = localData.invoices[oldIndex];
     
-    if(editingInvoiceId) {
-        const oldIndex = localData.invoices.findIndex(i => i.id === editingInvoiceId);
-        const oldInvoice = localData.invoices[oldIndex];
-        
-        invoice.id = editingInvoiceId; 
-        localData.invoices[oldIndex] = invoice;
-        
-        // تعديل الصندوق اليومي (طرح القديم وإضافة الجديد حسب النوع)
+    // تعديل الدخل اليومي إذا كانت الفاتورة تابعة لليوم
+    if (oldInvoice.date === new Date().toLocaleDateString()) {
         if(oldInvoice.type === 'cash') localData.dailySalesCash -= oldInvoice.total;
         if(oldInvoice.type === 'electronic') localData.dailySalesElectronic -= oldInvoice.total;
         
-        if(invoice.type === 'cash') localData.dailySalesCash += invoice.total;
-        if(invoice.type === 'electronic') localData.dailySalesElectronic += invoice.total;
-        
-        editingInvoiceId = null;
-        document.getElementById('btn-save-edit').style.display = 'none';
-        document.querySelector('.btn-cash').style.display = 'flex';
-        document.querySelector('.btn-electronic').style.display = 'flex';
-        document.querySelector('.btn-credit').style.display = 'flex';
-    } else {
-        localData.invoices.push(invoice);
-        if(invoice.type === 'cash') localData.dailySalesCash += invoice.total;
-        if(invoice.type === 'electronic') localData.dailySalesElectronic += invoice.total;
-        if(invoice.type === 'credit' && invoice.customer) localData.dailySalesCash += invoice.customer.paid; // نعتبر الدفعة المقدمة كاش
+        if(oldInvoice.type === 'cash') localData.dailySalesCash += newTotal;
+        if(oldInvoice.type === 'electronic') localData.dailySalesElectronic += newTotal;
     }
+
+    localData.invoices[oldIndex].items = [...currentCart];
+    localData.invoices[oldIndex].total = newTotal;
+    localData.invoices[oldIndex].notes = document.getElementById('cart-notes').value;
 
     saveDataToCloud();
+    editingInvoiceId = null; currentCart = []; document.getElementById('cart-notes').value = '';
+    localStorage.removeItem('cart_draft'); renderCart();
 
-    if(document.getElementById('auto-print').checked) window.printInvoice(invoice);
+    document.getElementById('btn-save-edit').style.display = 'none';
+    document.querySelector('.btn-cash').style.display = 'flex';
+    document.querySelector('.btn-electronic').style.display = 'flex';
+    document.querySelector('.btn-credit').style.display = 'flex';
+    alert('تم حفظ تعديلات الفاتورة بنجاح!');
+};
 
-    currentCart = [];
-    document.getElementById('cart-notes').value = '';
-    localStorage.removeItem('cart_draft');
-    renderCart();
-}
+window.deleteInvoice = (id) => {
+    if(!confirm('تحذير: هل أنت متأكد من حذف هذه الفاتورة نهائياً؟')) return;
 
-// ---------------- الصرفيات ----------------
-window.openExpensesModal = () => { document.getElementById('modal-expenses').style.display = 'flex'; };
-window.saveExpense = () => {
-    const detail = document.getElementById('expense-detail').value;
-    const amount = parseFloat(document.getElementById('expense-amount').value);
-    if(!detail || isNaN(amount)) return alert('يرجى ملء الحقول');
+    const index = localData.invoices.findIndex(i => i.id === id);
+    const inv = localData.invoices[index];
 
-    if(!localData.expenses) localData.expenses = [];
-    localData.expenses.push({ date: new Date().toLocaleDateString(), detail: detail, amount: amount });
-    
-    // الصرف يخصم من الكاش فقط وليس من الإلكتروني
-    localData.dailySalesCash -= amount;
+    if (inv.date === new Date().toLocaleDateString()) {
+        if(inv.type === 'cash') localData.dailySalesCash -= inv.total;
+        if(inv.type === 'electronic') localData.dailySalesElectronic -= inv.total;
+    }
+
+    localData.invoices.splice(index, 1);
     saveDataToCloud();
-    window.closeModals();
-    document.getElementById('expense-detail').value = '';
-    document.getElementById('expense-amount').value = '';
+    window.openPreviousInvoices(); 
 };
 
-// ---------------- تعديل وحذف خدمة (الكتالوج) ----------------
-window.openEditServiceModal = () => {
-    if(!localData.catalog || localData.catalog.length === 0) return alert('لا توجد خدمات لتعديلها');
-    
-    const select = document.getElementById('edit-srv-select');
-    select.innerHTML = '<option value="" disabled selected>-- اختر الخدمة --</option>';
-    localData.catalog.forEach(item => {
-        select.innerHTML += `<option value="${item.id}">${item.name}</option>`;
-    });
-    
-    document.getElementById('edit-srv-name').value = '';
-    document.getElementById('edit-srv-price-wash').value = '';
-    document.getElementById('edit-srv-price-iron').value = '';
-    document.getElementById('modal-edit-service').style.display = 'flex';
-};
-
-window.loadServiceToEdit = () => {
-    const id = document.getElementById('edit-srv-select').value;
-    const item = localData.catalog.find(i => i.id === id);
-    if(item) {
-        document.getElementById('edit-srv-name').value = item.name;
-        document.getElementById('edit-srv-price-wash').value = item.prices.wash_iron;
-        document.getElementById('edit-srv-price-iron').value = item.prices.iron_only;
-    }
-};
-
-window.saveEditedService = () => {
-    const id = document.getElementById('edit-srv-select').value;
-    if(!id) return alert('الرجاء اختيار خدمة أولاً');
-    
-    const name = document.getElementById('edit-srv-name').value;
-    const priceWash = parseFloat(document.getElementById('edit-srv-price-wash').value);
-    const priceIron = parseFloat(document.getElementById('edit-srv-price-iron').value);
-
-    if(!name || isNaN(priceWash) || isNaN(priceIron)) return alert('الرجاء إدخال البيانات بشكل صحيح');
-
-    const index = localData.catalog.findIndex(i => i.id === id);
-    if(index > -1) {
-        localData.catalog[index].name = name;
-        localData.catalog[index].prices.wash_iron = priceWash;
-        localData.catalog[index].prices.iron_only = priceIron;
-        
-        saveDataToCloud();
-        renderItems();
-        window.closeModals();
-        alert('تم تعديل الخدمة بنجاح!');
-    }
-};
-
-window.openDeleteServiceModal = () => {
-    if(!localData.catalog || localData.catalog.length === 0) return alert('لا توجد خدمات لحذفها');
-    
-    const select = document.getElementById('delete-srv-select');
-    select.innerHTML = '<option value="" disabled selected>-- اختر الخدمة لحذفها --</option>';
-    localData.catalog.forEach(item => {
-        select.innerHTML += `<option value="${item.id}">${item.name}</option>`;
-    });
-    
-    document.getElementById('modal-delete-service').style.display = 'flex';
-};
-
-window.confirmDeleteService = () => {
-    const id = document.getElementById('delete-srv-select').value;
-    if(!id) return alert('الرجاء اختيار خدمة أولاً');
-    
-    const index = localData.catalog.findIndex(i => i.id === id);
-    if(index > -1) {
-        localData.catalog.splice(index, 1);
-        saveDataToCloud();
-        renderItems();
-        window.closeModals();
-        alert('تم حذف الخدمة بنجاح!');
-    }
-};
-
-// عرض الفاتورة دون طباعة
 window.viewInvoice = (id) => {
     const invoice = localData.invoices.find(i => i.id === id);
     if(!invoice) return;
@@ -470,11 +463,8 @@ window.viewInvoice = (id) => {
     document.getElementById('view-inv-type').innerText = invoice.type === 'cash' ? 'نقدي' : (invoice.type === 'electronic' ? 'إلكتروني' : 'آجل');
     
     if(invoice.type === 'credit' && invoice.customer) {
-        document.getElementById('view-inv-customer-row').style.display = 'block';
-        document.getElementById('view-inv-customer').innerText = invoice.customer.name;
-    } else {
-        document.getElementById('view-inv-customer-row').style.display = 'none';
-    }
+        document.getElementById('view-inv-customer-row').style.display = 'block'; document.getElementById('view-inv-customer').innerText = invoice.customer.name;
+    } else { document.getElementById('view-inv-customer-row').style.display = 'none'; }
 
     const tbody = document.getElementById('view-inv-items');
     tbody.innerHTML = '';
@@ -482,65 +472,59 @@ window.viewInvoice = (id) => {
         tbody.innerHTML += `<tr><td>${item.name}</td><td>${item.serviceName}</td><td>${item.qty}</td><td>${(item.price * item.qty).toLocaleString()}</td></tr>`;
     });
     document.getElementById('view-inv-total').innerText = invoice.total.toLocaleString();
-    
-    // ربط زر الطباعة في نافذة العرض
     document.getElementById('btn-print-from-view').onclick = () => window.printInvoice(invoice);
 
     document.getElementById('modal-invoices').style.display = 'none';
     document.getElementById('modal-view-invoice').style.display = 'flex';
 };
 
-// الطباعة الحرارية
 window.printInvoice = (invoice) => {
-    document.getElementById('p-date').innerText = invoice.date;
-    document.getElementById('p-time').innerText = invoice.time;
-    document.getElementById('p-inv').innerText = invoice.id;
-    document.getElementById('p-type').innerText = invoice.type === 'cash' ? 'نقدي' : (invoice.type === 'electronic' ? 'إلكتروني' : 'آجل');
+    document.getElementById('p-date').innerText = invoice.date; document.getElementById('p-time').innerText = invoice.time;
+    document.getElementById('p-inv').innerText = invoice.id; document.getElementById('p-type').innerText = invoice.type === 'cash' ? 'نقدي' : (invoice.type === 'electronic' ? 'إلكتروني' : 'آجل');
     
     if(invoice.type === 'credit' && invoice.customer) {
-        document.getElementById('p-customer-row').style.display = 'block';
-        document.getElementById('p-customer').innerText = invoice.customer.name;
-    } else {
-        document.getElementById('p-customer-row').style.display = 'none';
-    }
+        document.getElementById('p-customer-row').style.display = 'block'; document.getElementById('p-customer').innerText = invoice.customer.name;
+    } else { document.getElementById('p-customer-row').style.display = 'none'; }
 
     const tbody = document.getElementById('p-items');
     tbody.innerHTML = '';
-    invoice.items.forEach(item => {
-        tbody.innerHTML += `<tr><td>${item.name}</td><td>${item.serviceName}</td><td>${item.qty}</td><td>${item.price * item.qty}</td></tr>`;
-    });
+    invoice.items.forEach(item => { tbody.innerHTML += `<tr><td>${item.name}</td><td>${item.serviceName}</td><td>${item.qty}</td><td>${item.price * item.qty}</td></tr>`; });
     document.getElementById('p-total').innerText = invoice.total.toLocaleString();
     
     if(invoice.notes) {
-        document.getElementById('p-notes-row').style.display = 'block';
-        document.getElementById('p-notes').innerText = invoice.notes;
-    } else {
-        document.getElementById('p-notes-row').style.display = 'none';
-    }
-
+        document.getElementById('p-notes-row').style.display = 'block'; document.getElementById('p-notes').innerText = invoice.notes;
+    } else { document.getElementById('p-notes-row').style.display = 'none'; }
     window.print();
+};
+
+// ---------------- الصرفيات ----------------
+window.openExpensesModal = () => { document.getElementById('modal-expenses').style.display = 'flex'; };
+window.saveExpense = () => {
+    const detail = document.getElementById('expense-detail').value;
+    const amount = parseFloat(document.getElementById('expense-amount').value);
+    if(!detail || isNaN(amount)) return alert('يرجى ملء الحقول');
+
+    localData.expenses.push({ date: new Date().toLocaleDateString(), detail: detail, amount: amount });
+    localData.dailySalesCash -= amount;
+    saveDataToCloud();
+    window.closeModals();
+    document.getElementById('expense-detail').value = ''; document.getElementById('expense-amount').value = '';
 };
 
 // ---------------- تحديث الـ UI (مبيعات اليوم) ----------------
 let lastSalesTotal = 0;
 function updateUI() {
-    // مبيعات اليوم الكلية (كاش + إلكتروني) للعرض في الشريط العلوي
     let dailyTotal = (localData.dailySalesCash || 0) + (localData.dailySalesElectronic || 0);
     const display = document.getElementById('daily-sales-val');
     const wrapper = document.getElementById('daily-sales-display');
     
-    if(dailyTotal > lastSalesTotal) {
-        wrapper.classList.add('increase'); setTimeout(()=>wrapper.classList.remove('increase'), 500);
-    } else if (dailyTotal < lastSalesTotal) {
-        wrapper.classList.add('decrease'); setTimeout(()=>wrapper.classList.remove('decrease'), 500);
-    }
+    if(dailyTotal > lastSalesTotal) { wrapper.classList.add('increase'); setTimeout(()=>wrapper.classList.remove('increase'), 500); } 
+    else if (dailyTotal < lastSalesTotal) { wrapper.classList.add('decrease'); setTimeout(()=>wrapper.classList.remove('decrease'), 500); }
     
     animateValue(display, lastSalesTotal, dailyTotal, 500);
     lastSalesTotal = dailyTotal;
     
-    if(document.getElementById('admin-screen').classList.contains('active-screen')) {
-        window.updateAdminDashboard();
-    }
+    if(document.getElementById('admin-screen').classList.contains('active-screen')) window.updateAdminDashboard();
 }
 
 function animateValue(obj, start, end, duration) {
@@ -564,22 +548,11 @@ window.switchAdminTab = (tab) => {
 };
 
 window.updateAdminDashboard = () => {
-    // حساب المبيعات مفصلة (كاش وإلكتروني)
-    let totalSalesCash = 0;
-    let totalSalesElectronic = 0;
-    
+    let totalSalesCash = 0; let totalSalesElectronic = 0;
     (localData.invoices || []).forEach(i => {
         if(i.type === 'cash') totalSalesCash += i.total;
         else if (i.type === 'electronic') totalSalesElectronic += i.total;
-        else if (i.type === 'credit' && i.customer) totalSalesCash += i.customer.paid; // نعتبر الدفعة من الآجل كاش
-    });
-    
-    // سداد الديون السابقة (يعتبر كاش)
-    (localData.debts || []).forEach(d => {
-        if(d.paid > 0) {
-            // ملاحظة: لضمان دقة بالغة يجب فصل الدفعات المسبقة، ولكن للتبسيط نعتبر السداد كاش
-            // تمت إضافته أثناء إنشاء الدين للفاتورة كـ customer.paid، لذا يجب عدم تكراره إذا لم نقم بسداد لاحق.
-        }
+        else if (i.type === 'credit' && i.customer) totalSalesCash += i.customer.paid;
     });
 
     let totalExpenses = (localData.expenses || []).reduce((sum, e) => sum + e.amount, 0);
@@ -594,9 +567,7 @@ window.updateAdminDashboard = () => {
 
     const costsTbody = document.getElementById('costs-table-body');
     costsTbody.innerHTML = '';
-    (localData.operatingCosts || []).forEach(c => {
-        costsTbody.innerHTML += `<tr><td>${c.date}</td><td>${c.name}</td><td>${c.amount.toLocaleString()}</td></tr>`;
-    });
+    (localData.operatingCosts || []).forEach(c => { costsTbody.innerHTML += `<tr><td>${c.date}</td><td>${c.name}</td><td>${c.amount.toLocaleString()}</td></tr>`; });
 
     const debtsTbody = document.getElementById('debts-table-body');
     debtsTbody.innerHTML = '';
@@ -613,12 +584,9 @@ window.addOperatingCost = () => {
     const name = document.getElementById('cost-name').value;
     const amount = parseFloat(document.getElementById('cost-amount').value);
     if(!name || isNaN(amount)) return alert('الرجاء الإدخال بشكل صحيح');
-    
-    if(!localData.operatingCosts) localData.operatingCosts = [];
     localData.operatingCosts.push({ date: new Date().toLocaleDateString(), name, amount });
     saveDataToCloud();
-    document.getElementById('cost-name').value = '';
-    document.getElementById('cost-amount').value = '';
+    document.getElementById('cost-name').value = ''; document.getElementById('cost-amount').value = '';
 };
 
 window.payDebt = (index) => {
@@ -627,15 +595,11 @@ window.payDebt = (index) => {
     if(pay) {
         pay = parseFloat(pay);
         if(pay > 0 && pay <= debt.remaining) {
-            debt.remaining -= pay;
-            debt.paid += pay;
-            localData.dailySalesCash += pay; // تسديد الديون يعتبر كاش في الصندوق
-            
+            debt.remaining -= pay; debt.paid += pay; localData.dailySalesCash += pay; 
             if(debt.remaining === 0) alert('تم تسديد الدين بالكامل!');
             saveDataToCloud();
         } else { alert('مبلغ غير صحيح'); }
     }
 };
 
-// بدء تشغيل النظام بالاتصال بقاعدة البيانات
 window.onload = initializeDB;
