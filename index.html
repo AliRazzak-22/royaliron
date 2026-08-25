@@ -82,7 +82,7 @@
                     <div class="action-buttons">
                         <!-- تم إضافة الدفع الإلكتروني واختصار Ctrl+S -->
                         <button class="btn btn-cash" onclick="window.checkout('cash')">
-                            <i class="fa-solid fa-hand-holding-dollar"></i> كاش (Ctrl+S)
+                            <i class="fa-solid fa-hand-holding-dollar"></i> كاش 
                         </button>
                         <button class="btn btn-electronic" onclick="window.checkout('electronic')">
                             <i class="fa-solid fa-credit-card"></i> دفع إلكتروني
@@ -99,13 +99,20 @@
             </div>
 
             <!-- المنتجات (اليمين) - أصبحت 50% من الشاشة -->
-            <div class="items-section-container">
-                <div class="items-header">
-                    <h3>الخدمات والقطع</h3>
-                    <button class="btn-add-service" onclick="window.openAddServiceModal()">
-                        <i class="fa-solid fa-plus"></i> إضافة خدمة
-                    </button>
-                </div>
+            <div class="items-header">
+    <h3>الخدمات والقطع</h3>
+    <div style="display: flex; gap: 5px;">
+        <button class="btn-add-service" onclick="window.openAddServiceModal()">
+            <i class="fa-solid fa-plus"></i> إضافة
+        </button>
+        <button class="btn-add-service" style="background: #4a90e2; border-color: #4a90e2; color: white;" onclick="window.openEditServiceModal()">
+            <i class="fa-solid fa-pen"></i> تعديل
+        </button>
+        <button class="btn-add-service" style="background: var(--red-danger); border-color: var(--red-danger); color: white;" onclick="window.openDeleteServiceModal()">
+            <i class="fa-solid fa-trash"></i> حذف
+        </button>
+    </div>
+</div>
                 <div class="items-section" id="items-grid">
                     <!-- Items generated via JS -->
                 </div>
@@ -340,6 +347,50 @@
         </div>
     </div>
 
+   <!-- 8. تعديل خدمة موجودة -->
+    <div id="modal-edit-service" class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-title">تعديل خدمة / قطعة</div>
+            <div class="input-group">
+                <label>اختر القطعة لتعديلها</label>
+                <select id="edit-srv-select" onchange="window.loadServiceToEdit()"></select>
+            </div>
+            <div class="input-group">
+                <label>اسم القطعة الجديد</label>
+                <input type="text" id="edit-srv-name">
+            </div>
+            <div style="display:flex; gap:15px;">
+                <div class="input-group" style="flex:1;">
+                    <label>سعر الغسيل والكوي الجديد (د.ع)</label>
+                    <input type="number" id="edit-srv-price-wash">
+                </div>
+                <div class="input-group" style="flex:1;">
+                    <label>سعر الكوي فقط الجديد (د.ع)</label>
+                    <input type="number" id="edit-srv-price-iron">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" onclick="window.saveEditedService()">حفظ التعديلات</button>
+                <button class="btn btn-cancel" onclick="window.closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 9. حذف خدمة -->
+    <div id="modal-delete-service" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-title" style="color: var(--red-danger);">حذف خدمة / قطعة</div>
+            <div class="input-group">
+                <label>اختر القطعة لحذفها نهائياً</label>
+                <select id="delete-srv-select"></select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background: var(--red-danger); color: white;" onclick="window.confirmDeleteService()">تأكيد الحذف</button>
+                <button class="btn btn-cancel" onclick="window.closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+    
     <!-- هيكل الطباعة (مخفي للطباعة الحرارية 80mm) -->
     <div id="print-area">
         <div class="print-logo"><i class="fa-solid fa-crown"></i></div>
