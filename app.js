@@ -642,15 +642,15 @@ window.deleteExpense = (index) => {
     window.showConfirm('هل أنت متأكد من حذف هذا المصروف نهائياً؟ سيتم إرجاع مبلغه لصندوق اليوم.', () => {
         const exp = localData.expenses[index];
         
-        // إرجاع المبلغ للصندوق إذا كان المصروف لنفس اليوم
-        if(exp.date === new Date().toLocaleDateString()) {
+        // التحقق من إرجاع المبلغ للصندوق
+        if(exp && exp.date === new Date().toLocaleDateString()) {
             localData.dailySalesCash += exp.amount;
         }
 
         localData.expenses.splice(index, 1);
         saveDataToCloud();
         window.openPreviousExpenses(); 
-        alert('تم حذف المصروف بنجاح!'); // هذا سيظهر بالنافذة الذكية الجديدة!
+        alert('تم حذف المصروف بنجاح!'); 
     });
 };
 
