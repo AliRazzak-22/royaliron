@@ -421,7 +421,7 @@ function finalizeSale(invoice) {
     localData.invoices.push(invoice);
     if(invoice.type === 'cash') localData.dailySalesCash += invoice.total;
     if(invoice.type === 'electronic') localData.dailySalesElectronic += invoice.total;
-    iif(invoice.type === 'credit' && invoice.customer) localData.dailySalesCash += invoice.customer.paid;
+    if(invoice.type === 'credit' && invoice.customer) localData.dailySalesCash += invoice.customer.paid;
 
     window.logAction(invoice.type === 'credit' ? 'بيع آجل' : 'بيع', 'رقم الفاتورة: ' + invoice.id, invoice.total);
     saveDataToCloud();
