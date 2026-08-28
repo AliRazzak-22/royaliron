@@ -98,7 +98,21 @@ window.showPOS = () => { document.getElementById('main-screen').style.display = 
 window.exitToMain = () => { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen')); document.getElementById('main-screen').style.display = 'flex'; };
 window.openAdminLogin = () => { document.getElementById('modal-admin-login').style.display = 'flex'; };
 window.closeModals = () => { document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none'); };
-
+// ---------------- نظام رسائل التأكيد المخصصة ----------------
+let pendingConfirmAction = null;
+window.showConfirm = (msg, actionCallback) => {
+    document.getElementById('custom-confirm-msg').innerText = msg;
+    pendingConfirmAction = actionCallback;
+    document.getElementById('modal-custom-confirm').style.display = 'flex';
+};
+window.closeConfirmModal = () => {
+    document.getElementById('modal-custom-confirm').style.display = 'none';
+    pendingConfirmAction = null;
+};
+window.executeConfirm = () => {
+    if(pendingConfirmAction) pendingConfirmAction();
+    window.closeConfirmModal();
+};
 window.checkAdminPassword = () => {
     if(document.getElementById('admin-password').value === 'ahmed2003') {
         window.closeModals();
@@ -439,19 +453,20 @@ window.saveEditedInvoice = () => {
 };
 
 window.deleteInvoice = (id) => {
-    if(!confirm('تحذير: هل أنت متأكد من حذف هذه الفاتورة نهائياً؟')) return;
+    // استدعاء النافذة المخصصة بدلاً من confirm
+    window.showConfirm('تحذير: هل أنت متأكد من حذف هذه الفاتورة نهائياً؟ لا يمكن التراجع عن هذا الإجراء.', () => {
+        const index = localData.invoices.findIndex(i => i.id === id);
+        const inv = localData.invoices[index];
 
-    const index = localData.invoices.findIndex(i => i.id === id);
-    const inv = localData.invoices[index];
+        if (inv.date === new Date().toLocaleDateString()) {
+            if(inv.type === 'cash') localData.dailySalesCash -= inv.total;
+            if(inv.type === 'electronic') localData.dailySalesElectronic -= inv.total;
+        }
 
-    if (inv.date === new Date().toLocaleDateString()) {
-        if(inv.type === 'cash') localData.dailySalesCash -= inv.total;
-        if(inv.type === 'electronic') localData.dailySalesElectronic -= inv.total;
-    }
-
-    localData.invoices.splice(index, 1);
-    saveDataToCloud();
-    window.openPreviousInvoices(); 
+        localData.invoices.splice(index, 1);
+        saveDataToCloud();
+        window.openPreviousInvoices(); 
+    });
 };
 
 window.viewInvoice = (id) => {
@@ -584,18 +599,18 @@ window.saveEditedExpense = () => {
 };
 
 window.deleteExpense = (index) => {
-    if(!confirm('هل أنت متأكد من حذف هذا المصروف؟')) return;
-    
-    const exp = localData.expenses[index];
-    
-    // إذا كان المصروف لليوم الحالي، نقوم بإرجاع مبلغه لصندوق اليوم
-    if(exp.date === new Date().toLocaleDateString()) {
-        localData.dailySalesCash += exp.amount;
-    }
+    // استدعاء النافذة المخصصة بدلاً من confirm
+    window.showConfirm('هل أنت متأكد من حذف هذا المصروف؟ سيتم إرجاع المبلغ لصندوق اليوم.', () => {
+        const exp = localData.expenses[index];
+        
+        if(exp.date === new Date().toLocaleDateString()) {
+            localData.dailySalesCash += exp.amount;
+        }
 
-    localData.expenses.splice(index, 1);
-    saveDataToCloud();
-    window.openPreviousExpenses(); // تحديث القائمة فوراً
+        localData.expenses.splice(index, 1);
+        saveDataToCloud();
+        window.openPreviousExpenses(); 
+    });
 };
 
 // ---------------- تحديث الـ UI (مبيعات اليوم) ----------------
