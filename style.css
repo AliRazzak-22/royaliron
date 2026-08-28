@@ -230,3 +230,13 @@ input, select { font-family: 'Cairo', sans-serif; outline: none; }
     .print-total { text-align: center; font-size: 16px; font-weight: 800; border-top: 1px dashed black; padding-top: 10px; margin-bottom: 20px; }
     .print-footer { text-align: center; font-size: 10px; border-top: 1px solid black; padding-top: 5px; }
 }
+/* تأثيرات وألوان نافذة التنبيهات الذكية */
+.pop-animate { animation: popBounce 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+@keyframes popBounce {
+    0% { transform: scale(0); opacity: 0; }
+    50% { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+.text-success { color: var(--green-success); }
+.text-danger { color: var(--red-danger); }
+.text-warning { color: var(--gold); }
