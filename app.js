@@ -122,6 +122,46 @@ window.checkAdminPassword = () => {
         window.updateAdminDashboard();
     } else { alert('رمز الدخول خاطئ!'); }
 };
+// ---------------- نظام التنبيهات الذكي (بديل المتصفح) ----------------
+window.showAlert = (msg, type = 'warning') => {
+    const iconContainer = document.getElementById('alert-icon-container');
+    const titleContainer = document.getElementById('alert-title');
+    
+    iconContainer.className = 'pop-animate'; // تشغيل الحركة
+    titleContainer.className = '';
+
+    if (type === 'success') {
+        iconContainer.innerHTML = '<i class="fa-solid fa-circle-check text-success"></i>';
+        titleContainer.innerText = 'نجاح';
+        titleContainer.classList.add('text-success');
+    } else if (type === 'error') {
+        iconContainer.innerHTML = '<i class="fa-solid fa-circle-xmark text-danger"></i>';
+        titleContainer.innerText = 'خطأ';
+        titleContainer.classList.add('text-danger');
+    } else {
+        iconContainer.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-warning"></i>';
+        titleContainer.innerText = 'تنبيه';
+        titleContainer.classList.add('text-warning');
+    }
+
+    document.getElementById('alert-message').innerText = msg;
+    document.getElementById('modal-custom-alert').style.display = 'flex';
+};
+
+window.closeAlertModal = () => {
+    document.getElementById('modal-custom-alert').style.display = 'none';
+    document.getElementById('alert-icon-container').className = ''; // إعادة تهيئة الحركة
+};
+
+// 🔴 السحر: اعتراض جميع رسائل المتصفح (alert) وتحويلها للنافذة الذكية تلقائياً
+window.alert = (msg) => {
+    let type = 'warning';
+    // تحديد نوع الرسالة من خلال الكلمات المفتاحية
+    if(msg.includes('بنجاح') || msg.includes('تم')) type = 'success';
+    else if(msg.includes('خاطئ') || msg.includes('خطأ') || msg.includes('فارغة') || msg.includes('فشل') || msg.includes('غير صحيح')) type = 'error';
+    
+    window.showAlert(msg, type);
+};
 
 // ---------------- بناء الواجهة (الخلايا) ----------------
 function renderItems() {
@@ -599,10 +639,10 @@ window.saveEditedExpense = () => {
 };
 
 window.deleteExpense = (index) => {
-    // استدعاء النافذة المخصصة بدلاً من confirm
-    window.showConfirm('هل أنت متأكد من حذف هذا المصروف؟ سيتم إرجاع المبلغ لصندوق اليوم.', () => {
+    window.showConfirm('هل أنت متأكد من حذف هذا المصروف نهائياً؟ سيتم إرجاع مبلغه لصندوق اليوم.', () => {
         const exp = localData.expenses[index];
         
+        // إرجاع المبلغ للصندوق إذا كان المصروف لنفس اليوم
         if(exp.date === new Date().toLocaleDateString()) {
             localData.dailySalesCash += exp.amount;
         }
@@ -610,6 +650,7 @@ window.deleteExpense = (index) => {
         localData.expenses.splice(index, 1);
         saveDataToCloud();
         window.openPreviousExpenses(); 
+        alert('تم حذف المصروف بنجاح!'); // هذا سيظهر بالنافذة الذكية الجديدة!
     });
 };
 
