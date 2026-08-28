@@ -274,9 +274,48 @@
                 <label>المبلغ (د.ع)</label>
                 <input type="number" id="expense-amount">
             </div>
+            
+            <!-- الزر الجديد لعرض الصرفيات السابقة -->
+            <button class="btn-royal-action" style="width: 100%; justify-content: center; margin-bottom: 20px; background: var(--light-gray);" onclick="window.openPreviousExpenses()">
+                <i class="fa-solid fa-list-ul"></i> عرض الصرفيات السابقة
+            </button>
+            
             <div class="modal-actions">
                 <button class="btn btn-confirm" style="background:var(--red-danger); color:white;" onclick="window.saveExpense()">خصم من صندوق اليوم</button>
                 <button class="btn btn-cancel" onclick="window.closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4.1. قائمة الصرفيات السابقة (جديد) -->
+    <div id="modal-previous-expenses" class="modal-overlay">
+        <div class="modal-content invoices-list-modal">
+            <div class="modal-title">سجل الصرفيات السابقة</div>
+            <table class="invoices-table">
+                <thead><tr><th>التاريخ</th><th>التفاصيل</th><th>المبلغ</th><th>إجراءات</th></tr></thead>
+                <tbody id="expenses-list-body"></tbody>
+            </table>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" style="width:100%" onclick="window.closeModals()">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4.2. تعديل مصروف (جديد) -->
+    <div id="modal-edit-expense" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-title" style="color: #4a90e2;">تعديل مصروف</div>
+            <div class="input-group">
+                <label>التفاصيل</label>
+                <input type="text" id="edit-expense-detail">
+            </div>
+            <div class="input-group">
+                <label>المبلغ (د.ع)</label>
+                <input type="number" id="edit-expense-amount">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background:#4a90e2; color:white;" onclick="window.saveEditedExpense()">حفظ التعديلات</button>
+                <button class="btn btn-cancel" onclick="window.openPreviousExpenses()">رجوع</button>
             </div>
         </div>
     </div>
