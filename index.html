@@ -116,10 +116,10 @@
             </div>
             
             <div class="items-section" id="items-grid">
-                </div>
                 <!-- Items generated via JS -->
             </div>
-        </div>>
+        </div>
+    </div>
 </div>
     <!-- شاشة الآدمن -->
     <div id="admin-screen" class="screen">
@@ -329,9 +329,13 @@
                 <thead><tr><th>الوقت</th><th>رقم الفاتورة</th><th>النوع</th><th>المبلغ</th><th>إجراءات</th></tr></thead>
                 <tbody id="invoices-list-body"></tbody>
             </table>
-            <div class="modal-actions"><button class="btn btn-cancel" style="width:100%" onclick="window.closeModals()">إغلاق</button></div>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" style="width:100%" onclick="window.closeModals()">إغلاق</button>
+            </div>
+        </div>
+    </div>
     
-            <!-- 6. نافذة التأكيد المخصصة (بديل رسالة المتصفح المزعجة) -->
+    <!-- 6. نافذة التأكيد المخصصة (بديل رسالة المتصفح المزعجة) -->
     <div id="modal-custom-confirm" class="modal-overlay" style="z-index: 3000;">
         <div class="modal-content" style="max-width: 400px; text-align: center;">
             <i class="fa-solid fa-triangle-exclamation" style="font-size: 60px; color: var(--red-danger); margin-bottom: 20px;"></i>
@@ -341,14 +345,16 @@
                 <button class="btn btn-confirm" style="background: var(--red-danger); color: white;" onclick="window.executeConfirm()">نعم، احذف نهائياً</button>
                 <button class="btn btn-cancel" onclick="window.closeConfirmModal()">إلغاء</button>
             </div>
-            <!-- 11. نافذة التنبيهات الذكية الفخمة (بديل المتصفح) -->
+        </div>
+    </div>
+
+    <!-- 11. نافذة التنبيهات الذكية الفخمة (بديل المتصفح) -->
     <div id="modal-custom-alert" class="modal-overlay" style="z-index: 4000;">
         <div class="modal-content" style="max-width: 400px; text-align: center; padding: 40px 20px;">
             <div id="alert-icon-container" style="font-size: 80px; margin-bottom: 20px;"></div>
             <div id="alert-title" style="font-size: 26px; font-weight: 900; margin-bottom: 15px;"></div>
             <p id="alert-message" style="font-size: 18px; color: var(--text-white); margin-bottom: 30px;"></p>
             <button class="btn btn-confirm" style="width: 100%; background: var(--light-gray); color: white;" onclick="window.closeAlertModal()">حسناً</button>
-            </div>
         </div>
     </div>
 
