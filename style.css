@@ -240,3 +240,11 @@ input, select { font-family: 'Cairo', sans-serif; outline: none; }
 .text-success { color: var(--green-success); }
 .text-danger { color: var(--red-danger); }
 .text-warning { color: var(--gold); }
+/* تنسيقات لوحة الآدمن الجديدة (التقارير وسجل الحركات) */
+.admin-control-panel { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
+.admin-filters { display: flex; gap: 10px; align-items: center; }
+.aging-debt-badge { background: var(--red-danger); color: white; padding: 3px 8px; border-radius: 5px; font-size: 12px; margin-right: 10px; animation: pulse 1.5s infinite; }
+.log-type { padding: 4px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; background: var(--light-gray); }
+.log-delete { color: var(--red-danger); border: 1px solid var(--red-danger); }
+.log-edit { color: #4a90e2; border: 1px solid #4a90e2; }
+.log-add { color: var(--green-success); border: 1px solid var(--green-success); }
