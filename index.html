@@ -132,12 +132,21 @@
                 <button class="admin-nav-btn active" onclick="window.switchAdminTab('dashboard')"><i class="fa-solid fa-chart-pie"></i> الإحصائيات الشاملة</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('debts')"><i class="fa-solid fa-address-book"></i> الديون والذمم</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('costs')"><i class="fa-solid fa-building-columns"></i> التكاليف التشغيلية</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('logs')"><i class="fa-solid fa-clock-rotate-left"></i> سجل الحركات</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('services')"><i class="fa-solid fa-star"></i> أداء الخدمات</button>
                 <button class="admin-nav-btn" style="margin-top:auto; color:var(--red-danger);" onclick="window.exitToMain()"><i class="fa-solid fa-right-from-bracket"></i> تسجيل خروج</button>
             </div>
             <div class="admin-content">
                 <!-- قسم الإحصائيات -->
                 <div id="admin-dashboard" class="admin-section active">
-                    <h2 style="margin-bottom:30px; color:var(--gold);">الملخص المالي (الشهر الحالي)</h2>
+                    <div class="admin-control-panel">
+                        <h2 style="color:var(--gold); margin:0;">الملخص المالي</h2>
+                        <div class="admin-filters">
+                            <input type="month" id="admin-month-filter" class="note-input" style="width:auto;" onchange="window.updateAdminDashboard()">
+                            <button class="btn-royal-action" onclick="window.loadAllTimeStats()"><i class="fa-solid fa-globe"></i> عرض الكلي</button>
+                            <button class="btn-royal-action" style="background:var(--green-success); color:white; border-color:var(--green-success);" onclick="window.exportToExcel()"><i class="fa-solid fa-file-excel"></i> تصدير Excel</button>
+                        </div>
+                    </div>
                     <div class="stats-grid">
                         <div class="stat-card">
                             <i class="fa-solid fa-money-bill-wave stat-icon"></i>
@@ -149,9 +158,9 @@
                             <div class="stat-title">إجمالي المبيعات (إلكتروني)</div>
                             <div class="stat-value" style="color: #4a90e2;" id="admin-month-sales-electronic">0 د.ع</div>
                         </div>
-                        <div class="stat-card">
+                        <div class="stat-card" style="cursor: pointer; border: 1px dashed var(--red-danger);" onclick="window.openAdminExpensesModal()" title="اضغط لعرض التفاصيل">
                             <i class="fa-solid fa-money-bill-transfer stat-icon" style="color:var(--red-danger);"></i>
-                            <div class="stat-title">المصروفات اليومية</div>
+                            <div class="stat-title">المصروفات (اضغط للتفاصيل)</div>
                             <div class="stat-value" style="color:var(--red-danger);" id="admin-month-expenses">0 د.ع</div>
                         </div>
                         <div class="stat-card">
@@ -165,6 +174,12 @@
                             <div class="stat-value profit" id="admin-net-profit">0 د.ع</div>
                         </div>
                     </div>
+                    
+                    <h3 style="margin: 30px 0 15px; color: var(--gold); border-bottom: 1px solid var(--light-gray); padding-bottom: 10px;">التقارير اليومية المفصلة</h3>
+                    <table class="cart-table">
+                        <thead><tr><th>التاريخ</th><th>اليوم</th><th>المبيعات</th><th>المصروفات</th><th>تفاصيل الصرف</th><th>الصافي</th></tr></thead>
+                        <tbody id="admin-daily-reports-body"></tbody>
+                    </table>
                 </div>
                 
                 <!-- قسم التكاليف التشغيلية -->
@@ -195,7 +210,37 @@
                         <tbody id="debts-table-body"></tbody>
                     </table>
                 </div>
+
+                <!-- قسم سجل الحركات (Audit Log) -->
+                <div id="admin-logs" class="admin-section">
+                    <h2 style="margin-bottom:30px; color:var(--gold);">سجل الحركات والمراقبة</h2>
+                    <input type="text" class="note-input" style="margin-bottom:20px;" placeholder="ابحث عن حركة (مثال: حذف فاتورة)..." onkeyup="window.filterLogs(this.value)">
+                    <table class="cart-table">
+                        <thead><tr><th>التاريخ والوقت</th><th>نوع الحركة</th><th>التفاصيل</th><th>المبلغ</th></tr></thead>
+                        <tbody id="logs-table-body"></tbody>
+                    </table>
+                </div>
+
+                <!-- قسم أداء الخدمات -->
+                <div id="admin-services" class="admin-section">
+                    <h2 style="margin-bottom:30px; color:var(--gold);">أداء الخدمات (الأكثر مبيعاً)</h2>
+                    <div class="stats-grid" id="top-services-grid">
+                        <!-- سيتم توليدها برمجياً -->
+                    </div>
+                </div>
             </div>
+        </div>
+    </div>
+
+    <!-- نافذة تفاصيل الصرفيات الخاصة بالآدمن -->
+    <div id="modal-admin-expenses" class="modal-overlay">
+        <div class="modal-content invoices-list-modal">
+            <div class="modal-title">تفاصيل الصرفيات للفترة المحددة</div>
+            <table class="invoices-table">
+                <thead><tr><th>التاريخ</th><th>اليوم</th><th>التفاصيل</th><th>المبلغ</th></tr></thead>
+                <tbody id="admin-expenses-detail-body"></tbody>
+            </table>
+            <div class="modal-actions"><button class="btn btn-cancel" style="width:100%" onclick="window.closeModals()">إغلاق</button></div>
         </div>
     </div>
 
