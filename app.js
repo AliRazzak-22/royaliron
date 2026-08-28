@@ -733,16 +733,33 @@ window.addOperatingCost = () => {
     document.getElementById('cost-name').value = ''; document.getElementById('cost-amount').value = '';
 };
 
+let currentDebtIndex = null;
 window.payDebt = (index) => {
+    currentDebtIndex = index;
     let debt = localData.debts[index];
-    let pay = prompt(`المبلغ المتبقي على ${debt.name} هو ${debt.remaining.toLocaleString()}. أدخل مبلغ التسديد (نقدي):`);
-    if(pay) {
-        pay = parseFloat(pay);
-        if(pay > 0 && pay <= debt.remaining) {
-            debt.remaining -= pay; debt.paid += pay; localData.dailySalesCash += pay; 
-            if(debt.remaining === 0) alert('تم تسديد الدين بالكامل!');
-            saveDataToCloud();
-        } else { alert('مبلغ غير صحيح'); }
+    document.getElementById('debt-pay-msg').innerText = `المبلغ المتبقي على ${debt.name} هو ${debt.remaining.toLocaleString()} د.ع`;
+    document.getElementById('debt-pay-amount').value = '';
+    document.getElementById('modal-pay-debt').style.display = 'flex';
+};
+
+window.confirmPayDebt = () => {
+    let debt = localData.debts[currentDebtIndex];
+    let pay = parseFloat(document.getElementById('debt-pay-amount').value);
+    
+    if (pay && pay > 0 && pay <= debt.remaining) {
+        debt.remaining -= pay;
+        debt.paid += pay;
+        
+        // المبالغ المسددة اليوم تُضاف لصندوق مبيعات اليوم مباشرة
+        localData.dailySalesCash += pay; 
+        
+        saveDataToCloud();
+        window.closeModals();
+        
+        if(debt.remaining === 0) window.showAlert('تم تسديد الدين بالكامل!', 'success');
+        else window.showAlert('تم تسديد الدفعة بنجاح', 'success');
+    } else {
+        window.showAlert('مبلغ التسديد غير صحيح أو أكبر من المتبقي!', 'error');
     }
 };
 
