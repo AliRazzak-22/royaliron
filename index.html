@@ -341,6 +341,14 @@
                 <button class="btn btn-confirm" style="background: var(--red-danger); color: white;" onclick="window.executeConfirm()">نعم، احذف نهائياً</button>
                 <button class="btn btn-cancel" onclick="window.closeConfirmModal()">إلغاء</button>
             </div>
+            <!-- 11. نافذة التنبيهات الذكية الفخمة (بديل المتصفح) -->
+    <div id="modal-custom-alert" class="modal-overlay" style="z-index: 4000;">
+        <div class="modal-content" style="max-width: 400px; text-align: center; padding: 40px 20px;">
+            <div id="alert-icon-container" style="font-size: 80px; margin-bottom: 20px;"></div>
+            <div id="alert-title" style="font-size: 26px; font-weight: 900; margin-bottom: 15px;"></div>
+            <p id="alert-message" style="font-size: 18px; color: var(--text-white); margin-bottom: 30px;"></p>
+            <button class="btn btn-confirm" style="width: 100%; background: var(--light-gray); color: white;" onclick="window.closeAlertModal()">حسناً</button>
+            </div>
         </div>
     </div>
 
