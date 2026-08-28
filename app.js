@@ -23,7 +23,7 @@ const dbRef = ref(database);
 
 // المتغيرات العامة
 let localData = {
-    catalog: [], invoices: [], expenses: [], operatingCosts: [], debts: [],
+    catalog: [], invoices: [], expenses: [], operatingCosts: [], debts: [], logs: [],
     dailySalesCash: 0, dailySalesElectronic: 0, lastDate: new Date().toDateString()
 };
 let currentCart = [];
@@ -50,6 +50,7 @@ async function initializeDB() {
             localData.expenses = Object.values(localData.expenses || {});
             localData.operatingCosts = Object.values(localData.operatingCosts || {});
             localData.debts = Object.values(localData.debts || {});
+            localData.logs = Object.values(localData.logs || {});
 
             // تصفير مبيعات اليوم إذا بدأ يوم جديد
             if(localData.lastDate !== new Date().toDateString()) {
@@ -67,7 +68,7 @@ async function initializeDB() {
                 { id: 'coat', name: 'كوت', icon: 'fa-user-secret', prices: { wash_iron: 6000, iron_only: 4000 } },
                 { id: 'shirt', name: 'قميص', icon: 'fa-shirt', prices: { wash_iron: 3000, iron_only: 2000 } }
             ];
-            localData.invoices = []; localData.expenses = []; localData.operatingCosts = []; localData.debts = [];
+            localData.invoices = []; localData.expenses = []; localData.operatingCosts = []; localData.debts = []; localData.logs = [];
             saveDataToCloud();
         }
         
@@ -92,6 +93,20 @@ function saveDataToCloud() {
         alert("فشل في حفظ البيانات: " + error.message);
     });
 }
+
+// دالة المراقبة (سجل الحركات) - تسجل كل حركة تلقائياً
+window.logAction = (actionType, details, amount = 0) => {
+    if(!localData.logs) localData.logs = [];
+    localData.logs.push({
+        id: 'LOG-' + Date.now(),
+        date: new Date().toLocaleDateString(),
+        time: new Date().toLocaleTimeString(),
+        timestamp: Date.now(),
+        type: actionType,
+        details: details,
+        amount: amount
+    });
+};
 
 // ---------------- الأزرار العامة ----------------
 window.showPOS = () => { document.getElementById('main-screen').style.display = 'none'; document.getElementById('pos-screen').classList.add('active-screen'); };
@@ -406,9 +421,11 @@ function finalizeSale(invoice) {
     localData.invoices.push(invoice);
     if(invoice.type === 'cash') localData.dailySalesCash += invoice.total;
     if(invoice.type === 'electronic') localData.dailySalesElectronic += invoice.total;
-    if(invoice.type === 'credit' && invoice.customer) localData.dailySalesCash += invoice.customer.paid;
+    iif(invoice.type === 'credit' && invoice.customer) localData.dailySalesCash += invoice.customer.paid;
 
+    window.logAction(invoice.type === 'credit' ? 'بيع آجل' : 'بيع', 'رقم الفاتورة: ' + invoice.id, invoice.total);
     saveDataToCloud();
+    
     if(document.getElementById('auto-print').checked) window.printInvoice(invoice);
 
     currentCart = []; document.getElementById('cart-notes').value = '';
@@ -481,6 +498,7 @@ window.saveEditedInvoice = () => {
     localData.invoices[oldIndex].total = newTotal;
     localData.invoices[oldIndex].notes = document.getElementById('cart-notes').value;
 
+    window.logAction('تعديل فاتورة', 'تعديل فاتورة رقم: ' + editingInvoiceId, newTotal);
     saveDataToCloud();
     editingInvoiceId = null; currentCart = []; document.getElementById('cart-notes').value = '';
     localStorage.removeItem('cart_draft'); renderCart();
@@ -504,6 +522,7 @@ window.deleteInvoice = (id) => {
             else if(inv.type === 'credit' && inv.customer) localData.dailySalesCash -= inv.customer.paid;
         }
 
+        window.logAction('حذف فاتورة', 'تم حذف فاتورة رقم: ' + inv.id, inv.total);
         localData.invoices.splice(index, 1);
         saveDataToCloud();
         window.openPreviousInvoices(); 
@@ -570,6 +589,7 @@ window.saveExpense = () => {
     });
     
     localData.dailySalesCash -= amount;
+    window.logAction('إضافة مصروف', detail, amount);
     saveDataToCloud();
     window.closeModals();
     document.getElementById('expense-detail').value = ''; 
@@ -648,6 +668,7 @@ window.deleteExpense = (index) => {
             localData.dailySalesCash += exp.amount;
         }
 
+        window.logAction('حذف مصروف', exp.detail, exp.amount);
         localData.expenses.splice(index, 1);
         saveDataToCloud();
         window.openPreviousExpenses(); 
