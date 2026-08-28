@@ -499,16 +499,103 @@ window.printInvoice = (invoice) => {
 
 // ---------------- الصرفيات ----------------
 window.openExpensesModal = () => { document.getElementById('modal-expenses').style.display = 'flex'; };
+
 window.saveExpense = () => {
     const detail = document.getElementById('expense-detail').value;
     const amount = parseFloat(document.getElementById('expense-amount').value);
     if(!detail || isNaN(amount)) return alert('يرجى ملء الحقول');
 
-    localData.expenses.push({ date: new Date().toLocaleDateString(), detail: detail, amount: amount });
+    if(!localData.expenses) localData.expenses = [];
+    localData.expenses.push({ 
+        timestamp: Date.now(), // أضفنا طابع زمني لترتيبها من الأحدث للأقدم
+        date: new Date().toLocaleDateString(), 
+        detail: detail, 
+        amount: amount 
+    });
+    
     localData.dailySalesCash -= amount;
     saveDataToCloud();
     window.closeModals();
-    document.getElementById('expense-detail').value = ''; document.getElementById('expense-amount').value = '';
+    document.getElementById('expense-detail').value = ''; 
+    document.getElementById('expense-amount').value = '';
+    alert('تم خصم المصروف من الصندوق بنجاح!');
+};
+
+// دالة عرض الصرفيات السابقة (مرتبة من الأحدث للأقدم)
+window.openPreviousExpenses = () => {
+    const tbody = document.getElementById('expenses-list-body');
+    tbody.innerHTML = '';
+    
+    // سحب الصرفيات مع الاحتفاظ برقم الفهرس الأصلي (لتسهيل التعديل والحذف) وترتيبها
+    const sorted = (localData.expenses || []).map((e, index) => ({...e, originalIndex: index}))
+        .sort((a, b) => (b.timestamp || b.originalIndex) - (a.timestamp || a.originalIndex));
+    
+    sorted.forEach(exp => {
+        tbody.innerHTML += `
+            <tr>
+                <td>${exp.date}</td>
+                <td>${exp.detail}</td>
+                <td style="color:var(--red-danger); font-weight:bold;">${exp.amount.toLocaleString()}</td>
+                <td>
+                    <i class="fa-solid fa-pen action-icon" style="color: #4a90e2;" onclick='window.openEditExpense(${exp.originalIndex})' title="تعديل"></i>
+                    <i class="fa-solid fa-trash action-icon" style="color: var(--red-danger);" onclick='window.deleteExpense(${exp.originalIndex})' title="حذف"></i>
+                </td>
+            </tr>
+        `;
+    });
+    
+    document.getElementById('modal-expenses').style.display = 'none';
+    document.getElementById('modal-edit-expense').style.display = 'none';
+    document.getElementById('modal-previous-expenses').style.display = 'flex';
+};
+
+// متغير للاحتفاظ برقم المصروف قيد التعديل
+let editingExpenseIndex = null;
+
+window.openEditExpense = (index) => {
+    const exp = localData.expenses[index];
+    if(!exp) return;
+    editingExpenseIndex = index;
+    document.getElementById('edit-expense-detail').value = exp.detail;
+    document.getElementById('edit-expense-amount').value = exp.amount;
+    
+    document.getElementById('modal-previous-expenses').style.display = 'none';
+    document.getElementById('modal-edit-expense').style.display = 'flex';
+};
+
+window.saveEditedExpense = () => {
+    const newDetail = document.getElementById('edit-expense-detail').value;
+    const newAmount = parseFloat(document.getElementById('edit-expense-amount').value);
+    if(!newDetail || isNaN(newAmount)) return alert('يرجى ملء الحقول بشكل صحيح');
+
+    const oldExp = localData.expenses[editingExpenseIndex];
+    
+    // إذا كان المصروف لليوم الحالي، نقوم بإرجاع المبلغ القديم للصندوق وخصم المبلغ الجديد
+    if(oldExp.date === new Date().toLocaleDateString()) {
+        localData.dailySalesCash += oldExp.amount; // إرجاع القديم
+        localData.dailySalesCash -= newAmount;     // خصم الجديد
+    }
+
+    localData.expenses[editingExpenseIndex].detail = newDetail;
+    localData.expenses[editingExpenseIndex].amount = newAmount;
+
+    saveDataToCloud();
+    window.openPreviousExpenses(); // العودة لقائمة الصرفيات بعد التعديل
+};
+
+window.deleteExpense = (index) => {
+    if(!confirm('هل أنت متأكد من حذف هذا المصروف؟')) return;
+    
+    const exp = localData.expenses[index];
+    
+    // إذا كان المصروف لليوم الحالي، نقوم بإرجاع مبلغه لصندوق اليوم
+    if(exp.date === new Date().toLocaleDateString()) {
+        localData.dailySalesCash += exp.amount;
+    }
+
+    localData.expenses.splice(index, 1);
+    saveDataToCloud();
+    window.openPreviousExpenses(); // تحديث القائمة فوراً
 };
 
 // ---------------- تحديث الـ UI (مبيعات اليوم) ----------------
