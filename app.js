@@ -500,7 +500,8 @@ window.deleteInvoice = (id) => {
 
         if (inv.date === new Date().toLocaleDateString()) {
             if(inv.type === 'cash') localData.dailySalesCash -= inv.total;
-            if(inv.type === 'electronic') localData.dailySalesElectronic -= inv.total;
+            else if(inv.type === 'electronic') localData.dailySalesElectronic -= inv.total;
+            else if(inv.type === 'credit' && inv.customer) localData.dailySalesCash -= inv.customer.paid;
         }
 
         localData.invoices.splice(index, 1);
