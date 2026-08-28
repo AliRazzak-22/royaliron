@@ -330,6 +330,17 @@
                 <tbody id="invoices-list-body"></tbody>
             </table>
             <div class="modal-actions"><button class="btn btn-cancel" style="width:100%" onclick="window.closeModals()">إغلاق</button></div>
+    
+            <!-- 6. نافذة التأكيد المخصصة (بديل رسالة المتصفح المزعجة) -->
+    <div id="modal-custom-confirm" class="modal-overlay" style="z-index: 3000;">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size: 60px; color: var(--red-danger); margin-bottom: 20px;"></i>
+            <div class="modal-title" style="color: var(--red-danger); margin-bottom: 10px;">تأكيد الحذف</div>
+            <p id="custom-confirm-msg" style="font-size: 18px; margin-bottom: 25px; color: var(--text-white);"></p>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background: var(--red-danger); color: white;" onclick="window.executeConfirm()">نعم، احذف نهائياً</button>
+                <button class="btn btn-cancel" onclick="window.closeConfirmModal()">إلغاء</button>
+            </div>
         </div>
     </div>
 
