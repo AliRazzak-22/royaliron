@@ -51,6 +51,7 @@ async function initializeDB() {
             localData.operatingCosts = Object.values(localData.operatingCosts || {});
             localData.debts = Object.values(localData.debts || {});
             localData.logs = Object.values(localData.logs || {});
+            localData.settings = localData.settings || { name: "مكوى رويال VIP", phone: "07800000000", address: "الكوفة، النجف الأشرف", password: "ahmed2003" };
 
             // تصفير مبيعات اليوم إذا بدأ يوم جديد
             if(localData.lastDate !== new Date().toDateString()) {
@@ -69,6 +70,7 @@ async function initializeDB() {
                 { id: 'shirt', name: 'قميص', icon: 'fa-shirt', prices: { wash_iron: 3000, iron_only: 2000 } }
             ];
             localData.invoices = []; localData.expenses = []; localData.operatingCosts = []; localData.debts = []; localData.logs = [];
+            localData.settings = { name: "مكوى رويال VIP", phone: "07800000000", address: "الكوفة، النجف الأشرف", password: "ahmed2003" };
             saveDataToCloud();
         }
         
@@ -129,13 +131,13 @@ window.executeConfirm = () => {
     window.closeConfirmModal();
 };
 window.checkAdminPassword = () => {
-    if(document.getElementById('admin-password').value === 'ahmed2003') {
+    if(document.getElementById('admin-password').value === localData.settings.password) {
         window.closeModals();
         document.getElementById('main-screen').style.display = 'none';
         document.getElementById('admin-screen').classList.add('active-screen');
         document.getElementById('admin-password').value = '';
         window.updateAdminDashboard();
-    } else { alert('رمز الدخول خاطئ!'); }
+    } else { window.showAlert('رمز الدخول خاطئ!', 'error'); }
 };
 // ---------------- نظام التنبيهات الذكي (بديل المتصفح) ----------------
 window.showAlert = (msg, type = 'warning') => {
