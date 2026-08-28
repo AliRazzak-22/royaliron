@@ -709,7 +709,9 @@ window.switchAdminTab = (tab) => {
     document.querySelectorAll('.admin-nav-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(`admin-${tab}`).classList.add('active');
     event.target.classList.add('active');
-    window.updateAdminDashboard();
+    
+    if(tab === 'dashboard') window.updateAdminDashboard();
+    if(tab === 'logs') window.renderLogs();
 };
 
 window.updateAdminDashboard = () => {
@@ -785,3 +787,60 @@ window.confirmPayDebt = () => {
 };
 
 window.onload = initializeDB;
+
+// دالة فتح الصرفيات للآدمن مع استخراج اسم اليوم
+window.openAdminExpensesModal = () => {
+    const tbody = document.getElementById('admin-expenses-detail-body');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+    
+    // ترتيب من الأحدث للأقدم
+    const sorted = (localData.expenses || []).sort((a, b) => b.timestamp - a.timestamp);
+    
+    sorted.forEach(exp => {
+        // استخراج اسم اليوم (جمعة، سبت...)
+        const dateObj = new Date(exp.timestamp || Date.now());
+        const dayName = new Intl.DateTimeFormat('ar-IQ', { weekday: 'long' }).format(dateObj);
+        
+        tbody.innerHTML += `
+            <tr>
+                <td>${exp.date}</td>
+                <td style="color:var(--gold); font-weight:bold;">${dayName}</td>
+                <td>${exp.detail}</td>
+                <td style="color:var(--red-danger); font-weight:bold;">${exp.amount.toLocaleString()} د.ع</td>
+            </tr>
+        `;
+    });
+    
+    document.getElementById('modal-admin-expenses').style.display = 'flex';
+};
+// دالة عرض وتصفية سجل الحركات (Audit Log)
+window.renderLogs = (filterText = '') => {
+    const tbody = document.getElementById('logs-table-body');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+    
+    const sorted = (localData.logs || []).sort((a,b) => b.timestamp - a.timestamp);
+    
+    sorted.forEach(log => {
+        // الفلترة في حالة البحث
+        if(filterText && !log.details.includes(filterText) && !log.type.includes(filterText)) return;
+        
+        // تحديد لون الحركة (حذف = أحمر، تعديل = أزرق، إضافة/بيع = أخضر)
+        let typeClass = 'log-type ';
+        if(log.type.includes('حذف')) typeClass += 'log-delete';
+        else if(log.type.includes('تعديل')) typeClass += 'log-edit';
+        else typeClass += 'log-add';
+
+        tbody.innerHTML += `
+            <tr>
+                <td style="font-size:13px; color:var(--text-gray);">${log.date} <br> ${log.time}</td>
+                <td><span class="${typeClass}">${log.type}</span></td>
+                <td>${log.details}</td>
+                <td style="font-weight:bold;">${log.amount.toLocaleString()} د.ع</td>
+            </tr>
+        `;
+    });
+};
+
+window.filterLogs = (val) => window.renderLogs(val);
