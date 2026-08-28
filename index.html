@@ -453,7 +453,21 @@
             </div>
         </div>
     </div>
-
+<!-- 12. نافذة تسديد الديون (VIP Prompt) -->
+    <div id="modal-pay-debt" class="modal-overlay">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-title" style="color: #4a90e2;"><i class="fa-solid fa-hand-holding-dollar"></i> تسديد دفعة</div>
+            <p id="debt-pay-msg" style="text-align: center; margin-bottom: 15px;"></p>
+            <div class="input-group">
+                <label>المبلغ المدفوع الآن (نقدي)</label>
+                <input type="number" id="debt-pay-amount" placeholder="أدخل المبلغ...">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background: #4a90e2; color: white;" onclick="window.confirmPayDebt()">تسديد</button>
+                <button class="btn btn-cancel" onclick="window.closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
 
     
     <!-- هيكل الطباعة (مخفي للطباعة الحرارية 80mm) -->
