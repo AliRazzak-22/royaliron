@@ -111,13 +111,51 @@ async function initializeDB() {
     }
 }
 
+// --- التدخل الجراحي: نظام إعادة الحساب الديناميكي لحماية صندوق الكاشير من التجمد ---
+window.recalculateDailySales = () => {
+    let todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0); // بداية اليوم الحالي (الساعة 12:00 ليلاً)
+    
+    let realCash = 0; 
+    let realElectronic = 0;
+    
+    // 1. حساب الفواتير (نعتمد على الطابع الزمني الثابت Timestamp)
+    (localData.invoices || []).forEach(inv => {
+        if(inv.timestamp && inv.timestamp >= todayStart.getTime()) {
+            if (inv.type === 'cash') realCash += inv.total;
+            else if (inv.type === 'electronic') realElectronic += inv.total;
+            else if (inv.type === 'credit' && inv.customer) realCash += (inv.customer.paid || 0);
+        }
+    });
+    
+    // 2. خصم المصروفات لليوم الحالي
+    (localData.expenses || []).forEach(exp => {
+        if(exp.timestamp && exp.timestamp >= todayStart.getTime()) { 
+            realCash -= exp.amount; 
+        }
+    });
+    
+    // 3. إضافة الديون المسددة اليوم
+    (localData.logs || []).forEach(log => {
+        if(log.type === 'تسديد دين' && log.timestamp && log.timestamp >= todayStart.getTime()) { 
+            realCash += log.amount; 
+        }
+    });
+    
+    // تحديث الأرقام بناءً على الحساب الواقعي 100%
+    localData.dailySalesCash = realCash;
+    localData.dailySalesElectronic = realElectronic;
+};
+
 function saveDataToCloud() {
+    window.recalculateDailySales(); // فلتر الأمان: إعادة حساب الصندوق قبل الحفظ
     set(ref(database, 'royal_data'), localData).then(() => {
         updateUI();
     }).catch((error) => {
-        alert("فشل في حفظ البيانات: " + error.message);
+        window.showAlert("فشل في حفظ البيانات: " + error.message, 'error');
     });
 }
+// -------------------------------------------------------------------
 
 // دالة المراقبة (سجل الحركات) - تسجل كل حركة تلقائياً
 window.logAction = (actionType, details, amount = 0, snapshot = null) => {
@@ -777,7 +815,11 @@ function animateValue(obj, start, end, duration) {
         if (!startTimestamp) startTimestamp = timestamp;
         const progress = Math.min((timestamp - startTimestamp) / duration, 1);
         obj.innerHTML = Math.floor(progress * (end - start) + start).toLocaleString();
-        if (progress < 1) { window.requestAnimationFrame(step); }
+        if (progress < 1) { 
+            window.requestAnimationFrame(step); 
+        } else {
+            obj.innerHTML = end.toLocaleString(); // ضمان توقف الرقم النهائي بدقة تامة
+        }
     };
     window.requestAnimationFrame(step);
 }
