@@ -97,7 +97,7 @@ function saveDataToCloud() {
 }
 
 // دالة المراقبة (سجل الحركات) - تسجل كل حركة تلقائياً
-window.logAction = (actionType, details, amount = 0) => {
+window.logAction = (actionType, details, amount = 0, snapshot = null) => {
     if(!localData.logs) localData.logs = [];
     localData.logs.push({
         id: 'LOG-' + Date.now(),
@@ -106,10 +106,10 @@ window.logAction = (actionType, details, amount = 0) => {
         timestamp: Date.now(),
         type: actionType,
         details: details,
-        amount: amount
+        amount: amount,
+        snapshot: snapshot // الصورة الشعاعية للبيانات
     });
 };
-
 // ---------------- الأزرار العامة ----------------
 window.showPOS = () => { document.getElementById('main-screen').style.display = 'none'; document.getElementById('pos-screen').classList.add('active-screen'); };
 window.exitToMain = () => { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen')); document.getElementById('main-screen').style.display = 'flex'; };
@@ -425,7 +425,7 @@ function finalizeSale(invoice) {
     if(invoice.type === 'electronic') localData.dailySalesElectronic += invoice.total;
     if(invoice.type === 'credit' && invoice.customer) localData.dailySalesCash += invoice.customer.paid;
 
-    window.logAction(invoice.type === 'credit' ? 'بيع آجل' : 'بيع', 'رقم الفاتورة: ' + invoice.id, invoice.total);
+    window.logAction(invoice.type === 'credit' ? 'بيع آجل' : 'بيع', 'رقم الفاتورة: ' + invoice.id, invoice.total, invoice);
     saveDataToCloud();
     
     if(document.getElementById('auto-print').checked) window.printInvoice(invoice);
@@ -500,7 +500,7 @@ window.saveEditedInvoice = () => {
     localData.invoices[oldIndex].total = newTotal;
     localData.invoices[oldIndex].notes = document.getElementById('cart-notes').value;
 
-    window.logAction('تعديل فاتورة', 'تعديل فاتورة رقم: ' + editingInvoiceId, newTotal);
+    window.logAction('تعديل فاتورة', 'تعديل فاتورة رقم: ' + editingInvoiceId, newTotal, { oldInvoice: oldInvoice, newCart: currentCart });
     saveDataToCloud();
     editingInvoiceId = null; currentCart = []; document.getElementById('cart-notes').value = '';
     localStorage.removeItem('cart_draft'); renderCart();
@@ -524,7 +524,7 @@ window.deleteInvoice = (id) => {
             else if(inv.type === 'credit' && inv.customer) localData.dailySalesCash -= inv.customer.paid;
         }
 
-        window.logAction('حذف فاتورة', 'تم حذف فاتورة رقم: ' + inv.id, inv.total);
+        window.logAction('حذف فاتورة', 'تم حذف فاتورة رقم: ' + inv.id, inv.total, inv);
         localData.invoices.splice(index, 1);
         saveDataToCloud();
         window.openPreviousInvoices(); 
@@ -658,6 +658,7 @@ window.saveEditedExpense = () => {
 
     localData.expenses[editingExpenseIndex].detail = newDetail;
     localData.expenses[editingExpenseIndex].amount = newAmount;
+    window.logAction('تعديل مصروف', 'تعديل من: ' + oldExp.detail, newAmount, { oldExpense: oldExp, newExpense: {detail: newDetail, amount: newAmount} });
 
     saveDataToCloud();
     window.openPreviousExpenses(); // العودة لقائمة الصرفيات بعد التعديل
@@ -672,7 +673,7 @@ window.deleteExpense = (index) => {
             localData.dailySalesCash += exp.amount;
         }
 
-        window.logAction('حذف مصروف', exp.detail, exp.amount);
+        window.logAction('حذف مصروف', exp.detail, exp.amount, exp);
         localData.expenses.splice(index, 1);
         saveDataToCloud();
         window.openPreviousExpenses(); 
@@ -883,6 +884,28 @@ window.confirmPayDebt = () => {
     }
 };
 
+// دالة الفلترة (احتياطياً في حال لم تكن موجودة لضمان عمل شريط البحث)
+window.filterLogs = (val) => { if(window.renderLogs) window.renderLogs(val); };
+
+// دالة المشاهدة العميقة والمحلل الذكي (Deep View)
+window.viewLogDetails = (id) => {
+    const log = localData.logs.find(l => l.id === id);
+    if(!log || !log.snapshot) return;
+    
+    // تحويل الكائن إلى JSON منسق وملون ليعطي طابع تحليلي عميق
+    const formattedJSON = JSON.stringify(log.snapshot, null, 2);
+    
+    document.getElementById('log-deep-view-content').innerHTML = `
+        <div style="margin-bottom: 15px; border-bottom: 1px dashed #333; padding-bottom: 10px;">
+            <span style="color:var(--text-gray);">نوع الإجراء:</span> 
+            <strong style="color:var(--gold); font-size:18px;">${log.type}</strong>
+        </div>
+        <pre dir="ltr" style="color: #2ed573; font-family: monospace; font-size: 15px; white-space: pre-wrap; margin:0;">${formattedJSON}</pre>
+    `;
+    
+    document.getElementById('modal-log-details').style.display = 'flex';
+};
+
 window.onload = initializeDB;
 
 // دالة فتح الصرفيات للآدمن مع استخراج اسم اليوم
@@ -920,14 +943,15 @@ window.renderLogs = (filterText = '') => {
     const sorted = (localData.logs || []).sort((a,b) => b.timestamp - a.timestamp);
     
     sorted.forEach(log => {
-        // الفلترة في حالة البحث
         if(filterText && !log.details.includes(filterText) && !log.type.includes(filterText)) return;
         
-        // تحديد لون الحركة (حذف = أحمر، تعديل = أزرق، إضافة/بيع = أخضر)
         let typeClass = 'log-type ';
         if(log.type.includes('حذف')) typeClass += 'log-delete';
         else if(log.type.includes('تعديل')) typeClass += 'log-edit';
         else typeClass += 'log-add';
+
+        // زر العين يظهر فقط إذا كانت هناك بيانات ملتقطة (snapshot)
+        let actionBtn = log.snapshot ? `<button class="top-bar-btn" style="padding: 4px 10px; font-size:12px; border-color:#4a90e2; color:#4a90e2;" onclick="window.viewLogDetails('${log.id}')" title="عرض التفاصيل"><i class="fa-solid fa-eye"></i></button>` : '-';
 
         tbody.innerHTML += `
             <tr>
@@ -935,6 +959,7 @@ window.renderLogs = (filterText = '') => {
                 <td><span class="${typeClass}">${log.type}</span></td>
                 <td>${log.details}</td>
                 <td style="font-weight:bold;">${log.amount.toLocaleString()} د.ع</td>
+                <td>${actionBtn}</td>
             </tr>
         `;
     });
