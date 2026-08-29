@@ -94,6 +94,17 @@ async function initializeDB() {
             currentCart = JSON.parse(localStorage.getItem('cart_draft'));
             renderCart();
         }
+        
+        // --- استرجاع حالة الشاشة والتبويب بعد التحديث (الرفرش) ---
+        const savedScreen = sessionStorage.getItem('active_screen');
+        if (savedScreen === 'pos') {
+            window.showPOS();
+        } else if (savedScreen === 'admin') {
+            document.getElementById('main-screen').style.display = 'none';
+            document.getElementById('admin-screen').classList.add('active-screen');
+            const savedTab = sessionStorage.getItem('admin_tab') || 'dashboard';
+            window.switchAdminTab(savedTab);
+        }
     } catch (error) {
         console.error("Firebase Error:", error);
         alert("حدث خطأ في الاتصال بقاعدة البيانات. يرجى التحقق من الإنترنت.");
@@ -124,6 +135,7 @@ window.logAction = (actionType, details, amount = 0, snapshot = null) => {
 };
 // ---------------- الأزرار العامة ----------------
 window.showPOS = () => { 
+    sessionStorage.setItem('active_screen', 'pos'); // حفظ مسار الكاشير
     document.getElementById('main-screen').style.display = 'none'; 
     document.getElementById('pos-screen').classList.add('active-screen'); 
     
@@ -141,6 +153,8 @@ window.showPOS = () => {
 };
 
 window.exitToMain = () => { 
+    sessionStorage.removeItem('active_screen'); // تفريغ الذاكرة
+    sessionStorage.removeItem('admin_tab');
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen')); 
     document.getElementById('main-screen').style.display = 'flex'; 
     
@@ -184,6 +198,7 @@ window.executeConfirm = () => {
 };
 window.checkAdminPassword = () => {
     if(document.getElementById('admin-password').value === localData.settings.password) {
+        sessionStorage.setItem('active_screen', 'admin'); // حفظ مسار الآدمن
         window.closeModals();
         document.getElementById('main-screen').style.display = 'none';
         document.getElementById('admin-screen').classList.add('active-screen');
@@ -769,6 +784,7 @@ function animateValue(obj, start, end, duration) {
 
 // ---------------- وظائف الآدمن ----------------
 window.switchAdminTab = (tab) => {
+    sessionStorage.setItem('admin_tab', tab); // حفظ التبويب المحدد
     document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.admin-nav-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(`admin-${tab}`).classList.add('active');
