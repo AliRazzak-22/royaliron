@@ -113,6 +113,19 @@ window.logAction = (actionType, details, amount = 0, snapshot = null) => {
 // ---------------- الأزرار العامة ----------------
 window.showPOS = () => { document.getElementById('main-screen').style.display = 'none'; document.getElementById('pos-screen').classList.add('active-screen'); };
 window.exitToMain = () => { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen')); document.getElementById('main-screen').style.display = 'flex'; };
+
+// --- دالة ملء الشاشة المتطورة للكاشير ---
+window.toggleFullScreen = () => {
+    const btnIcon = document.querySelector('#fullscreen-btn i');
+    if (!document.fullscreenElement) { 
+        document.documentElement.requestFullscreen().catch(err => console.log(err));
+        if(btnIcon) { btnIcon.classList.remove('fa-expand'); btnIcon.classList.add('fa-compress'); }
+    } else { 
+        if (document.exitFullscreen) { document.exitFullscreen(); }
+        if(btnIcon) { btnIcon.classList.remove('fa-compress'); btnIcon.classList.add('fa-expand'); }
+    }
+};
+// ----------------------------------------
 window.openAdminLogin = () => { document.getElementById('modal-admin-login').style.display = 'flex'; };
 window.closeModals = () => { document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none'); };
 // ---------------- نظام رسائل التأكيد المخصصة ----------------
