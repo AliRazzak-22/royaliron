@@ -222,14 +222,9 @@ window.closeAlertModal = () => {
     document.getElementById('alert-icon-container').className = ''; // إعادة تهيئة الحركة
 };
 
-// 🔴 السحر: اعتراض جميع رسائل المتصفح (alert) وتحويلها للنافذة الذكية تلقائياً
+// 🔴 السحر المطور: أي خطأ برمجي سيظهر كخطأ أحمر، ورسائل النجاح نحددها برمجياً
 window.alert = (msg) => {
-    let type = 'warning';
-    // تحديد نوع الرسالة من خلال الكلمات المفتاحية
-    if(msg.includes('بنجاح') || msg.includes('تم')) type = 'success';
-    else if(msg.includes('خاطئ') || msg.includes('خطأ') || msg.includes('فارغة') || msg.includes('فشل') || msg.includes('غير صحيح')) type = 'error';
-    
-    window.showAlert(msg, type);
+    window.showAlert(msg, 'error'); 
 };
 
 // ---------------- بناء الواجهة (الخلايا) ----------------
@@ -564,7 +559,7 @@ window.saveEditedInvoice = () => {
     document.querySelector('.btn-cash').style.display = 'flex';
     document.querySelector('.btn-electronic').style.display = 'flex';
     document.querySelector('.btn-credit').style.display = 'flex';
-    alert('تم حفظ تعديلات الفاتورة بنجاح!');
+    window.showAlert('تم حفظ تعديلات الفاتورة بنجاح!', 'success');
 };
 
 window.deleteInvoice = (id) => {
@@ -662,7 +657,7 @@ window.saveExpense = () => {
     window.closeModals();
     document.getElementById('expense-detail').value = ''; 
     document.getElementById('expense-amount').value = '';
-    alert('تم خصم المصروف من الصندوق بنجاح!');
+    window.showAlert('تم خصم المصروف من الصندوق بنجاح!', 'success');
 };
 
 // دالة عرض الصرفيات السابقة (مرتبة من الأحدث للأقدم)
@@ -741,7 +736,7 @@ window.deleteExpense = (index) => {
         localData.expenses.splice(index, 1);
         saveDataToCloud();
         window.openPreviousExpenses(); 
-        alert('تم حذف المصروف بنجاح!'); 
+        window.showAlert('تم حذف المصروف بنجاح!', 'success'); 
     });
 };
 
@@ -804,8 +799,8 @@ window.updateAdminDashboard = () => {
 
     // حساب الفواتير
     (localData.invoices || []).forEach(inv => {
-        let invDate = new Date(inv.timestamp || Date.now());
-        let monthStr = `${invDate.getFullYear()}-${String(invDate.getMonth() + 1).padStart(2, '0')}`;
+        // تسريع المعالجة: تجنب تكرار بناء كائن التاريخ إذا كان مسجلاً سابقاً
+        let monthStr = inv.monthStr || `${new Date(inv.timestamp || Date.now()).getFullYear()}-${String(new Date(inv.timestamp || Date.now()).getMonth() + 1).padStart(2, '0')}`;
         let dayStr = invDate.toLocaleDateString();
 
         if (isAllTime || monthStr === selectedMonth) {
