@@ -282,10 +282,32 @@ input, select { font-family: 'Cairo', sans-serif; outline: none; }
     .admin-nav-btn.active { background: rgba(212, 175, 55, 0.2); border-bottom: 2px solid var(--gold); }
     .admin-content { padding: 15px; }
     
-    /* 4. حماية الجداول من التشوه على الجوال (إضافة تمرير جانبي مخفي) */
+    /* 4. حصر التمرير (السحب) داخل الجداول فقط ومنعه في باقي الشاشة */
     .cart-table-wrapper { overflow-x: auto; }
-    .admin-section { overflow-x: auto; padding-bottom: 15px; }
-    .cart-table, .invoices-table { min-width: 550px; /* يمنع تكسر النصوص */ }
+    .admin-section { overflow-x: hidden; padding-bottom: 15px; } /* يمنع تحرك الشاشة بالكامل */
+    
+    .cart-table, .invoices-table { 
+        display: block; 
+        width: 100%; 
+        overflow-x: auto; /* يفعل السحب لليمين واليسار داخل الجدول فقط */
+        white-space: nowrap; /* يمنع تكسر النصوص للسطر الثاني */
+    }
+
+    /* 4.1. تصغير وترتيب خلايا المجاميع (الإحصائيات) لتصبح عمودية وأنيقة */
+    #admin-dashboard div[style*="400px"] { 
+        grid-template-columns: 1fr !important; /* خلية واحدة في كل سطر */
+        gap: 15px !important; 
+    }
+    .stat-card[style*="span 2"] { 
+        grid-column: span 1 !important; /* إلغاء التمدد المزدوج لبطاقة صافي الربح */
+    }
+    .stat-card { 
+        padding: 15px !important; /* تصغير حجم البطاقة */
+    }
+    .stat-icon { font-size: 28px !important; margin-bottom: 5px !important; }
+    .stat-title { font-size: 13px !important; margin-bottom: 5px !important; }
+    .stat-value { font-size: 20px !important; }
+    .stat-value.profit { font-size: 22px !important; }
     
     /* 5. النوافذ المنبثقة (Modals) */
     .modal-content { width: 95%; padding: 20px; }
