@@ -556,6 +556,8 @@ window.viewInvoice = (id) => {
 };
 
 window.printInvoice = (invoice) => {
+    document.getElementById('print-header-name').innerText = localData.settings.name;
+    document.getElementById('print-footer-info').innerHTML = `العنوان: ${localData.settings.address}<br>هاتف: ${localData.settings.phone}<br>لمسة ملكية تليق بك`;
     document.getElementById('p-date').innerText = invoice.date; document.getElementById('p-time').innerText = invoice.time;
     document.getElementById('p-inv').innerText = invoice.id; document.getElementById('p-type').innerText = invoice.type === 'cash' ? 'نقدي' : (invoice.type === 'electronic' ? 'إلكتروني' : 'آجل');
     
@@ -714,30 +716,94 @@ window.switchAdminTab = (tab) => {
     
     if(tab === 'dashboard') window.updateAdminDashboard();
     if(tab === 'logs') window.renderLogs();
+    if(tab === 'settings') {
+        document.getElementById('set-name').value = localData.settings.name;
+        document.getElementById('set-phone').value = localData.settings.phone;
+        document.getElementById('set-address').value = localData.settings.address;
+    }
 };
 
 window.updateAdminDashboard = () => {
+    // جلب فلتر الشهر
+    let monthInput = document.getElementById('admin-month-filter');
+    if (!monthInput.value) {
+        let now = new Date();
+        monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+    const selectedMonth = monthInput.value;
+    const isAllTime = selectedMonth === 'all';
+
     let totalSalesCash = 0; let totalSalesElectronic = 0;
-    (localData.invoices || []).forEach(i => {
-        if(i.type === 'cash') totalSalesCash += i.total;
-        else if (i.type === 'electronic') totalSalesElectronic += i.total;
-        else if (i.type === 'credit' && i.customer) totalSalesCash += i.customer.paid;
+    let totalExpenses = 0; let totalCosts = 0;
+    let dailyReports = {}; // كائن لتجميع بيانات الأيام
+
+    // حساب الفواتير
+    (localData.invoices || []).forEach(inv => {
+        let invDate = new Date(inv.timestamp || Date.now());
+        let monthStr = `${invDate.getFullYear()}-${String(invDate.getMonth() + 1).padStart(2, '0')}`;
+        let dayStr = invDate.toLocaleDateString();
+
+        if (isAllTime || monthStr === selectedMonth) {
+            let amount = (inv.type === 'credit' && inv.customer) ? inv.customer.paid : inv.total;
+            if(inv.type === 'cash' || inv.type === 'credit') totalSalesCash += amount;
+            else if (inv.type === 'electronic') totalSalesElectronic += amount;
+
+            if(!dailyReports[dayStr]) dailyReports[dayStr] = { sales: 0, expenses: 0, details: [], timestamp: invDate.getTime() };
+            dailyReports[dayStr].sales += amount;
+        }
     });
 
-    let totalExpenses = (localData.expenses || []).reduce((sum, e) => sum + e.amount, 0);
-    let totalCosts = (localData.operatingCosts || []).reduce((sum, c) => sum + c.amount, 0);
+    // حساب الصرفيات
+    (localData.expenses || []).forEach(exp => {
+        let expDate = new Date(exp.timestamp || Date.now());
+        let monthStr = `${expDate.getFullYear()}-${String(expDate.getMonth() + 1).padStart(2, '0')}`;
+        let dayStr = expDate.toLocaleDateString();
+
+        if (isAllTime || monthStr === selectedMonth) {
+            totalExpenses += exp.amount;
+            if(!dailyReports[dayStr]) dailyReports[dayStr] = { sales: 0, expenses: 0, details: [], timestamp: expDate.getTime() };
+            dailyReports[dayStr].expenses += exp.amount;
+            dailyReports[dayStr].details.push(exp.detail);
+        }
+    });
+
+    // التكاليف التشغيلية (تحسب للكلي حالياً)
+    (localData.operatingCosts || []).forEach(c => { totalCosts += c.amount; });
+
     let netProfit = (totalSalesCash + totalSalesElectronic) - totalExpenses - totalCosts;
 
+    // تحديث الأرقام العلوية
     document.getElementById('admin-month-sales-cash').innerText = totalSalesCash.toLocaleString() + ' د.ع';
     document.getElementById('admin-month-sales-electronic').innerText = totalSalesElectronic.toLocaleString() + ' د.ع';
     document.getElementById('admin-month-expenses').innerText = totalExpenses.toLocaleString() + ' د.ع';
     document.getElementById('admin-month-costs').innerText = totalCosts.toLocaleString() + ' د.ع';
     document.getElementById('admin-net-profit').innerText = netProfit.toLocaleString() + ' د.ع';
 
-    const costsTbody = document.getElementById('costs-table-body');
-    costsTbody.innerHTML = '';
-    (localData.operatingCosts || []).forEach(c => { costsTbody.innerHTML += `<tr><td>${c.date}</td><td>${c.name}</td><td>${c.amount.toLocaleString()}</td></tr>`; });
+    // توليد جدول التقارير اليومية
+    const dailyTbody = document.getElementById('admin-daily-reports-body');
+    dailyTbody.innerHTML = '';
+    
+    // ترتيب الأيام من الأحدث للأقدم
+    const sortedDays = Object.keys(dailyReports).sort((a, b) => dailyReports[b].timestamp - dailyReports[a].timestamp);
 
+    sortedDays.forEach(day => {
+        let data = dailyReports[day];
+        let dayName = new Intl.DateTimeFormat('ar-IQ', { weekday: 'long' }).format(new Date(data.timestamp));
+        let net = data.sales - data.expenses;
+        
+        dailyTbody.innerHTML += `
+            <tr>
+                <td>${day}</td>
+                <td style="color:var(--gold);">${dayName}</td>
+                <td style="color:var(--green-success); font-weight:bold;">${data.sales.toLocaleString()}</td>
+                <td style="color:var(--red-danger); font-weight:bold;">${data.expenses.toLocaleString()}</td>
+                <td style="font-size:12px;">${data.details.join('، ') || '-'}</td>
+                <td style="font-weight:bold; color:${net >= 0 ? 'var(--green-success)' : 'var(--red-danger)'};">${net.toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    // قسم الديون
     const debtsTbody = document.getElementById('debts-table-body');
     debtsTbody.innerHTML = '';
     (localData.debts || []).forEach((d, index) => {
@@ -747,6 +813,35 @@ window.updateAdminDashboard = () => {
             <td><button class="top-bar-btn" onclick="window.payDebt(${index})">تسديد دفعة</button></td>
         </tr>`;
     });
+};
+
+// دوال التخصيصات الجديدة
+window.loadAllTimeStats = () => {
+    document.getElementById('admin-month-filter').value = 'all';
+    window.updateAdminDashboard();
+};
+
+window.saveSettings = () => {
+    localData.settings.name = document.getElementById('set-name').value;
+    localData.settings.phone = document.getElementById('set-phone').value;
+    localData.settings.address = document.getElementById('set-address').value;
+    saveDataToCloud();
+    window.showAlert('تم تحديث بيانات الطباعة بنجاح', 'success');
+};
+
+window.changePassword = () => {
+    const oldP = document.getElementById('set-old-pass').value;
+    const newP = document.getElementById('set-new-pass').value;
+    const confP = document.getElementById('set-confirm-pass').value;
+
+    if (oldP !== localData.settings.password) return window.showAlert('كلمة المرور القديمة غير صحيحة!', 'error');
+    if (newP.length < 4) return window.showAlert('كلمة المرور الجديدة قصيرة جداً', 'error');
+    if (newP !== confP) return window.showAlert('كلمات المرور الجديدة غير متطابقة!', 'error');
+
+    localData.settings.password = newP;
+    saveDataToCloud();
+    window.showAlert('تم تغيير كلمة المرور بنجاح!', 'success');
+    document.getElementById('set-old-pass').value = ''; document.getElementById('set-new-pass').value = ''; document.getElementById('set-confirm-pass').value = '';
 };
 
 window.addOperatingCost = () => {
