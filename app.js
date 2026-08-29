@@ -111,8 +111,35 @@ window.logAction = (actionType, details, amount = 0, snapshot = null) => {
     });
 };
 // ---------------- الأزرار العامة ----------------
-window.showPOS = () => { document.getElementById('main-screen').style.display = 'none'; document.getElementById('pos-screen').classList.add('active-screen'); };
-window.exitToMain = () => { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen')); document.getElementById('main-screen').style.display = 'flex'; };
+window.showPOS = () => { 
+    document.getElementById('main-screen').style.display = 'none'; 
+    document.getElementById('pos-screen').classList.add('active-screen'); 
+    
+    // --- تفعيل ملء الشاشة والتدوير الأفقي التلقائي للجوال ---
+    if(window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent)){
+        let elem = document.documentElement;
+        if(elem.requestFullscreen) {
+            elem.requestFullscreen().then(() => {
+                if(screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(e => console.log("الدوران مقفول من النظام"));
+                }
+            }).catch(e => console.log(e));
+        }
+    }
+};
+
+window.exitToMain = () => { 
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen')); 
+    document.getElementById('main-screen').style.display = 'flex'; 
+    
+    // --- إلغاء ملء الشاشة وتحرير الشاشة عند الخروج للرئيسية ---
+    if(document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(e => console.log(e));
+    }
+    if(screen.orientation && screen.orientation.unlock) {
+        screen.orientation.unlock();
+    }
+};
 
 // --- دالة ملء الشاشة المتطورة للكاشير ---
 window.toggleFullScreen = () => {
