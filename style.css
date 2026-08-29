@@ -346,7 +346,7 @@ input, select { font-family: 'Cairo', sans-serif; outline: none; }
     }
 }
 
-/* 2. بيئة الكاشير الأفقية المصغرة بنسبة 50/50 الدقيقة لجميع الهواتف */
+/* 2. بيئة الكاشير الأفقية المصغرة بنسبة 50/50 الدقيقة لجميع الهواتف (نسخة الآيفون برو) */
 @media (max-width: 950px) and (orientation: landscape) {
     #pos-screen {
         height: 100dvh !important;
@@ -358,159 +358,107 @@ input, select { font-family: 'Cairo', sans-serif; outline: none; }
     /* الشريط العلوي فائق النحافة */
     #pos-screen .top-bar { 
         display: flex !important; 
-        height: 42px !important; 
-        min-height: 42px !important;
+        height: 35px !important; /* تقليل الارتفاع بشكل كبير */
+        min-height: 35px !important;
         padding: 0 10px !important; 
         border-bottom: 1px solid var(--gold) !important;
     }
-    #pos-screen .top-bar-title { font-size: 13px !important; font-weight: bold !important; }
-    #pos-screen .daily-sales-counter { font-size: 13px !important; font-weight: 800 !important; gap: 4px !important; }
-    #pos-screen .top-bar-btn { 
-        padding: 3px 8px !important; 
-        font-size: 11px !important; 
-        border-radius: 6px !important;
-    }
+    #pos-screen .top-bar-title { font-size: 12px !important; font-weight: bold !important; }
+    #pos-screen .daily-sales-counter { font-size: 12px !important; gap: 4px !important; }
+    #pos-screen .top-bar-btn { padding: 2px 6px !important; font-size: 10px !important; border-radius: 4px !important;}
 
-    /* تخطيط الـ 50/50 الكامل */
+    /* تخطيط الـ 50/50 */
     #pos-content { 
         display: flex !important; 
         flex-direction: row !important; 
-        height: calc(100dvh - 42px) !important; 
-        height: calc(100vh - 42px) !important; 
+        height: calc(100dvh - 35px) !important; 
+        height: calc(100vh - 35px) !important; 
         width: 100vw !important;
         overflow: hidden !important; 
         padding-bottom: 0 !important; 
     }
 
-    /* القسم الأيسر: سلة المبيعات (50%) */
+    /* القسم الأيسر: سلة المبيعات */
     #pos-screen .cart-section { 
-        min-width: 50% !important; 
-        max-width: 50% !important; 
-        height: 100% !important; 
-        border-right: 1px solid var(--gold) !important; 
-        border-top: none !important;
-        display: flex !important;
-        flex-direction: column !important;
+        min-width: 50% !important; max-width: 50% !important; height: 100% !important; 
+        border-right: 1px solid var(--gold) !important; border-top: none !important;
+        display: flex !important; flex-direction: column !important;
         background: var(--dark-gray) !important;
     }
-    #pos-screen .cart-table-wrapper { 
-        flex: 1 1 auto !important; 
-        overflow-y: auto !important; 
-        padding: 4px !important; 
-    }
-    #pos-screen .cart-table th { 
-        font-size: 10px !important; 
-        padding: 3px 2px !important; 
-        text-align: center !important; 
-    }
-    #pos-screen .cart-table td { 
-        padding: 3px 2px !important; 
-        font-size: 11px !important; 
-        text-align: center !important; 
-    }
-    #pos-screen .cart-table .service-type { 
-        font-size: 9px !important; 
-        padding: 1px 4px !important; 
-    }
-    #pos-screen .qty-controls { gap: 4px !important; justify-content: center !important; }
-    #pos-screen .qty-btn { 
-        width: 20px !important; 
-        height: 20px !important; 
-        font-size: 12px !important; 
-    }
-    #pos-screen .delete-btn { font-size: 12px !important; margin-right: 4px !important; }
+    
+    /* ضغط الجدول لتوفير المساحة */
+    #pos-screen .cart-table-wrapper { flex: 1 1 auto !important; overflow-y: auto !important; padding: 2px !important; }
+    #pos-screen .cart-table th { font-size: 10px !important; padding: 2px !important; text-align: center !important; border-bottom: 1px solid #444 !important; }
+    #pos-screen .cart-table td { padding: 2px !important; font-size: 10px !important; text-align: center !important; border-bottom: 1px solid #333 !important;}
+    #pos-screen .cart-table .service-type { font-size: 8px !important; padding: 1px 3px !important; margin-top: 2px !important; }
+    #pos-screen .qty-controls { gap: 2px !important; justify-content: center !important; }
+    #pos-screen .qty-btn { width: 16px !important; height: 16px !important; font-size: 10px !important; }
+    #pos-screen .delete-btn { font-size: 10px !important; margin-right: 2px !important; }
 
-    /* فوتر السلة والأزرار النقدية */
+    /* فوتر السلة (الدفع والملاحظات) - الترتيب العبقري لتقليل الارتفاع */
     #pos-screen .cart-footer { 
         flex-shrink: 0 !important;
-        padding: 6px 10px !important; 
-        background: #0f0f0f !important;
-        border-top: 1px solid var(--light-gray) !important;
+        padding: 4px 6px !important; 
+        background: #0a0a0a !important;
+        border-top: 1px solid var(--gold) !important;
     }
+    #pos-screen .pos-options { margin-bottom: 3px !important; }
     #pos-screen .note-input { 
-        padding: 4px 8px !important; 
-        font-size: 11px !important; 
-        border-radius: 5px !important;
+        padding: 3px 6px !important; font-size: 10px !important; border-radius: 4px !important; height: 24px !important;
     }
-    #pos-screen .pos-options { margin-bottom: 4px !important; gap: 4px !important; }
-    #pos-screen .print-checkbox { font-size: 11px !important; margin-bottom: 4px !important; }
-    #pos-screen .print-checkbox input { width: 14px !important; height: 14px !important; }
+    
+    /* 🔴 السحر الهندسي: دمج زر الطباعة والمجموع في نفس السطر 🔴 */
+    #pos-screen .print-checkbox { 
+        display: inline-flex !important; align-items: center !important; 
+        font-size: 9px !important; margin-bottom: 4px !important; width: 45% !important;
+    }
+    #pos-screen .print-checkbox input { width: 12px !important; height: 12px !important; margin-left: 4px !important; }
     #pos-screen .cart-total { 
-        font-size: 14px !important; 
-        margin-bottom: 6px !important; 
-        font-weight: 800 !important;
+        display: inline-flex !important; justify-content: flex-end !important; align-items: center !important;
+        font-size: 12px !important; margin-bottom: 4px !important; font-weight: 800 !important; width: 50% !important;
     }
-    #pos-screen .action-buttons { 
-        display: grid !important; 
-        grid-template-columns: 1fr 1fr !important; 
-        gap: 4px !important; 
-    }
+
+    /* أزرار الدفع المصغرة جداً (تصغير الارتفاع وتنسيق الأيقونات) */
+    #pos-screen .action-buttons { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 4px !important; }
     #pos-screen .btn { 
-        padding: 6px 4px !important; 
-        font-size: 11px !important; 
-        border-radius: 6px !important; 
-        gap: 4px !important;
+        padding: 0 !important; height: 28px !important; font-size: 10px !important; 
+        border-radius: 4px !important; gap: 4px !important; display: flex !important; justify-content: center !important; align-items: center !important;
     }
-    #pos-screen .btn-credit, #pos-screen #btn-save-edit { 
-        grid-column: span 2 !important; 
-        padding: 4px !important;
-    }
+    #pos-screen .btn i { font-size: 12px !important; }
+    #pos-screen .btn-credit, #pos-screen #btn-save-edit { grid-column: span 2 !important; height: 24px !important; }
 
-    /* القسم الأيمن: قائمة الخدمات والقطع (50%) */
+    /* القسم الأيمن: قائمة القطع */
     #pos-screen .items-section-container { 
-        min-width: 50% !important; 
-        max-width: 50% !important; 
-        height: 100% !important; 
-        display: flex !important;
-        flex-direction: column !important;
-        background: var(--black-bg) !important;
+        min-width: 50% !important; max-width: 50% !important; height: 100% !important; 
+        display: flex !important; flex-direction: column !important; background: var(--black-bg) !important;
     }
-    #pos-screen .items-header { 
-        padding: 6px 10px !important; 
-        border-bottom: 1px solid var(--light-gray) !important;
-    }
-    #pos-screen .items-header h3 { font-size: 12px !important; margin: 0 !important; }
+    #pos-screen .items-header { padding: 4px 8px !important; border-bottom: 1px solid var(--light-gray) !important; }
+    #pos-screen .items-header h3 { font-size: 11px !important; margin: 0 !important; }
     #pos-screen .header-actions { gap: 4px !important; }
-    #pos-screen .btn-royal-action { 
-        padding: 3px 7px !important; 
-        font-size: 10px !important; 
-        border-radius: 5px !important;
-    }
+    #pos-screen .btn-royal-action { padding: 2px 6px !important; font-size: 9px !important; border-radius: 4px !important; }
 
-    /* شبكة القطع (Grid) */
+    /* شبكة القطع (Grid) مضغوطة */
     #pos-screen .items-section { 
-        flex: 1 !important;
-        padding: 6px !important; 
-        gap: 6px !important; 
-        grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)) !important; 
-        overflow-y: auto !important;
+        flex: 1 !important; padding: 4px !important; gap: 4px !important; 
+        grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)) !important; overflow-y: auto !important;
     }
     #pos-screen .item-cell { 
-        height: 72px !important; 
-        padding: 4px !important; 
-        border-radius: 8px !important;
-        gap: 3px !important;
+        height: 65px !important; padding: 4px !important; border-radius: 6px !important; gap: 2px !important;
     }
     #pos-screen .item-icon { font-size: 18px !important; }
-    #pos-screen .item-name { font-size: 10px !important; font-weight: 600 !important; }
+    #pos-screen .item-name { font-size: 9px !important; font-weight: 600 !important; }
 
-    /* النوافذ المنبثقة داخل العرض الأفقي */
-    .modal-content { 
-        max-height: 94dvh !important; 
-        max-height: 94vh !important; 
-        overflow-y: auto !important; 
-        padding: 12px 16px !important; 
-        border-radius: 12px !important;
-        max-width: 420px !important;
-    }
-    .modal-title { font-size: 16px !important; margin-bottom: 12px !important; }
-    .service-select-btns { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
-    .srv-btn { padding: 8px 4px !important; border-radius: 8px !important; }
-    .srv-btn i { font-size: 20px !important; margin-bottom: 4px !important; }
-    .srv-title { font-size: 12px !important; }
-    .srv-btn .price { font-size: 13px !important; margin-top: 4px !important; }
-    .modal-actions { margin-top: 12px !important; gap: 8px !important; }
-    .input-group { margin-bottom: 8px !important; }
-    .input-group label { font-size: 11px !important; margin-bottom: 4px !important; }
-    .input-group input, .input-group select { padding: 6px 8px !important; font-size: 12px !important; }
+    /* النوافذ المنبثقة المصغرة */
+    .modal-content { max-height: 90dvh !important; overflow-y: auto !important; padding: 10px !important; border-radius: 8px !important; max-width: 380px !important; }
+    .modal-title { font-size: 14px !important; margin-bottom: 8px !important; }
+    .service-select-btns { grid-template-columns: 1fr 1fr !important; gap: 6px !important; }
+    .srv-btn { padding: 6px 4px !important; border-radius: 6px !important; }
+    .srv-btn i { font-size: 16px !important; margin-bottom: 4px !important; }
+    .srv-title { font-size: 10px !important; }
+    .srv-btn .price { font-size: 11px !important; margin-top: 4px !important; }
+    .modal-actions { margin-top: 8px !important; gap: 6px !important; }
+    .modal-actions .btn { height: 28px !important; font-size: 11px !important; }
+    .input-group { margin-bottom: 6px !important; }
+    .input-group label { font-size: 10px !important; margin-bottom: 2px !important; }
+    .input-group input, .input-group select { padding: 4px 6px !important; font-size: 11px !important; height: 26px !important; }
 }
