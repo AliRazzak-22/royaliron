@@ -937,22 +937,87 @@ window.confirmPayDebt = () => {
 // دالة الفلترة (احتياطياً في حال لم تكن موجودة لضمان عمل شريط البحث)
 window.filterLogs = (val) => { if(window.renderLogs) window.renderLogs(val); };
 
-// دالة المشاهدة العميقة والمحلل الذكي (Deep View)
+// دالة المشاهدة العميقة والمحلل الذكي (Deep View) - نسخة واجهة المستخدم الأنيقة
 window.viewLogDetails = (id) => {
     const log = localData.logs.find(l => l.id === id);
     if(!log || !log.snapshot) return;
-    
-    // تحويل الكائن إلى JSON منسق وملون ليعطي طابع تحليلي عميق
-    const formattedJSON = JSON.stringify(log.snapshot, null, 2);
-    
-    document.getElementById('log-deep-view-content').innerHTML = `
-        <div style="margin-bottom: 15px; border-bottom: 1px dashed #333; padding-bottom: 10px;">
-            <span style="color:var(--text-gray);">نوع الإجراء:</span> 
-            <strong style="color:var(--gold); font-size:18px;">${log.type}</strong>
-        </div>
-        <pre dir="ltr" style="color: #2ed573; font-family: monospace; font-size: 15px; white-space: pre-wrap; margin:0;">${formattedJSON}</pre>
-    `;
-    
+
+    let contentHTML = `<div style="margin-bottom: 15px; border-bottom: 1px dashed var(--gold); padding-bottom: 10px;">
+                            <span style="color:var(--text-gray);">نوع الإجراء:</span> 
+                            <strong style="color:var(--gold); font-size:18px;">${log.type}</strong>
+                       </div>`;
+
+    const snap = log.snapshot;
+
+    // دالة مساعدة لإنشاء جدول صغير يعرض قطع الفاتورة
+    const renderItemsTable = (items) => {
+        if(!items || items.length === 0) return '<p style="color:var(--red-danger);">لا توجد عناصر</p>';
+        let rows = items.map(i => `<tr><td style="border:1px solid #444; padding:5px;">${i.name} (${i.serviceName})</td><td style="border:1px solid #444; padding:5px;">${i.qty}</td><td style="border:1px solid #444; padding:5px;">${(i.price * i.qty).toLocaleString()}</td></tr>`).join('');
+        return `<table style="width:100%; text-align:right; border-collapse:collapse; margin-top:10px; font-size:14px; background:#000;">
+                    <thead><tr style="background:#222;"><th style="border:1px solid #444; padding:5px;">القطعة</th><th style="border:1px solid #444; padding:5px;">العدد</th><th style="border:1px solid #444; padding:5px;">المجموع</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
+    };
+
+    if (log.type.includes('فاتورة') || log.type.includes('بيع')) {
+        if (log.type === 'تعديل فاتورة') {
+            // مقارنة قبل وبعد التعديل
+            contentHTML += `<div style="display:flex; gap:10px;">
+                                <div style="flex:1; background:rgba(255, 71, 87, 0.1); padding:10px; border-radius:8px; border:1px solid var(--red-danger);">
+                                    <h4 style="color:var(--red-danger); margin-bottom:10px;">البيانات القديمة:</h4>
+                                    <p>المبلغ: <strong>${snap.oldInvoice.total.toLocaleString()} د.ع</strong></p>
+                                    ${renderItemsTable(snap.oldInvoice.items)}
+                                </div>
+                                <div style="flex:1; background:rgba(46, 213, 115, 0.1); padding:10px; border-radius:8px; border:1px solid var(--green-success);">
+                                    <h4 style="color:var(--green-success); margin-bottom:10px;">البيانات الجديدة:</h4>
+                                    <p>المبلغ: <strong>${log.amount.toLocaleString()} د.ع</strong></p>
+                                    ${renderItemsTable(snap.newCart)}
+                                </div>
+                            </div>`;
+        } else {
+            // فاتورة محذوفة أو مبيوعة
+            contentHTML += `<div style="background:#111; padding:15px; border-radius:8px; border:1px solid #444;">
+                                <p><strong>رقم الفاتورة:</strong> <span style="color:var(--text-gray);">${snap.id || '-'}</span></p>
+                                <p><strong>المبلغ الكلي:</strong> <span style="color:var(--gold);">${(snap.total || log.amount).toLocaleString()} د.ع</span></p>
+                                <p style="margin-top:10px;"><strong>تفاصيل القطع:</strong></p>
+                                ${renderItemsTable(snap.items)}
+                            </div>`;
+        }
+    } else if (log.type.includes('مصروف')) {
+        if (log.type === 'تعديل مصروف') {
+            contentHTML += `<div style="display:flex; gap:10px;">
+                                <div style="flex:1; background:rgba(255, 71, 87, 0.1); padding:10px; border-radius:8px; border:1px solid var(--red-danger);">
+                                    <h4 style="color:var(--red-danger); margin-bottom:10px;">المصروف القديم:</h4>
+                                    <p style="font-size:14px;">السبب: ${snap.oldExpense.detail}</p>
+                                    <p style="font-size:14px;">المبلغ: <strong>${snap.oldExpense.amount.toLocaleString()} د.ع</strong></p>
+                                </div>
+                                <div style="flex:1; background:rgba(46, 213, 115, 0.1); padding:10px; border-radius:8px; border:1px solid var(--green-success);">
+                                    <h4 style="color:var(--green-success); margin-bottom:10px;">بعد التعديل:</h4>
+                                    <p style="font-size:14px;">السبب: ${snap.newExpense.detail}</p>
+                                    <p style="font-size:14px;">المبلغ: <strong>${snap.newExpense.amount.toLocaleString()} د.ع</strong></p>
+                                </div>
+                            </div>`;
+        } else {
+            contentHTML += `<div style="background:#111; padding:15px; border-radius:8px; border:1px solid #444;">
+                                <p><strong>تفاصيل المصروف:</strong> <span style="color:var(--text-gray);">${snap.detail || log.details}</span></p>
+                                <p><strong>المبلغ:</strong> <span style="color:var(--red-danger);">${(snap.amount || log.amount).toLocaleString()} د.ع</span></p>
+                            </div>`;
+        }
+    } else if (log.type === 'تسديد دين') {
+        contentHTML += `<div style="background:rgba(74, 144, 226, 0.1); padding:15px; border-radius:8px; border:1px solid #4a90e2;">
+                            <p><strong>اسم الزبون:</strong> <span style="color:var(--text-white);">${snap.debtName}</span></p>
+                            <p><strong>المبلغ المسدد الآن:</strong> <span style="color:var(--green-success); font-weight:bold;">${snap.amountPaid.toLocaleString()} د.ع</span></p>
+                            <p><strong>المتبقي بذمته:</strong> <span style="color:var(--red-danger); font-weight:bold;">${snap.remainingNow.toLocaleString()} د.ع</span></p>
+                        </div>`;
+    } else {
+        // حالة افتراضية للعمليات الأخرى
+        contentHTML += `<div style="background:#111; padding:15px; border-radius:8px; border:1px solid #444;">
+                            <p><strong>التفاصيل:</strong> <span style="color:var(--text-gray);">${log.details}</span></p>
+                            <p><strong>القيمة المرتبطة:</strong> <span style="color:var(--gold);">${log.amount.toLocaleString()} د.ع</span></p>
+                        </div>`;
+    }
+
+    document.getElementById('log-deep-view-content').innerHTML = contentHTML;
     document.getElementById('modal-log-details').style.display = 'flex';
 };
 
