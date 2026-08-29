@@ -322,4 +322,7 @@ input, select { font-family: 'Cairo', sans-serif; outline: none; }
     .service-select-btns { grid-template-columns: 1fr !important; }
     .action-buttons { grid-template-columns: 1fr !important; }
     #main-screen { flex-direction: column; gap: 30px; }
+
+    /* 8. ترتيب بطاقات التخصيصات (Settings) */
+    .stats-grid { display: flex !important; flex-direction: column !important; gap: 15px !important; }
 }
