@@ -286,20 +286,14 @@ input, select { font-family: 'Cairo', sans-serif; outline: none; }
     .admin-content { padding: 15px !important; padding-bottom: 150px !important; min-height: 100vh; }
     .admin-section h2 { margin-bottom: 15px !important; font-size: 18px !important; text-align: center; }
     
-    /* 4. الحل القطعي لمشكلة حشر الجداول (إجبار الأعمدة على عرض ثابت) */
+    /* 4. الحل القطعي لمشكلة حشر الجداول (مخصص للآدمن فقط لحماية الكاشير) */
     .admin-section { overflow-x: hidden !important; }
-    .cart-table, .invoices-table { 
-        display: block !important; 
-        width: 100% !important; 
-        overflow-x: auto !important; 
-        -webkit-overflow-scrolling: touch !important;
+    #admin-screen .cart-table, #admin-screen .invoices-table { 
+        display: block !important; width: 100% !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important;
     }
-    .cart-table th, .cart-table td, .invoices-table th, .invoices-table td {
-        white-space: nowrap !important; 
-        min-width: 150px !important; /* هذا السطر يمنع حشر الأعمدة نهائياً */
-        text-align: center !important;
+    #admin-screen .cart-table th, #admin-screen .cart-table td, #admin-screen .invoices-table th, #admin-screen .invoices-table td {
+        white-space: nowrap !important; min-width: 150px !important; text-align: center !important;
     }
-
     /* 5. ترتيب خلايا الإحصائيات لتكون عمودية وأنيقة 100% */
     #admin-dashboard div[style*="grid-template-columns"] { 
         display: flex !important;
@@ -327,63 +321,60 @@ input, select { font-family: 'Cairo', sans-serif; outline: none; }
     .stats-grid { display: flex !important; flex-direction: column !important; gap: 15px !important; }
 }
 /* ========================================================= */
-/* --- تخصيص شاشة الكاشير أفقياً (Landscape) للجوال فقط --- */
+/* --- نظام الكاشير الذكي (شاشة قفل + عرض أفقي مصغر) --- */
 /* ========================================================= */
-@media (max-width: 950px) and (orientation: landscape) {
-    /* 1. إرجاع الشاشة إلى 50/50 وتفعيل العرض الأفقي (للكاشير فقط) */
-    #pos-content { 
-        flex-direction: row !important; 
-        height: calc(100vh - 55px) !important; 
-        padding-bottom: 0 !important; 
-        overflow: hidden !important; 
+
+/* 1. شاشة القفل: تمنع فتح الكاشير بالطول وتطلب من الكاشير قلب الهاتف */
+@media (max-width: 768px) and (orientation: portrait) {
+    #pos-screen.active-screen { 
+        display: flex !important; justify-content: center; align-items: center; 
     }
+    #pos-content, #pos-screen .top-bar { display: none !important; }
+    #pos-screen::after {
+        content: "يرجى تدوير الهاتف بالعرض 📱🔄 لفتح الكاشير";
+        color: var(--gold); font-size: 22px; font-weight: bold; text-align: center; padding: 30px; line-height: 1.5;
+    }
+}
+
+/* 2. شاشة الكاشير الأفقية المصغرة 50/50 (تظهر فقط عند قلب الهاتف) */
+@media (max-height: 500px) and (orientation: landscape) {
+    #pos-screen::after { display: none !important; } /* إخفاء رسالة القفل */
     
-    /* 2. التقسيم 50% لكل قسم (سلة + منتجات) */
-    #pos-screen .cart-section, #pos-screen .items-section-container { 
-        min-width: 50% !important; 
-        max-width: 50% !important; 
-        height: 100% !important; 
-    }
-    
-    /* 3. ترتيب الشريط العلوي ليكون صفاً واحداً متناسقاً ومريحاً للعين */
-    #pos-screen .top-bar { 
-        height: 55px !important; 
-        flex-direction: row !important; 
-        padding: 5px 15px !important; 
-        justify-content: space-between !important;
-        gap: 5px !important;
-    }
-    #pos-screen .top-bar-title { font-size: 15px !important; }
-    #pos-screen .daily-sales-counter { font-size: 15px !important; }
+    /* ترتيب الشريط العلوي بشكل مضغوط */
+    #pos-screen .top-bar { display: flex !important; height: 50px !important; padding: 5px 15px !important; }
+    #pos-screen .top-bar-title, #pos-screen .daily-sales-counter { font-size: 14px !important; }
     #pos-screen .top-bar-btn { padding: 4px 8px !important; font-size: 12px !important; }
-    #pos-screen .top-bar > div { flex-wrap: nowrap !important; }
     
-    /* 4. تصغير مربعات الخدمات (اللوكو) لتناسب المساحة الأفقية المحدودة */
-    #pos-screen .items-section { 
-        padding: 8px !important; 
-        gap: 8px !important; 
-        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)) !important; 
+    /* تفعيل الـ 50/50 */
+    #pos-content { display: flex !important; flex-direction: row !important; height: calc(100vh - 50px) !important; overflow: hidden !important; padding-bottom: 0 !important; }
+    
+    #pos-screen .cart-section, #pos-screen .items-section-container { 
+        min-width: 50% !important; max-width: 50% !important; height: 100% !important; border: none !important;
     }
-    #pos-screen .item-cell { height: 95px !important; padding: 5px !important; }
-    #pos-screen .item-icon { font-size: 24px !important; margin-bottom: 5px !important; }
-    #pos-screen .item-name { font-size: 12px !important; }
+    #pos-screen .cart-section { border-right: 1px solid var(--gold) !important; }
     
-    /* 5. ترتيب سلة المشتريات وأزرار الدفع (كاش / إلكتروني / دين) */
-    #pos-screen .cart-footer { padding: 10px !important; }
+    /* تصغير قائمة الخدمات (اليمين) وتصغير الأيقونات */
+    #pos-screen .items-section { padding: 5px !important; gap: 5px !important; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)) !important; }
+    #pos-screen .item-cell { height: 85px !important; padding: 5px !important; }
+    #pos-screen .item-icon { font-size: 20px !important; margin-bottom: 5px !important; }
+    #pos-screen .item-name { font-size: 11px !important; }
+    
+    /* تصغير سلة المبيعات (اليسار) لحل مشكلة التداخل */
+    #pos-screen .cart-table th, #pos-screen .cart-table td { padding: 4px !important; font-size: 11px !important; white-space: normal !important; min-width: 0 !important; text-align: center !important;}
+    #pos-screen .qty-btn { width: 22px !important; height: 22px !important; font-size: 14px !important; }
+    
+    /* تصغير أزرار الدفع السفلية */
+    #pos-screen .cart-footer { padding: 8px !important; }
+    #pos-screen .cart-total { font-size: 16px !important; margin-bottom: 8px !important; }
     #pos-screen .action-buttons { grid-template-columns: 1fr 1fr !important; gap: 5px !important; }
-    #pos-screen .btn { padding: 8px !important; font-size: 14px !important; }
+    #pos-screen .btn { padding: 6px !important; font-size: 12px !important; }
     #pos-screen .btn-credit, #pos-screen #btn-save-edit { grid-column: span 2 !important; }
     
-    /* 6. تصغير خطوط جدول الفاتورة */
-    #pos-screen .cart-table th, #pos-screen .cart-table td { 
-        padding: 5px !important; 
-        font-size: 12px !important; 
-        min-width: auto !important; 
-        white-space: normal !important;
-    }
-
-    /* 7. ترتيب النوافذ المنبثقة داخل الكاشير الأفقي لتتجنب القطع */
-    #pos-screen .modal-content { max-height: 95vh !important; overflow-y: auto !important; padding: 15px !important; }
-    #pos-screen .service-select-btns { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
-    #pos-screen .srv-btn { padding: 15px 10px !important; }
+    /* ضبط النوافذ المنبثقة (اختيار القطعة / الدفع) لتناسب العرض الأفقي دون الخروج من الشاشة */
+    .modal-content { max-height: 90vh !important; overflow-y: auto !important; padding: 15px !important; }
+    .service-select-btns { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+    .srv-btn { padding: 10px !important; }
+    .srv-btn i { font-size: 24px !important; }
+    .srv-title { font-size: 14px !important; }
+    .srv-btn .price { font-size: 16px !important; }
 }
