@@ -148,7 +148,7 @@
                             <button class="btn-royal-action" style="background:var(--green-success); color:white; border-color:var(--green-success);" onclick="window.exportToExcel()"><i class="fa-solid fa-file-excel"></i> تصدير Excel</button>
                         </div>
                     </div>
-                    <div class="stats-grid">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 30px;">
                         <div class="stat-card">
                             <i class="fa-solid fa-money-bill-wave stat-icon"></i>
                             <div class="stat-title">إجمالي المبيعات (كاش)</div>
@@ -217,7 +217,7 @@
                     <h2 style="margin-bottom:30px; color:var(--gold);">سجل الحركات والمراقبة</h2>
                     <input type="text" class="note-input" style="margin-bottom:20px;" placeholder="ابحث عن حركة (مثال: حذف فاتورة)..." onkeyup="window.filterLogs(this.value)">
                     <table class="cart-table">
-                        <thead><tr><th>التاريخ والوقت</th><th>نوع الحركة</th><th>التفاصيل</th><th>المبلغ</th></tr></thead>
+                        <thead><tr><th>التاريخ والوقت</th><th>نوع الحركة</th><th>التفاصيل</th><th>المبلغ</th><th>إجراء</th></tr></thead>
                         <tbody id="logs-table-body"></tbody>
                     </table>
                 </div>
@@ -558,6 +558,19 @@
         </div>
     </div>
 
+<!-- 13. نافذة المشاهدة العميقة للسجل (Deep View) -->
+    <div id="modal-log-details" class="modal-overlay" style="z-index: 5000;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-title" style="color: #4a90e2;"><i class="fa-solid fa-microscope"></i> تفاصيل الحركة العميقة</div>
+            <div id="log-deep-view-content" style="background: #0a0a0a; padding: 15px; border-radius: 8px; max-height: 400px; overflow-y: auto; text-align: right; border: 1px solid #333;">
+                <!-- سيتم حقن البيانات هنا -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" style="width: 100%;" onclick="window.closeModals()">إغلاق</button>
+            </div>
+        </div>
+    </div>
+    
     <!-- استدعاء ملف الجافاسكريبت كـ Module لدعم Firebase -->
     <script type="module" src="app.js"></script>
 </body>
