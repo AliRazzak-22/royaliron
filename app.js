@@ -469,6 +469,9 @@ window.filterInvoices = (val) => {
 window.editInvoice = (id) => {
     const invoice = localData.invoices.find(i => i.id === id);
     if(invoice) {
+        // --- إصلاح: منع تعديل فواتير الآجل لتجنب تضارب سجلات الديون ---
+        if(invoice.type === 'credit') return window.showAlert('عذراً، لا يمكن تعديل فواتير البيع الآجل للحفاظ على دقة السجلات المالية للديون.', 'error');
+        // -----------------------------------------------------------
         currentCart = JSON.parse(JSON.stringify(invoice.items));
         document.getElementById('cart-notes').value = invoice.notes || '';
         editingInvoiceId = invoice.id;
@@ -523,6 +526,15 @@ window.deleteInvoice = (id) => {
             else if(inv.type === 'electronic') localData.dailySalesElectronic -= inv.total;
             else if(inv.type === 'credit' && inv.customer) localData.dailySalesCash -= inv.customer.paid;
         }
+
+        // --- إصلاح: حذف الدين المرتبط بالفاتورة إذا كانت آجل ---
+        if (inv.type === 'credit') {
+            const debtIndex = (localData.debts || []).findIndex(d => d.invoiceId === inv.id);
+            if (debtIndex > -1) {
+                localData.debts.splice(debtIndex, 1);
+            }
+        }
+        // -------------------------------------------------
 
         window.logAction('حذف فاتورة', 'تم حذف فاتورة رقم: ' + inv.id, inv.total, inv);
         localData.invoices.splice(index, 1);
@@ -768,6 +780,22 @@ window.updateAdminDashboard = () => {
         }
     });
 
+    // --- إصلاح: إدخال الدفعات المسددة من الديون في تقارير وملخص الآدمن ---
+    (localData.logs || []).forEach(log => {
+        if(log.type === 'تسديد دين') {
+            let logDate = new Date(log.timestamp || Date.now());
+            let monthStr = `${logDate.getFullYear()}-${String(logDate.getMonth() + 1).padStart(2, '0')}`;
+            let dayStr = logDate.toLocaleDateString();
+
+            if (isAllTime || monthStr === selectedMonth) {
+                totalSalesCash += log.amount; // إضافتها للكاش الإجمالي
+                if(!dailyReports[dayStr]) dailyReports[dayStr] = { sales: 0, expenses: 0, details: [], timestamp: logDate.getTime() };
+                dailyReports[dayStr].sales += log.amount; // إضافتها لمبيعات اليوم
+            }
+        }
+    });
+    // -----------------------------------------------------------------
+
     // التكاليف التشغيلية (تحسب للكلي حالياً)
     (localData.operatingCosts || []).forEach(c => { totalCosts += c.amount; });
 
@@ -822,6 +850,25 @@ window.loadAllTimeStats = () => {
     window.updateAdminDashboard();
 };
 
+// --- إصلاح: إضافة دالة تصدير تقارير الآدمن إلى Excel ---
+window.exportToExcel = () => {
+    let csv = '\uFEFFالتاريخ,اليوم,المبيعات,المصروفات,تفاصيل الصرف,الصافي\n'; // \uFEFF ليدعم الإكسل اللغة العربية
+    let rows = document.querySelectorAll('#admin-daily-reports-body tr');
+    if(rows.length === 0) return window.showAlert('لا توجد بيانات لتصديرها', 'warning');
+    
+    rows.forEach(row => {
+        let cols = row.querySelectorAll('td');
+        let rowData = Array.from(cols).map(c => `"${c.innerText}"`).join(',');
+        csv += rowData + '\n';
+    });
+    
+    let a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = 'تقرير_مبيعات_رويال.csv';
+    a.click();
+};
+// ----------------------------------------------------
+
 window.saveSettings = () => {
     localData.settings.name = document.getElementById('set-name').value;
     localData.settings.phone = document.getElementById('set-phone').value;
@@ -870,9 +917,12 @@ window.confirmPayDebt = () => {
     if (pay && pay > 0 && pay <= debt.remaining) {
         debt.remaining -= pay;
         debt.paid += pay;
-        
         // المبالغ المسددة اليوم تُضاف لصندوق مبيعات اليوم مباشرة
         localData.dailySalesCash += pay; 
+        
+        // --- إصلاح: تسجيل حركة تسديد الدين في سجل الحركات ---
+        window.logAction('تسديد دين', 'تسديد دفعة من حساب: ' + debt.name, pay, { debtName: debt.name, amountPaid: pay, remainingNow: debt.remaining });
+        // -------------------------------------------------
         
         saveDataToCloud();
         window.closeModals();
