@@ -248,3 +248,53 @@ input, select { font-family: 'Cairo', sans-serif; outline: none; }
 .log-delete { color: var(--red-danger); border: 1px solid var(--red-danger); }
 .log-edit { color: #4a90e2; border: 1px solid #4a90e2; }
 .log-add { color: var(--green-success); border: 1px solid var(--green-success); }
+
+/* ========================================================= */
+/* --- نظام التجاوب الذكي (Mobile, Tablet & iPad) --- */
+/* ========================================================= */
+
+/* شاشات الآيباد واللابتوب الصغير */
+@media (max-width: 1024px) {
+    .cart-section, .items-section-container { min-width: 50%; max-width: 50%; }
+    .item-cell { height: 110px; padding: 10px; }
+    .item-icon { font-size: 28px; }
+    .stat-value { font-size: 22px; }
+}
+
+/* شاشات الجوال (شاشة الآدمن والكاشير المحمولة) */
+@media (max-width: 768px) {
+    /* 1. إصلاح شريط المهام العلوي */
+    .top-bar { height: auto; flex-direction: column; padding: 15px; gap: 15px; text-align: center; }
+    #pos-content { flex-direction: column; height: calc(100vh - 140px); overflow-y: auto; }
+    
+    /* 2. شاشة الكاشير (يتم ترتيب المنتجات فوق السلة لسهولة الاستخدام) */
+    .cart-section { order: 2; min-width: 100%; max-width: 100%; border-right: none; border-top: 2px solid var(--gold); }
+    .items-section-container { order: 1; min-width: 100%; max-width: 100%; flex: none; height: 50vh; }
+    .items-section { padding: 10px; gap: 10px; }
+    
+    /* 3. شاشة الآدمن (تحويل القائمة الجانبية إلى أزرار علوية سريعة) */
+    .admin-layout { flex-direction: column; }
+    .admin-sidebar { 
+        width: 100%; flex-direction: row; flex-wrap: wrap; justify-content: center; 
+        padding: 10px; border-left: none; border-bottom: 2px solid var(--gold); gap: 5px;
+    }
+    .admin-nav-btn { flex: 1 1 calc(33% - 10px); font-size: 13px; padding: 8px; text-align: center; border-right: none !important; border-radius: 5px;}
+    .admin-nav-btn.active { background: rgba(212, 175, 55, 0.2); border-bottom: 2px solid var(--gold); }
+    .admin-content { padding: 15px; }
+    
+    /* 4. حماية الجداول من التشوه على الجوال (إضافة تمرير جانبي مخفي) */
+    .cart-table-wrapper { overflow-x: auto; }
+    .admin-section { overflow-x: auto; padding-bottom: 15px; }
+    .cart-table, .invoices-table { min-width: 550px; /* يمنع تكسر النصوص */ }
+    
+    /* 5. النوافذ المنبثقة (Modals) */
+    .modal-content { width: 95%; padding: 20px; }
+    .service-select-btns { grid-template-columns: 1fr; gap: 10px; }
+    .action-buttons { grid-template-columns: 1fr; }
+    .btn-credit, #btn-save-edit { grid-column: span 1 !important; }
+    
+    /* 6. الدخول الرئيسي */
+    #main-screen { flex-direction: column; gap: 30px; }
+    .login-circle { width: 180px; height: 180px; font-size: 20px; }
+    .login-circle i { font-size: 40px; margin-bottom: 10px; }
+}
