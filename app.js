@@ -2,7 +2,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics.js";
 import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 // إعدادات Firebase الخاصة بمكوى رويال
 const firebaseConfig = {
     apiKey: "AIzaSyDtuPp8juKTJFSZv6Cdmtrli2NfFDKUnkw",
@@ -20,6 +20,7 @@ const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 const database = getDatabase(app);
 const dbRef = ref(database);
+const auth = getAuth(app); // تشغيل محرك الأمان
 
 // المتغيرات العامة
 let localData = {
@@ -48,6 +49,9 @@ const availableIcons = [
 // دالة جلب البيانات من السحابة عند تشغيل النظام
 async function initializeDB() {
     try {
+        // --- حقن الأمان: تسجيل الدخول السري قبل أي اتصال بالقاعدة ---
+        await signInAnonymously(auth);
+        
         const snapshot = await get(child(dbRef, `royal_data`));
         if (snapshot.exists()) {
             localData = snapshot.val();
