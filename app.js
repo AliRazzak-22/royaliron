@@ -857,9 +857,9 @@ window.updateAdminDashboard = () => {
 
     // حساب الفواتير
     (localData.invoices || []).forEach(inv => {
-        // تسريع المعالجة: تجنب تكرار بناء كائن التاريخ إذا كان مسجلاً سابقاً
-        let monthStr = inv.monthStr || `${new Date(inv.timestamp || Date.now()).getFullYear()}-${String(new Date(inv.timestamp || Date.now()).getMonth() + 1).padStart(2, '0')}`;
-        let dayStr = invDate.toLocaleDateString();
+        let invDate = new Date(inv.timestamp || Date.now());
+        let monthStr = inv.monthStr || `${invDate.getFullYear()}-${String(invDate.getMonth() + 1).padStart(2, '0')}`;
+        let dayStr = inv.date || invDate.toLocaleDateString();
 
         if (isAllTime || monthStr === selectedMonth) {
             let amount = (inv.type === 'credit' && inv.customer) ? inv.customer.paid : inv.total;
@@ -874,8 +874,8 @@ window.updateAdminDashboard = () => {
     // حساب الصرفيات
     (localData.expenses || []).forEach(exp => {
         let expDate = new Date(exp.timestamp || Date.now());
-        let monthStr = `${expDate.getFullYear()}-${String(expDate.getMonth() + 1).padStart(2, '0')}`;
-        let dayStr = expDate.toLocaleDateString();
+        let monthStr = exp.monthStr || `${expDate.getFullYear()}-${String(expDate.getMonth() + 1).padStart(2, '0')}`;
+        let dayStr = exp.date || expDate.toLocaleDateString();
 
         if (isAllTime || monthStr === selectedMonth) {
             totalExpenses += exp.amount;
