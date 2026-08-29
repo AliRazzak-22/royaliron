@@ -280,7 +280,8 @@ input, select { font-family: 'Cairo', sans-serif; outline: none; }
     }
     .admin-nav-btn { flex: 1 1 calc(33% - 10px); font-size: 13px; padding: 8px; text-align: center; border-right: none !important; border-radius: 5px;}
     .admin-nav-btn.active { background: rgba(212, 175, 55, 0.2); border-bottom: 2px solid var(--gold); }
-    .admin-content { padding: 15px; }
+    .admin-content { padding: 15px; padding-bottom: 120px !important; } 
+    #pos-content { padding-bottom: 120px !important; }
     
     /* 4. حصر التمرير (السحب) داخل الجداول فقط ومنعه في باقي الشاشة */
     .cart-table-wrapper { overflow-x: auto; }
@@ -319,4 +320,12 @@ input, select { font-family: 'Cairo', sans-serif; outline: none; }
     #main-screen { flex-direction: column; gap: 30px; }
     .login-circle { width: 180px; height: 180px; font-size: 20px; }
     .login-circle i { font-size: 40px; margin-bottom: 10px; }
+
+    /* إصلاح أزرار الفلتر (تصدير وإظهار الكلي) لتناسب الشاشة دون الخروج عنها */
+    .admin-control-panel { flex-direction: column; align-items: stretch; gap: 15px; }
+    .admin-filters { display: flex; flex-wrap: wrap; gap: 10px; width: 100%; }
+    .admin-filters button, .admin-filters input { flex: 1; min-width: 120px; justify-content: center; font-size: 14px; }
+    
+    /* التأكيد القاطع على منع التمرير العرضي للشاشة بالكامل (السحب للجدول فقط) */
+    body, html, .screen, .admin-layout { overflow-x: hidden !important; max-width: 100vw; }
 }
