@@ -29,6 +29,14 @@ let localData = {
 let currentCart = [];
 let editingInvoiceId = null; 
 let pendingItem = null;
+// --- التدخل الجراحي: توحيد صيغة التاريخ لجميع الأجهزة لحماية الحسابات المالية ---
+Date.prototype.toLocaleDateString = function() {
+    const year = this.getFullYear();
+    const month = String(this.getMonth() + 1).padStart(2, '0');
+    const day = String(this.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+// -----------------------------------------------------------------------
 
 const availableIcons = [
     'fa-shirt', 'fa-user-tie', 'fa-person-dress', 'fa-user-nurse', 'fa-person-military-rifle',
