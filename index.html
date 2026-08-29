@@ -134,6 +134,7 @@
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('costs')"><i class="fa-solid fa-building-columns"></i> التكاليف التشغيلية</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('logs')"><i class="fa-solid fa-clock-rotate-left"></i> سجل الحركات</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('services')"><i class="fa-solid fa-star"></i> أداء الخدمات</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('settings')"><i class="fa-solid fa-gears"></i> التخصيصات</button>
                 <button class="admin-nav-btn" style="margin-top:auto; color:var(--red-danger);" onclick="window.exitToMain()"><i class="fa-solid fa-right-from-bracket"></i> تسجيل خروج</button>
             </div>
             <div class="admin-content">
@@ -229,6 +230,26 @@
                     </div>
                 </div>
             </div>
+            <!-- قسم التخصيصات -->
+                <div id="admin-settings" class="admin-section">
+                    <h2 style="margin-bottom:30px; color:var(--gold);">تخصيصات النظام</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card" style="text-align: right;">
+                            <h3 style="color:var(--text-white); margin-bottom: 20px;">تغيير بيانات الفاتورة</h3>
+                            <div class="input-group"><label>اسم المكوى</label><input type="text" id="set-name"></div>
+                            <div class="input-group"><label>رقم الهاتف</label><input type="text" id="set-phone"></div>
+                            <div class="input-group"><label>العنوان</label><input type="text" id="set-address"></div>
+                            <button class="btn-royal-action" style="width: 100%; justify-content: center;" onclick="window.saveSettings()">حفظ البيانات</button>
+                        </div>
+                        <div class="stat-card" style="text-align: right; border-color: var(--red-danger);">
+                            <h3 style="color:var(--red-danger); margin-bottom: 20px;">الأمان (كلمة المرور)</h3>
+                            <div class="input-group"><label>كلمة المرور القديمة</label><input type="password" id="set-old-pass"></div>
+                            <div class="input-group"><label>كلمة المرور الجديدة</label><input type="password" id="set-new-pass"></div>
+                            <div class="input-group"><label>تأكيد الجديدة</label><input type="password" id="set-confirm-pass"></div>
+                            <button class="btn btn-confirm" style="width: 100%; background: var(--red-danger); color: white;" onclick="window.changePassword()">تغيير الرمز</button>
+                        </div>
+                    </div>
+                </div>
         </div>
     </div>
 
@@ -518,7 +539,7 @@
     <!-- هيكل الطباعة (مخفي للطباعة الحرارية 80mm) -->
     <div id="print-area">
         <div class="print-logo"><i class="fa-solid fa-crown"></i></div>
-        <div class="print-header">مكوى رويال VIP</div>
+        <div class="print-header" id="print-header-name">مكوى رويال VIP</div>
         <div class="print-info">
             التاريخ: <span id="p-date"></span><br>
             الوقت: <span id="p-time"></span><br>
@@ -532,10 +553,8 @@
         </table>
         <div class="print-total">المجموع: <span id="p-total"></span> د.ع</div>
         <div class="print-info" id="p-notes-row" style="display:none;">ملاحظات: <span id="p-notes"></span></div>
-        <div class="print-footer">
-            العنوان: الكوفة، النجف الأشرف<br>
-            هاتف: 07800000000<br>
-            لمسة ملكية تليق بك
+        <div class="print-footer" id="print-footer-info">
+            <!-- سيتم توليده برمجياً من الإعدادات -->
         </div>
     </div>
 
