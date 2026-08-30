@@ -216,7 +216,11 @@
                 <!-- قسم سجل الحركات (Audit Log) -->
                 <div id="admin-logs" class="admin-section">
                     <h2 style="margin-bottom:30px; color:var(--gold);">سجل الحركات والمراقبة</h2>
-                    <input type="text" class="note-input" style="margin-bottom:20px;" placeholder="ابحث عن حركة (مثال: حذف فاتورة)..." onkeyup="window.filterLogs(this.value)">
+                    <div class="admin-filters" style="margin-bottom:20px;">
+    <input type="date" id="log-date-from" class="note-input" onchange="window.renderLogs()" title="من تاريخ">
+    <input type="date" id="log-date-to" class="note-input" onchange="window.renderLogs()" title="إلى تاريخ">
+    <input type="text" id="log-search-text" class="note-input" style="flex: 2;" placeholder="ابحث عن حركة (مثال: حذف فاتورة)..." onkeyup="window.renderLogs()">
+</div>
                     <table class="cart-table">
                         <thead><tr><th>التاريخ والوقت</th><th>نوع الحركة</th><th>التفاصيل</th><th>المبلغ</th><th>إجراء</th></tr></thead>
                         <tbody id="logs-table-body"></tbody>
@@ -391,7 +395,10 @@
     <div id="modal-invoices" class="modal-overlay">
         <div class="modal-content invoices-list-modal">
             <div class="modal-title">سجل الفواتير (بحث وتعديل)</div>
-            <input type="text" class="note-input" style="margin-bottom:20px;" placeholder="ابحث برقم الفاتورة أو اسم الزبون..." onkeyup="window.filterInvoices(this.value)">
+            <div class="admin-filters" style="margin-bottom:20px;">
+    <input type="date" id="inv-date-filter" class="note-input" onchange="window.openPreviousInvoices()" title="تاريخ الفواتير">
+    <input type="text" id="inv-search-text" class="note-input" style="flex: 2;" placeholder="ابحث برقم الفاتورة أو اسم الزبون..." onkeyup="window.openPreviousInvoices()">
+</div>
             <table class="invoices-table">
                 <thead><tr><th>الوقت</th><th>رقم الفاتورة</th><th>النوع</th><th>المبلغ</th><th>إجراءات</th></tr></thead>
                 <tbody id="invoices-list-body"></tbody>
