@@ -548,8 +548,28 @@ function finalizeSale(invoice) {
 window.openPreviousInvoices = () => {
     const tbody = document.getElementById('invoices-list-body');
     tbody.innerHTML = '';
+
+    let filterText = document.getElementById('inv-search-text')?.value.toLowerCase() || '';
+    let dateFilter = document.getElementById('inv-date-filter')?.value;
+
+    // الافتراضي: عرض فواتير اليوم فقط لحماية الذاكرة وتسريع الفتح
+    if (!dateFilter) {
+        dateFilter = new Date().toLocaleDateString();
+        if (document.getElementById('inv-date-filter')) document.getElementById('inv-date-filter').value = dateFilter;
+    }
+
+    const startTimestamp = new Date(dateFilter + 'T00:00:00').getTime();
+    const endTimestamp = new Date(dateFilter + 'T23:59:59').getTime();
+
     const sorted = (localData.invoices || []).sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0));
+    
     sorted.forEach(inv => {
+        // حماية الذاكرة: استثناء فواتير الأيام الأخرى
+        if (inv.timestamp < startTimestamp || inv.timestamp > endTimestamp) return;
+        
+        let customerName = inv.customer ? inv.customer.name.toLowerCase() : '';
+        if (filterText && !inv.id.toLowerCase().includes(filterText) && !customerName.includes(filterText)) return;
+
         let typeStr = inv.type === 'cash' ? 'نقدي (كاش)' : (inv.type === 'electronic' ? 'إلكتروني' : 'آجل');
         tbody.innerHTML += `
             <tr>
@@ -568,13 +588,7 @@ window.openPreviousInvoices = () => {
     document.getElementById('modal-invoices').style.display = 'flex';
 };
 
-window.filterInvoices = (val) => {
-    const rows = document.getElementById('invoices-list-body').getElementsByTagName('tr');
-    for(let i=0; i<rows.length; i++) {
-        if(rows[i].innerText.toLowerCase().includes(val.toLowerCase())) rows[i].style.display = '';
-        else rows[i].style.display = 'none';
-    }
-};
+window.filterInvoices = () => window.openPreviousInvoices();
 
 window.editInvoice = (id) => {
     const invoice = localData.invoices.find(i => i.id === id);
@@ -1165,22 +1179,39 @@ window.openAdminExpensesModal = () => {
     document.getElementById('modal-admin-expenses').style.display = 'flex';
 };
 // دالة عرض وتصفية سجل الحركات (Audit Log)
-window.renderLogs = (filterText = '') => {
+window.renderLogs = () => {
     const tbody = document.getElementById('logs-table-body');
     if(!tbody) return;
     tbody.innerHTML = '';
     
+    let filterText = document.getElementById('log-search-text')?.value || '';
+    let dateFrom = document.getElementById('log-date-from')?.value;
+    let dateTo = document.getElementById('log-date-to')?.value;
+
+    // الافتراضي: عرض حركات اليوم فقط لحماية الذاكرة وتسريع المتصفح
+    if (!dateFrom && !dateTo) {
+        const today = new Date().toLocaleDateString();
+        dateFrom = today; dateTo = today;
+        if(document.getElementById('log-date-from')) document.getElementById('log-date-from').value = today;
+        if(document.getElementById('log-date-to')) document.getElementById('log-date-to').value = today;
+    }
+
+    const startTimestamp = dateFrom ? new Date(dateFrom + 'T00:00:00').getTime() : 0;
+    const endTimestamp = dateTo ? new Date(dateTo + 'T23:59:59').getTime() : Infinity;
+    
     const sorted = (localData.logs || []).sort((a,b) => b.timestamp - a.timestamp);
     
     sorted.forEach(log => {
-        if(filterText && !log.details.includes(filterText) && !log.type.includes(filterText)) return;
+        // حماية الذاكرة: تجاوز الحركات التي لا تطابق التاريخ
+        if (log.timestamp < startTimestamp || log.timestamp > endTimestamp) return;
+        // فلتر البحث النصي
+        if (filterText && !log.details.includes(filterText) && !log.type.includes(filterText)) return;
         
         let typeClass = 'log-type ';
         if(log.type.includes('حذف')) typeClass += 'log-delete';
         else if(log.type.includes('تعديل')) typeClass += 'log-edit';
         else typeClass += 'log-add';
 
-        // زر العين يظهر فقط إذا كانت هناك بيانات ملتقطة (snapshot)
         let actionBtn = log.snapshot ? `<button class="top-bar-btn" style="padding: 4px 10px; font-size:12px; border-color:#4a90e2; color:#4a90e2;" onclick="window.viewLogDetails('${log.id}')" title="عرض التفاصيل"><i class="fa-solid fa-eye"></i></button>` : '-';
 
         tbody.innerHTML += `
@@ -1195,4 +1226,4 @@ window.renderLogs = (filterText = '') => {
     });
 };
 
-window.filterLogs = (val) => window.renderLogs(val);
+window.filterLogs = () => window.renderLogs();
