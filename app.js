@@ -1,7 +1,7 @@
 // استيراد مكتبات Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics.js";
-import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+import { getDatabase, ref, set, get, child, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 // إعدادات Firebase الخاصة بمكوى رويال
 const firebaseConfig = {
@@ -49,46 +49,56 @@ const availableIcons = [
 // دالة جلب البيانات من السحابة عند تشغيل النظام
 async function initializeDB() {
     try {
-        // --- حقن الأمان: تسجيل الدخول السري قبل أي اتصال بالقاعدة ---
         await signInAnonymously(auth);
-        
-        const snapshot = await get(child(dbRef, `royal_data`));
-        if (snapshot.exists()) {
-            localData = snapshot.val();
-            
-            // 🔴 الحل السحري لإصلاح تلف المصفوفات القادم من فايربيس
-            localData.invoices = Object.values(localData.invoices || {});
-            localData.catalog = Object.values(localData.catalog || {});
-            localData.expenses = Object.values(localData.expenses || {});
-            localData.operatingCosts = Object.values(localData.operatingCosts || {});
-            localData.debts = Object.values(localData.debts || {});
-            localData.logs = Object.values(localData.logs || {});
-            localData.settings = localData.settings || { name: "مكوى رويال VIP", phone: "07800000000", address: "الكوفة، النجف الأشرف", password: "ahmed2003" };
 
-            // تصفير مبيعات اليوم إذا بدأ يوم جديد
-            if(localData.lastDate !== new Date().toDateString()) {
-                localData.dailySalesCash = 0;
-                localData.dailySalesElectronic = 0;
-                localData.lastDate = new Date().toDateString();
+        // --- التدخل الجراحي: تحويل النظام إلى Real-Time (نبض لحظي) ---
+        onValue(ref(database, 'royal_data'), (snapshot) => {
+            if (snapshot.exists()) {
+                let incomingData = snapshot.val();
+                
+                // تحديث الذاكرة المحلية فوراً بأحدث بيانات السحابة (تزامن لحظي)
+                localData.invoices = Object.values(incomingData.invoices || {});
+                localData.catalog = Object.values(incomingData.catalog || {});
+                localData.expenses = Object.values(incomingData.expenses || {});
+                localData.operatingCosts = Object.values(incomingData.operatingCosts || {});
+                localData.debts = Object.values(incomingData.debts || {});
+                localData.logs = Object.values(incomingData.logs || {});
+                localData.settings = incomingData.settings || { name: "مكوى رويال VIP", phone: "07800000000", address: "الكوفة، النجف الأشرف", password: "ahmed2003" };
+                localData.lastDate = incomingData.lastDate || new Date().toDateString();
+
+                // تصفير مبيعات اليوم إذا بدأ يوم جديد
+                if(localData.lastDate !== new Date().toDateString()) {
+                    localData.dailySalesCash = 0;
+                    localData.dailySalesElectronic = 0;
+                    localData.lastDate = new Date().toDateString();
+                    saveDataToCloud(); 
+                } else {
+                    window.recalculateDailySales(); // تأكيد دقة الأرقام بناءً على آخر مزامنة
+                }
+            } else {
+                localData.catalog = [
+                    { id: 'suit', name: 'بدلة رجالية', icon: 'fa-user-tie', prices: { wash_iron: 8000, iron_only: 5000 } },
+                    { id: 'abaya', name: 'عباءة نسائية', icon: 'fa-person-dress', prices: { wash_iron: 6000, iron_only: 4000 } },
+                    { id: 'arabic', name: 'الزي العربي', icon: 'fa-user-nurse', prices: { wash_iron: 4000, iron_only: 3000 } },
+                    { id: 'military', name: 'بدلة عسكرية', icon: 'fa-person-military-rifle', prices: { wash_iron: 6000, iron_only: 5000 } },
+                    { id: 'coat', name: 'كوت', icon: 'fa-user-secret', prices: { wash_iron: 6000, iron_only: 4000 } },
+                    { id: 'shirt', name: 'قميص', icon: 'fa-shirt', prices: { wash_iron: 3000, iron_only: 2000 } }
+                ];
+                localData.invoices = []; localData.expenses = []; localData.operatingCosts = []; localData.debts = []; localData.logs = [];
+                localData.settings = { name: "مكوى رويال VIP", phone: "07800000000", address: "الكوفة، النجف الأشرف", password: "ahmed2003" };
                 saveDataToCloud();
             }
-        } else {
-            localData.catalog = [
-                { id: 'suit', name: 'بدلة رجالية', icon: 'fa-user-tie', prices: { wash_iron: 8000, iron_only: 5000 } },
-                { id: 'abaya', name: 'عباءة نسائية', icon: 'fa-person-dress', prices: { wash_iron: 6000, iron_only: 4000 } },
-                { id: 'arabic', name: 'الزي العربي', icon: 'fa-user-nurse', prices: { wash_iron: 4000, iron_only: 3000 } },
-                { id: 'military', name: 'بدلة عسكرية', icon: 'fa-person-military-rifle', prices: { wash_iron: 6000, iron_only: 5000 } },
-                { id: 'coat', name: 'كوت', icon: 'fa-user-secret', prices: { wash_iron: 6000, iron_only: 4000 } },
-                { id: 'shirt', name: 'قميص', icon: 'fa-shirt', prices: { wash_iron: 3000, iron_only: 2000 } }
-            ];
-            localData.invoices = []; localData.expenses = []; localData.operatingCosts = []; localData.debts = []; localData.logs = [];
-            localData.settings = { name: "مكوى رويال VIP", phone: "07800000000", address: "الكوفة، النجف الأشرف", password: "ahmed2003" };
-            saveDataToCloud();
-        }
-        
-        document.getElementById('loading-screen').style.display = 'none';
-        renderItems();
-        updateUI();
+            
+            document.getElementById('loading-screen').style.display = 'none';
+            renderItems();
+            updateUI();
+
+            // 🔴 سحر الآدمن اللحظي: إذا كانت شاشة الآدمن مفتوحة، يتم تحديث الأرقام والجداول فوراً أمام عينه
+            if (document.getElementById('admin-screen').classList.contains('active-screen')) {
+                window.updateAdminDashboard();
+                if (sessionStorage.getItem('admin_tab') === 'logs') window.renderLogs();
+            }
+        });
 
         if(localStorage.getItem('cart_draft')) {
             currentCart = JSON.parse(localStorage.getItem('cart_draft'));
