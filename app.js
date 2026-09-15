@@ -30,6 +30,8 @@ let localData = {
 let currentCart = [];
 let editingInvoiceId = null; 
 let pendingItem = null;
+// --- جدار الحماية: توكن الجلسة لمنع التجاوز برمجياً ---
+let secureAdminToken = null;
 // --- التدخل الجراحي: توحيد صيغة التاريخ لجميع الأجهزة لحماية الحسابات المالية ---
 Date.prototype.toLocaleDateString = function() {
     const year = this.getFullYear();
@@ -110,10 +112,10 @@ async function initializeDB() {
         if (savedScreen === 'pos') {
             window.showPOS();
         } else if (savedScreen === 'admin') {
-            document.getElementById('main-screen').style.display = 'none';
-            document.getElementById('admin-screen').classList.add('active-screen');
-            const savedTab = sessionStorage.getItem('admin_tab') || 'dashboard';
-            window.switchAdminTab(savedTab);
+            // التدخل الجراحي: منع الدخول التلقائي للآدمن لحماية البيانات
+            sessionStorage.removeItem('active_screen'); 
+            document.getElementById('main-screen').style.display = 'flex';
+            window.showAlert('تم إنهاء جلسة الآدمن لدواعي أمنية. يرجى تسجيل الدخول مجدداً.', 'warning');
         }
     } catch (error) {
         console.error("Firebase Error:", error);
@@ -245,14 +247,19 @@ window.executeConfirm = () => {
     window.closeConfirmModal();
 };
 window.checkAdminPassword = () => {
-    if(document.getElementById('admin-password').value === localData.settings.password) {
-        sessionStorage.setItem('active_screen', 'admin'); // حفظ مسار الآدمن
+    const inputPass = document.getElementById('admin-password').value;
+    if(inputPass === localData.settings.password) {
+        // توليد مفتاح جلسة معقد لا يمكن تخمينه
+        secureAdminToken = "AUTH_ROYAL_" + Math.random().toString(36).substring(2, 15);
+        sessionStorage.setItem('active_screen', 'admin'); 
         window.closeModals();
         document.getElementById('main-screen').style.display = 'none';
         document.getElementById('admin-screen').classList.add('active-screen');
         document.getElementById('admin-password').value = '';
         window.updateAdminDashboard();
-    } else { window.showAlert('رمز الدخول خاطئ!', 'error'); }
+    } else { 
+        window.showAlert('رمز الدخول خاطئ!', 'error'); 
+    }
 };
 // ---------------- نظام التنبيهات الذكي (بديل المتصفح) ----------------
 window.showAlert = (msg, type = 'warning') => {
@@ -850,6 +857,7 @@ function animateValue(obj, start, end, duration) {
 
 // ---------------- وظائف الآدمن ----------------
 window.switchAdminTab = (tab) => {
+    if (!secureAdminToken) { window.exitToMain(); return window.showAlert('محاولة وصول غير مصرح بها!', 'error'); }
     sessionStorage.setItem('admin_tab', tab); // حفظ التبويب المحدد
     document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.admin-nav-btn').forEach(b => b.classList.remove('active'));
@@ -866,6 +874,7 @@ window.switchAdminTab = (tab) => {
 };
 
 window.updateAdminDashboard = () => {
+    if (!secureAdminToken) { window.exitToMain(); return window.showAlert('تم إحباط محاولة اختراق للوحة البيانات!', 'error'); }
     // جلب فلتر الشهر
     let monthInput = document.getElementById('admin-month-filter');
     if (!monthInput.value) {
