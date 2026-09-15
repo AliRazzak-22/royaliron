@@ -577,7 +577,6 @@ window.confirmOrder = () => {
     window.logAction('تسجيل طلب جديد', `رقم تسلسلي: ${dailyNum} | للزبون: ${name}`, deposit, invoice);
     
     // التدخل الجراحي: الرفع النقطي الحصري
-    import { set, ref } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
     set(ref(database, 'royal_data/invoices/' + invoice.id), invoice);
     
     window.recalculateDailySales(); 
@@ -876,7 +875,6 @@ window.confirmPickup = (id) => {
         inv.type = 'archived';
         
         // 4. حفظ نقطي في الفايربيس
-        import { update, ref } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
         update(ref(database, 'royal_data/invoices/' + inv.id), {
             type: 'archived',
             customer: inv.customer
