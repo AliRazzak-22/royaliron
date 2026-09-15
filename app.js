@@ -1,7 +1,7 @@
 // استيراد مكتبات Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics.js";
-import { getDatabase, ref, set, get, child, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+import { getDatabase, ref, set, get, child, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 // إعدادات Firebase الخاصة بمكوى رويال
 const firebaseConfig = {
@@ -172,16 +172,19 @@ function saveDataToCloud() {
 // دالة المراقبة (سجل الحركات) - تسجل كل حركة تلقائياً
 window.logAction = (actionType, details, amount = 0, snapshot = null) => {
     if(!localData.logs) localData.logs = [];
-    localData.logs.push({
-        id: 'LOG-' + Date.now(),
+    const newLog = {
+        id: 'LOG-' + Date.now() + '-' + Math.floor(Math.random() * 1000), // أمان إضافي للمعرف
         date: new Date().toLocaleDateString(),
         time: new Date().toLocaleTimeString(),
         timestamp: Date.now(),
         type: actionType,
         details: details,
         amount: amount,
-        snapshot: snapshot // الصورة الشعاعية للبيانات
-    });
+        snapshot: snapshot
+    };
+    localData.logs.push(newLog);
+    // التدخل الجراحي: توجيه مباشر للمسار لمنع التداخل
+    set(ref(database, 'royal_data/logs/' + newLog.id), newLog);
 };
 // ---------------- الأزرار العامة ----------------
 window.showPOS = () => { 
@@ -528,9 +531,13 @@ window.confirmCreditSale = () => {
         notes: document.getElementById('cart-notes').value, customer: { name, phone, paid, remaining: total - paid }
     };
 
-    localData.debts.push({
-        date: invoice.date, name: name, phone: phone, invoiceId: invoice.id, total: total, paid: paid, remaining: total - paid
-    });
+    const debtId = 'DEBT-' + invoice.id;
+    const newDebt = {
+        id: debtId, date: invoice.date, name: name, phone: phone, invoiceId: invoice.id, total: total, paid: paid, remaining: total - paid
+    };
+    localData.debts.push(newDebt);
+    // التدخل الجراحي: فصل حفظ الدين بشكل مستقل وآمن
+    set(ref(database, 'royal_data/debts/' + debtId), newDebt); 
 
     finalizeSale(invoice);
     window.closeModals();
@@ -543,7 +550,11 @@ function finalizeSale(invoice) {
     if(invoice.type === 'credit' && invoice.customer) localData.dailySalesCash += invoice.customer.paid;
 
     window.logAction(invoice.type === 'credit' ? 'بيع آجل' : 'بيع', 'رقم الفاتورة: ' + invoice.id, invoice.total, invoice);
-    saveDataToCloud();
+    
+    // التدخل الجراحي: الرفع النقطي الحصري لتجنب فرمتة السحابة
+    set(ref(database, 'royal_data/invoices/' + invoice.id), invoice);
+    window.recalculateDailySales(); // تأمين الحسابات
+    updateUI(); // تحديث أرقام المبيعات فوراً
     
     if(document.getElementById('auto-print').checked) window.printInvoice(invoice);
 
@@ -635,7 +646,18 @@ window.saveEditedInvoice = () => {
     localData.invoices[oldIndex].notes = document.getElementById('cart-notes').value;
 
     window.logAction('تعديل فاتورة', 'تعديل فاتورة رقم: ' + editingInvoiceId, newTotal, { oldInvoice: oldInvoice, newCart: currentCart });
-    saveDataToCloud();
+    
+    // التدخل الجراحي: تحديث الفاتورة في مسارها الخاص فقط باستخدام update
+    const invoiceRef = ref(database, 'royal_data/invoices/' + editingInvoiceId);
+    update(invoiceRef, {
+        items: localData.invoices[oldIndex].items,
+        total: localData.invoices[oldIndex].total,
+        notes: localData.invoices[oldIndex].notes
+    });
+    
+    window.recalculateDailySales();
+    updateUI();
+
     editingInvoiceId = null; currentCart = []; document.getElementById('cart-notes').value = '';
     localStorage.removeItem('cart_draft'); renderCart();
 
@@ -662,14 +684,22 @@ window.deleteInvoice = (id) => {
         if (inv.type === 'credit') {
             const debtIndex = (localData.debts || []).findIndex(d => d.invoiceId === inv.id);
             if (debtIndex > -1) {
+                const debtId = localData.debts[debtIndex].id; // افتراض وجود id
                 localData.debts.splice(debtIndex, 1);
+                // التدخل الجراحي: مسح مسار الدين مباشرة
+                if (debtId) remove(ref(database, 'royal_data/debts/' + debtId));
             }
         }
         // -------------------------------------------------
 
         window.logAction('حذف فاتورة', 'تم حذف فاتورة رقم: ' + inv.id, inv.total, inv);
         localData.invoices.splice(index, 1);
-        saveDataToCloud();
+        
+        // التدخل الجراحي: مسح الفاتورة من مسارها الخاص فقط باستخدام remove
+        remove(ref(database, 'royal_data/invoices/' + id));
+        window.recalculateDailySales();
+        updateUI();
+        
         window.openPreviousInvoices(); 
     });
 };
@@ -728,16 +758,23 @@ window.saveExpense = () => {
     if(!detail || isNaN(amount)) return alert('يرجى ملء الحقول');
 
     if(!localData.expenses) localData.expenses = [];
-    localData.expenses.push({ 
-        timestamp: Date.now(), // أضفنا طابع زمني لترتيبها من الأحدث للأقدم
+    const newExpense = { 
+        id: 'EXP-' + Date.now(), // منحرف فريد يحمي المصروف من التداخل
+        timestamp: Date.now(),
         date: new Date().toLocaleDateString(), 
         detail: detail, 
         amount: amount 
-    });
+    };
+    localData.expenses.push(newExpense);
     
     localData.dailySalesCash -= amount;
     window.logAction('إضافة مصروف', detail, amount);
-    saveDataToCloud();
+    
+    // التدخل الجراحي: حقن مباشر في السحابة
+    set(ref(database, 'royal_data/expenses/' + newExpense.id), newExpense);
+    window.recalculateDailySales();
+    updateUI();
+
     window.closeModals();
     document.getElementById('expense-detail').value = ''; 
     document.getElementById('expense-amount').value = '';
@@ -793,32 +830,46 @@ window.saveEditedExpense = () => {
 
     const oldExp = localData.expenses[editingExpenseIndex];
     
-    // إذا كان المصروف لليوم الحالي، نقوم بإرجاع المبلغ القديم للصندوق وخصم المبلغ الجديد
     if(oldExp.date === new Date().toLocaleDateString()) {
-        localData.dailySalesCash += oldExp.amount; // إرجاع القديم
-        localData.dailySalesCash -= newAmount;     // خصم الجديد
+        localData.dailySalesCash += oldExp.amount; 
+        localData.dailySalesCash -= newAmount;     
     }
 
     localData.expenses[editingExpenseIndex].detail = newDetail;
     localData.expenses[editingExpenseIndex].amount = newAmount;
     window.logAction('تعديل مصروف', 'تعديل من: ' + oldExp.detail, newAmount, { oldExpense: oldExp, newExpense: {detail: newDetail, amount: newAmount} });
 
-    saveDataToCloud();
-    window.openPreviousExpenses(); // العودة لقائمة الصرفيات بعد التعديل
+    // التدخل الجراحي: تحديث المصروف فقط
+    if (oldExp.id) {
+        update(ref(database, 'royal_data/expenses/' + oldExp.id), {
+            detail: newDetail,
+            amount: newAmount
+        });
+    }
+    
+    window.recalculateDailySales();
+    updateUI();
+    window.openPreviousExpenses(); 
 };
 
 window.deleteExpense = (index) => {
     window.showConfirm('هل أنت متأكد من حذف هذا المصروف نهائياً؟ سيتم إرجاع مبلغه لصندوق اليوم.', () => {
         const exp = localData.expenses[index];
         
-        // التحقق من إرجاع المبلغ للصندوق
         if(exp && exp.date === new Date().toLocaleDateString()) {
             localData.dailySalesCash += exp.amount;
         }
 
         window.logAction('حذف مصروف', exp.detail, exp.amount, exp);
         localData.expenses.splice(index, 1);
-        saveDataToCloud();
+        
+        // التدخل الجراحي: حذف المصروف المباشر باستخدام مساره (إن وُجد المعرف)
+        if (exp.id) {
+            remove(ref(database, 'royal_data/expenses/' + exp.id));
+        }
+        
+        window.recalculateDailySales();
+        updateUI();
         window.openPreviousExpenses(); 
         window.showAlert('تم حذف المصروف بنجاح!', 'success'); 
     });
