@@ -500,79 +500,96 @@ function generateInvoiceID() {
     return 'ROYAL-' + Math.random().toString(36).substr(2, 4).toUpperCase() + Date.now().toString().slice(-4);
 }
 
-// ---------------- نظام البيع ----------------
-window.checkout = (type) => {
+// ---------------- نظام البيع (تسجيل الطلبات) ----------------
+window.openCheckoutModal = () => {
     if(currentCart.length === 0) return alert('السلة فارغة!');
-    const total = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
     
-    const invoice = {
-        id: generateInvoiceID(), date: new Date().toLocaleDateString(), time: new Date().toLocaleTimeString(),
-        timestamp: Date.now(), type: type, items: [...currentCart], total: total,
-        notes: document.getElementById('cart-notes').value, customer: null
-    };
-    finalizeSale(invoice);
+    document.getElementById('checkout-name').value = '';
+    document.getElementById('checkout-phone').value = '';
+    document.getElementById('checkout-pickup-date').value = '';
+    document.getElementById('checkout-pickup-time').value = '';
+    document.getElementById('checkout-deposit').value = '0';
+    
+    document.getElementById('modal-checkout').style.display = 'flex';
 };
-
-// اختصار الكيبورد (Ctrl + S)
+// اختصار الكيبورد لفتح شاشة الطلب (Ctrl + S)
 document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && (e.key === 's' || e.key === 'S')) {
         e.preventDefault();
         if(document.getElementById('pos-screen').classList.contains('active-screen') && !editingInvoiceId) {
-            window.checkout('cash');
+            window.openCheckoutModal();
         }
     }
 });
 
-window.openCreditModal = () => {
-    if(currentCart.length === 0) return alert('السلة فارغة!');
-    document.getElementById('credit-name').value = ''; document.getElementById('credit-phone').value = ''; document.getElementById('credit-paid').value = '0';
-    document.getElementById('modal-credit').style.display = 'flex';
-};
+// دالة حساب الرقم اليومي التسلسلي
+function getNextDailyNumber() {
+    const today = new Date().toLocaleDateString();
+    let maxNumber = 0;
+    
+    (localData.invoices || []).forEach(inv => {
+        if (inv.date === today && inv.dailyNumber) {
+            if (inv.dailyNumber > maxNumber) maxNumber = inv.dailyNumber;
+        }
+    });
+    return maxNumber + 1;
+}
 
-window.confirmCreditSale = () => {
-    const name = document.getElementById('credit-name').value;
-    const phone = document.getElementById('credit-phone').value;
-    const paid = parseFloat(document.getElementById('credit-paid').value) || 0;
+window.confirmOrder = () => {
+    const name = document.getElementById('checkout-name').value;
+    const phone = document.getElementById('checkout-phone').value;
+    const pickupDate = document.getElementById('checkout-pickup-date').value;
+    const pickupTime = document.getElementById('checkout-pickup-time').value;
+    const deposit = parseFloat(document.getElementById('checkout-deposit').value) || 0;
+    
+    if(!name) return window.showAlert('يرجى إدخال اسم الزبون لتسجيل الطلب.', 'warning');
+    
     const total = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
     
-    if(!name || !phone) return alert('يرجى إدخال اسم الزبون ورقم الهاتف');
-    
+    if(deposit > total) return window.showAlert('العربون لا يمكن أن يكون أكبر من المجموع الكلي!', 'error');
+
+    const dailyNum = getNextDailyNumber();
     const invoice = {
-        id: generateInvoiceID(), date: new Date().toLocaleDateString(), time: new Date().toLocaleTimeString(),
-        timestamp: Date.now(), type: 'credit', items: [...currentCart], total: total,
-        notes: document.getElementById('cart-notes').value, customer: { name, phone, paid, remaining: total - paid }
+        id: generateInvoiceID(), 
+        dailyNumber: dailyNum, // الرقم التسلسلي اليومي (مهم للطباعة والبحث)
+        date: new Date().toLocaleDateString(), 
+        time: new Date().toLocaleTimeString(),
+        timestamp: Date.now(), 
+        type: 'active', // حالة الفاتورة (طلب نشط في المستودع)
+        items: [...currentCart], 
+        total: total,
+        notes: document.getElementById('cart-notes').value, 
+        customer: { 
+            name: name, 
+            phone: phone, 
+            pickupDate: pickupDate, 
+            pickupTime: pickupTime,
+            paid: deposit, 
+            remaining: total - deposit 
+        }
     };
 
-    const debtId = 'DEBT-' + invoice.id;
-    const newDebt = {
-        id: debtId, date: invoice.date, name: name, phone: phone, invoiceId: invoice.id, total: total, paid: paid, remaining: total - paid
-    };
-    localData.debts.push(newDebt);
-    // التدخل الجراحي: فصل حفظ الدين بشكل مستقل وآمن
-    set(ref(database, 'royal_data/debts/' + debtId), newDebt); 
-
-    finalizeSale(invoice);
-    window.closeModals();
-};
-
-function finalizeSale(invoice) {
     localData.invoices.push(invoice);
-    if(invoice.type === 'cash') localData.dailySalesCash += invoice.total;
-    if(invoice.type === 'electronic') localData.dailySalesElectronic += invoice.total;
-    if(invoice.type === 'credit' && invoice.customer) localData.dailySalesCash += invoice.customer.paid;
-
-    window.logAction(invoice.type === 'credit' ? 'بيع آجل' : 'بيع', 'رقم الفاتورة: ' + invoice.id, invoice.total, invoice);
     
-    // التدخل الجراحي: الرفع النقطي الحصري لتجنب فرمتة السحابة
+    // تسجيل العربون في صندوق اليوم (إن وُجد)
+    if(deposit > 0) localData.dailySalesCash += deposit;
+
+    window.logAction('تسجيل طلب جديد', `رقم تسلسلي: ${dailyNum} | للزبون: ${name}`, deposit, invoice);
+    
+    // التدخل الجراحي: الرفع النقطي الحصري
+    import { set, ref } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
     set(ref(database, 'royal_data/invoices/' + invoice.id), invoice);
-    window.recalculateDailySales(); // تأمين الحسابات
-    updateUI(); // تحديث أرقام المبيعات فوراً
+    
+    window.recalculateDailySales(); 
+    updateUI(); 
     
     if(document.getElementById('auto-print').checked) window.printInvoice(invoice);
 
     currentCart = []; document.getElementById('cart-notes').value = '';
     localStorage.removeItem('cart_draft'); renderCart();
-}
+    window.closeModals();
+    window.showAlert(`تم تسجيل الطلب بنجاح (رقم ${dailyNum})`, 'success');
+};
 
 // ---------------- الفواتير السابقة (عرض، تعديل، حذف) ----------------
 window.openPreviousInvoices = () => {
@@ -744,21 +761,134 @@ window.printInvoice = (invoice) => {
     document.getElementById('print-header-name').innerText = localData.settings.name;
     document.getElementById('print-footer-info').innerHTML = `العنوان: ${localData.settings.address}<br>هاتف: ${localData.settings.phone}<br>لمسة ملكية تليق بك`;
     document.getElementById('p-date').innerText = invoice.date; document.getElementById('p-time').innerText = invoice.time;
-    document.getElementById('p-inv').innerText = invoice.id; document.getElementById('p-type').innerText = invoice.type === 'cash' ? 'نقدي' : (invoice.type === 'electronic' ? 'إلكتروني' : 'آجل');
     
-    if(invoice.type === 'credit' && invoice.customer) {
-        document.getElementById('p-customer-row').style.display = 'block'; document.getElementById('p-customer').innerText = invoice.customer.name;
-    } else { document.getElementById('p-customer-row').style.display = 'none'; }
+    // إظهار الرقم اليومي بشكل بارز للزبون، والرقم الطويل للبحث
+    document.getElementById('p-inv').innerText = (invoice.dailyNumber ? `اليومي: ${invoice.dailyNumber}` : invoice.id); 
+    
+    // إظهار حالة الطلب
+    let statusText = '';
+    if(invoice.type === 'active') statusText = 'طلب قيد العمل';
+    else if(invoice.type === 'archived') statusText = 'فاتورة مستلمة';
+    else statusText = 'مستلمة (نظام قديم)'; // لدعم الفواتير القديمة
+
+    document.getElementById('p-type').innerText = statusText;
+    
+    if(invoice.customer) {
+        document.getElementById('p-customer-row').style.display = 'block'; 
+        
+        let custInfo = `<b>${invoice.customer.name}</b>`;
+        if(invoice.customer.pickupDate) custInfo += `<br>الاستلام: ${invoice.customer.pickupDate}`;
+        document.getElementById('p-customer').innerHTML = custInfo;
+    } else { 
+        document.getElementById('p-customer-row').style.display = 'none'; 
+    }
 
     const tbody = document.getElementById('p-items');
     tbody.innerHTML = '';
     invoice.items.forEach(item => { tbody.innerHTML += `<tr><td>${item.name}</td><td>${item.serviceName}</td><td>${item.qty}</td><td>${item.price * item.qty}</td></tr>`; });
-    document.getElementById('p-total').innerText = invoice.total.toLocaleString();
+    
+    // إضافة تفاصيل العربون والمتبقي في الفاتورة
+    let totalHTML = `المجموع: ${invoice.total.toLocaleString()} د.ع`;
+    if (invoice.customer && invoice.type === 'active') {
+        totalHTML += `<br><span style="font-size: 14px; font-weight: normal;">العربون: ${invoice.customer.paid.toLocaleString()} د.ع</span>`;
+        totalHTML += `<br><span style="color: black; font-weight: 900;">المطلوب عند الاستلام: ${invoice.customer.remaining.toLocaleString()} د.ع</span>`;
+    }
+    document.getElementById('p-total').innerHTML = totalHTML;
     
     if(invoice.notes) {
         document.getElementById('p-notes-row').style.display = 'block'; document.getElementById('p-notes').innerText = invoice.notes;
     } else { document.getElementById('p-notes-row').style.display = 'none'; }
     window.print();
+};
+
+// ==========================================
+// --- نظام مستودع الاستلام الجديد (Active Orders) ---
+// ==========================================
+
+window.openActiveOrders = () => {
+    window.renderActiveOrders();
+    document.getElementById('modal-active-orders').style.display = 'flex';
+};
+
+window.renderActiveOrders = () => {
+    const tbody = document.getElementById('active-orders-body');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+
+    let filterText = document.getElementById('active-search-text')?.value.toLowerCase() || '';
+
+    // تصفية الفواتير التي حالتها 'active' فقط (موجودة في المستودع ولم تسلم بعد)
+    const activeOrders = (localData.invoices || []).filter(inv => inv.type === 'active');
+    
+    // ترتيب الأحدث أولاً
+    activeOrders.sort((a,b) => b.timestamp - a.timestamp);
+
+    activeOrders.forEach(inv => {
+        let custName = inv.customer ? inv.customer.name.toLowerCase() : '';
+        let custPhone = inv.customer ? (inv.customer.phone || '') : '';
+        let dailyStr = inv.dailyNumber ? inv.dailyNumber.toString() : '';
+
+        // بحث ذكي بالاسم، الهاتف، الرقم التسلسلي اليومي، أو المعرف الطويل
+        if (filterText && !custName.includes(filterText) && !custPhone.includes(filterText) && !dailyStr.includes(filterText) && !inv.id.toLowerCase().includes(filterText)) return;
+
+        let pickupInfo = (inv.customer && inv.customer.pickupDate) ? `${inv.customer.pickupDate} ${inv.customer.pickupTime||''}` : 'غير محدد';
+        let remaining = (inv.customer) ? inv.customer.remaining : inv.total;
+        let deposit = (inv.customer) ? inv.customer.paid : 0;
+
+        tbody.innerHTML += `
+            <tr>
+                <td style="font-weight: 900; font-size: 18px; color: var(--gold);">${inv.dailyNumber || '-'}</td>
+                <td style="font-weight: bold;">${inv.customer ? inv.customer.name : 'بدون اسم'}</td>
+                <td>${inv.customer ? inv.customer.phone : '-'}</td>
+                <td>${pickupInfo}</td>
+                <td style="font-weight:bold;">${inv.total.toLocaleString()}</td>
+                <td style="color:var(--green-success);">${deposit.toLocaleString()}</td>
+                <td style="color:var(--red-danger); font-weight:900;">${remaining.toLocaleString()}</td>
+                <td>
+                    <button class="top-bar-btn" style="background:var(--green-success); color:white; border-color:var(--green-success); padding: 5px 10px;" onclick="window.confirmPickup('${inv.id}')"><i class="fa-solid fa-check"></i> تسليم</button>
+                    <i class="fa-solid fa-pen action-icon" style="color: #4a90e2; font-size: 16px; margin: 0 5px;" onclick='window.editInvoice("${inv.id}")' title="تعديل القطع"></i>
+                    <i class="fa-solid fa-trash action-icon" style="color: var(--red-danger); font-size: 16px; margin: 0 5px;" onclick='window.deleteInvoice("${inv.id}")' title="حذف وإلغاء الطلب"></i>
+                </td>
+            </tr>
+        `;
+    });
+};
+
+window.confirmPickup = (id) => {
+    const index = localData.invoices.findIndex(i => i.id === id);
+    if(index === -1) return;
+    
+    const inv = localData.invoices[index];
+    const remaining = inv.customer ? inv.customer.remaining : inv.total;
+    
+    window.showConfirm(`تأكيد تسليم الطلب (رقم ${inv.dailyNumber || '-'}) واستلام مبلغ ${remaining.toLocaleString()} د.ع؟`, () => {
+        
+        // 1. إضافة المبلغ المتبقي لصندوق مبيعات "اليوم الحالي"
+        localData.dailySalesCash += remaining;
+        
+        // 2. تصفير المتبقي وتعديل المدفوع
+        if(inv.customer) {
+            inv.customer.paid += remaining;
+            inv.customer.remaining = 0;
+        }
+        
+        // 3. تحويل حالة الطلب إلى مؤرشف (Archived) لتخرج من المستودع
+        inv.type = 'archived';
+        
+        // 4. حفظ نقطي في الفايربيس
+        import { update, ref } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+        update(ref(database, 'royal_data/invoices/' + inv.id), {
+            type: 'archived',
+            customer: inv.customer
+        });
+        
+        window.logAction('تسليم طلب (أرشفة)', `تسليم طلب رقم: ${inv.dailyNumber||inv.id} للزبون: ${inv.customer.name}`, remaining, inv);
+        
+        window.recalculateDailySales();
+        updateUI();
+        window.renderActiveOrders(); // تحديث القائمة
+        window.showAlert('تم تسليم الطلب وإضافة المبلغ للصندوق بنجاح!', 'success');
+    });
 };
 
 // ---------------- الصرفيات ----------------
