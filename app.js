@@ -32,6 +32,15 @@ let editingInvoiceId = null;
 let pendingItem = null;
 // --- جدار الحماية: توكن الجلسة لمنع التجاوز برمجياً ---
 let secureAdminToken = null;
+
+// --- جدار الحماية (XSS): دالة تعقيم المدخلات لتدمير الأكواد الخبيثة ---
+window.escapeHTML = (str) => {
+    if(typeof str !== 'string') return str;
+    return str.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag]));
+};
+// -----------------------------------------------------------------
 // --- التدخل الجراحي: توحيد صيغة التاريخ لجميع الأجهزة لحماية الحسابات المالية ---
 Date.prototype.toLocaleDateString = function() {
     const year = this.getFullYear();
@@ -791,10 +800,12 @@ window.openPreviousExpenses = () => {
         .sort((a, b) => (b.timestamp || b.originalIndex) - (a.timestamp || a.originalIndex));
     
     sorted.forEach(exp => {
+        // التدخل الجراحي: تعقيم التفاصيل قبل طباعتها
+        const safeDetail = window.escapeHTML(exp.detail);
         tbody.innerHTML += `
             <tr>
                 <td>${exp.date}</td>
-                <td>${exp.detail}</td>
+                <td>${safeDetail}</td>
                 <td style="color:var(--red-danger); font-weight:bold;">${exp.amount.toLocaleString()}</td>
                 <td>
                     <i class="fa-solid fa-pen action-icon" style="color: #4a90e2;" onclick='window.openEditExpense(${exp.originalIndex})' title="تعديل"></i>
@@ -1225,12 +1236,14 @@ window.openAdminExpensesModal = () => {
         // استخراج اسم اليوم (جمعة، سبت...)
         const dateObj = new Date(exp.timestamp || Date.now());
         const dayName = new Intl.DateTimeFormat('ar-IQ', { weekday: 'long' }).format(dateObj);
+        // التدخل الجراحي: تعقيم المدخلات
+        const safeDetail = window.escapeHTML(exp.detail);
         
         tbody.innerHTML += `
             <tr>
                 <td>${exp.date}</td>
                 <td style="color:var(--gold); font-weight:bold;">${dayName}</td>
-                <td>${exp.detail}</td>
+                <td>${safeDetail}</td>
                 <td style="color:var(--red-danger); font-weight:bold;">${exp.amount.toLocaleString()} د.ع</td>
             </tr>
         `;
@@ -1273,12 +1286,15 @@ window.renderLogs = () => {
         else typeClass += 'log-add';
 
         let actionBtn = log.snapshot ? `<button class="top-bar-btn" style="padding: 4px 10px; font-size:12px; border-color:#4a90e2; color:#4a90e2;" onclick="window.viewLogDetails('${log.id}')" title="عرض التفاصيل"><i class="fa-solid fa-eye"></i></button>` : '-';
+        
+        // التدخل الجراحي: تعقيم تفاصيل الحركة بالكامل
+        const safeDetails = window.escapeHTML(log.details);
 
         tbody.innerHTML += `
             <tr>
                 <td style="font-size:13px; color:var(--text-gray);">${log.date} <br> ${log.time}</td>
                 <td><span class="${typeClass}">${log.type}</span></td>
-                <td>${log.details}</td>
+                <td>${safeDetails}</td>
                 <td style="font-weight:bold;">${log.amount.toLocaleString()} د.ع</td>
                 <td>${actionBtn}</td>
             </tr>
