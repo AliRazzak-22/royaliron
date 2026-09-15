@@ -138,17 +138,33 @@ async function initializeDB() {
 // --- التدخل الجراحي: نظام إعادة الحساب الديناميكي لحماية صندوق الكاشير من التجمد ---
 window.recalculateDailySales = () => {
     let todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0); // بداية اليوم الحالي (الساعة 12:00 ليلاً)
+    todayStart.setHours(0, 0, 0, 0); 
     
     let realCash = 0; 
     let realElectronic = 0;
     
-    // 1. حساب الفواتير (نعتمد على الطابع الزمني الثابت Timestamp)
+    // 1. حساب الفواتير (كاش، إلكتروني، عربون الطلب النشط، وتسليم الطلب المؤرشف)
     (localData.invoices || []).forEach(inv => {
         if(inv.timestamp && inv.timestamp >= todayStart.getTime()) {
+            // النظام القديم
             if (inv.type === 'cash') realCash += inv.total;
             else if (inv.type === 'electronic') realElectronic += inv.total;
             else if (inv.type === 'credit' && inv.customer) realCash += (inv.customer.paid || 0);
+            
+            // النظام الجديد: حساب العربون عند تسجيل الطلب
+            if (inv.type === 'active' && inv.customer && inv.customer.paid > 0) {
+                realCash += inv.customer.paid; // نفترض العربون دائماً كاش مبدئياً
+            }
+            // النظام الجديد: حساب الاستلام النهائي بناءً على نوع الدفع الذي سنضيفه
+            else if (inv.type === 'archived' && inv.customer) {
+                // نجمع العربون (نفترض كاش) + المبلغ المتبقي حسب نوع الدفع
+                realCash += (inv.customer.paid || 0); 
+                
+                let remainingPaid = (inv.customer.remainingPaid || 0);
+                if(inv.paymentType === 'cash' || !inv.paymentType) realCash += remainingPaid;
+                else if(inv.paymentType === 'electronic') realElectronic += remainingPaid;
+                // إذا كان آجل (credit)، المتبقي لا يدخل الصندوق اليوم.
+            }
         }
     });
     
@@ -738,7 +754,14 @@ window.viewInvoice = (id) => {
     
     document.getElementById('view-inv-id').innerText = invoice.id;
     document.getElementById('view-inv-date').innerText = invoice.date + ' ' + invoice.time;
-    document.getElementById('view-inv-type').innerText = invoice.type === 'cash' ? 'نقدي' : (invoice.type === 'electronic' ? 'إلكتروني' : 'آجل');
+    let typeDisplay = '';
+    if (invoice.type === 'active') typeDisplay = 'طلب قيد العمل';
+    else if (invoice.paymentType === 'cash' || invoice.type === 'cash') typeDisplay = 'نقدي (كاش)';
+    else if (invoice.paymentType === 'electronic' || invoice.type === 'electronic') typeDisplay = 'إلكتروني';
+    else if (invoice.paymentType === 'credit' || invoice.type === 'credit') typeDisplay = 'آجل (ذمة)';
+    else typeDisplay = 'مستلم';
+    
+    document.getElementById('view-inv-type').innerText = typeDisplay;
     
     if(invoice.type === 'credit' && invoice.customer) {
         document.getElementById('view-inv-customer-row').style.display = 'block'; document.getElementById('view-inv-customer').innerText = invoice.customer.name;
@@ -814,21 +837,37 @@ window.renderActiveOrders = () => {
     if(!tbody) return;
     tbody.innerHTML = '';
 
-    let filterText = document.getElementById('active-search-text')?.value.toLowerCase() || '';
+    let filterText = document.getElementById('active-search-text')?.value.toLowerCase().trim() || '';
 
-    // تصفية الفواتير التي حالتها 'active' فقط (موجودة في المستودع ولم تسلم بعد)
-    const activeOrders = (localData.invoices || []).filter(inv => inv.type === 'active');
+    let activeOrders = (localData.invoices || []).filter(inv => inv.type === 'active');
     
-    // ترتيب الأحدث أولاً
-    activeOrders.sort((a,b) => b.timestamp - a.timestamp);
+    // الترتيب الذكي: إذا كان هناك بحث، نرفع التطابق الدقيق للأعلى
+    activeOrders.sort((a,b) => {
+        if(filterText) {
+            let aName = (a.customer && a.customer.name) ? a.customer.name.toLowerCase() : '';
+            let bName = (b.customer && b.customer.name) ? b.customer.name.toLowerCase() : '';
+            // إذا كان الاسم يبدأ بنص البحث نمنحه أولوية عالية جداً
+            let aScore = aName.startsWith(filterText) ? 2 : (aName.includes(filterText) ? 1 : 0);
+            let bScore = bName.startsWith(filterText) ? 2 : (bName.includes(filterText) ? 1 : 0);
+            if(aScore !== bScore) return bScore - aScore; // الأكبر فوق
+        }
+        return b.timestamp - a.timestamp; // الافتراضي: الأحدث فوق
+    });
+
+    // دالة مساعدة لتمييز النص باللون الذهبي
+    const highlight = (text) => {
+        if(!filterText || typeof text !== 'string') return text;
+        const regex = new RegExp(`(${filterText})`, "gi");
+        return text.replace(regex, `<span style="background-color: rgba(212, 175, 55, 0.4); color: var(--gold); border-radius: 3px; padding: 0 2px;">$1</span>`);
+    };
 
     activeOrders.forEach(inv => {
-        let custName = inv.customer ? inv.customer.name.toLowerCase() : '';
-        let custPhone = inv.customer ? (inv.customer.phone || '') : '';
+        let custName = inv.customer ? inv.customer.name : 'بدون اسم';
+        let custPhone = inv.customer ? (inv.customer.phone || '-') : '-';
         let dailyStr = inv.dailyNumber ? inv.dailyNumber.toString() : '';
 
-        // بحث ذكي بالاسم، الهاتف، الرقم التسلسلي اليومي، أو المعرف الطويل
-        if (filterText && !custName.includes(filterText) && !custPhone.includes(filterText) && !dailyStr.includes(filterText) && !inv.id.toLowerCase().includes(filterText)) return;
+        // إذا كان هناك فلتر ولم يطابق أي حقل، نتجاوزه
+        if (filterText && !custName.toLowerCase().includes(filterText) && !custPhone.includes(filterText) && !dailyStr.includes(filterText)) return;
 
         let pickupInfo = (inv.customer && inv.customer.pickupDate) ? `${inv.customer.pickupDate} ${inv.customer.pickupTime||''}` : 'غير محدد';
         let remaining = (inv.customer) ? inv.customer.remaining : inv.total;
@@ -836,9 +875,9 @@ window.renderActiveOrders = () => {
 
         tbody.innerHTML += `
             <tr>
-                <td style="font-weight: 900; font-size: 18px; color: var(--gold);">${inv.dailyNumber || '-'}</td>
-                <td style="font-weight: bold;">${inv.customer ? inv.customer.name : 'بدون اسم'}</td>
-                <td>${inv.customer ? inv.customer.phone : '-'}</td>
+                <td style="font-weight: 900; font-size: 18px; color: var(--gold);">${highlight(dailyStr) || '-'}</td>
+                <td style="font-weight: bold;">${highlight(custName)}</td>
+                <td>${highlight(custPhone)}</td>
                 <td>${pickupInfo}</td>
                 <td style="font-weight:bold;">${inv.total.toLocaleString()}</td>
                 <td style="color:var(--green-success);">${deposit.toLocaleString()}</td>
@@ -853,40 +892,71 @@ window.renderActiveOrders = () => {
     });
 };
 
+// متغير عالمي لحفظ ID الطلب قيد الاستلام
+let pendingPickupId = null;
+
 window.confirmPickup = (id) => {
-    const index = localData.invoices.findIndex(i => i.id === id);
+    const inv = localData.invoices.find(i => i.id === id);
+    if(!inv) return;
+    
+    pendingPickupId = id;
+    const remaining = inv.customer ? inv.customer.remaining : inv.total;
+    
+    document.getElementById('pickup-amount-display').innerText = remaining.toLocaleString();
+    window.closeModals(); // نغلق المستودع مؤقتاً
+    document.getElementById('modal-pickup-payment').style.display = 'flex';
+};
+
+window.finalizePickup = (paymentType) => {
+    const index = localData.invoices.findIndex(i => i.id === pendingPickupId);
     if(index === -1) return;
     
     const inv = localData.invoices[index];
-    const remaining = inv.customer ? inv.customer.remaining : inv.total;
+    const remainingToPay = inv.customer ? inv.customer.remaining : inv.total;
     
-    window.showConfirm(`تأكيد تسليم الطلب (رقم ${inv.dailyNumber || '-'}) واستلام مبلغ ${remaining.toLocaleString()} د.ع؟`, () => {
-        
-        // 1. إضافة المبلغ المتبقي لصندوق مبيعات "اليوم الحالي"
-        localData.dailySalesCash += remaining;
-        
-        // 2. تصفير المتبقي وتعديل المدفوع
-        if(inv.customer) {
-            inv.customer.paid += remaining;
-            inv.customer.remaining = 0;
-        }
-        
-        // 3. تحويل حالة الطلب إلى مؤرشف (Archived) لتخرج من المستودع
-        inv.type = 'archived';
-        
-        // 4. حفظ نقطي في الفايربيس
-        update(ref(database, 'royal_data/invoices/' + inv.id), {
-            type: 'archived',
-            customer: inv.customer
-        });
-        
-        window.logAction('تسليم طلب (أرشفة)', `تسليم طلب رقم: ${inv.dailyNumber||inv.id} للزبون: ${inv.customer.name}`, remaining, inv);
-        
-        window.recalculateDailySales();
-        updateUI();
-        window.renderActiveOrders(); // تحديث القائمة
-        window.showAlert('تم تسليم الطلب وإضافة المبلغ للصندوق بنجاح!', 'success');
+    // 1. معالجة حالة "البيع الآجل" إذا اختارها الكاشير
+    if (paymentType === 'credit') {
+        const debtId = 'DEBT-' + inv.id;
+        const newDebt = {
+            id: debtId, 
+            date: new Date().toLocaleDateString(), 
+            name: inv.customer.name, 
+            phone: inv.customer.phone, 
+            invoiceId: inv.id, 
+            total: inv.total, 
+            paid: inv.customer.paid, // العربون
+            remaining: remainingToPay
+        };
+        localData.debts.push(newDebt);
+        import { set, ref } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+        set(ref(database, 'royal_data/debts/' + debtId), newDebt);
+    }
+    
+    // 2. تحديث بيانات الفاتورة
+    inv.type = 'archived'; // تحويل للمستلم
+    inv.paymentType = paymentType; // (cash, electronic, credit)
+    
+    if(inv.customer) {
+        inv.customer.remainingPaid = remainingToPay; // سجلنا كم دفع عند الاستلام
+        inv.customer.remaining = (paymentType === 'credit') ? remainingToPay : 0; // إذا آجل يبقى المتبقي، وإلا صفر
+    }
+
+    // 3. حفظ نقطي في الفايربيس
+    import { update, ref } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+    update(ref(database, 'royal_data/invoices/' + inv.id), {
+        type: 'archived',
+        paymentType: paymentType,
+        customer: inv.customer
     });
+    
+    let logMsg = `تسليم طلب رقم ${inv.dailyNumber||inv.id} للزبون ${inv.customer.name} - الدفع: ${paymentType === 'cash' ? 'كاش' : (paymentType === 'electronic' ? 'إلكتروني' : 'آجل')}`;
+    window.logAction('تسليم طلب (أرشفة)', logMsg, remainingToPay, inv);
+    
+    window.recalculateDailySales();
+    updateUI();
+    window.closeModals();
+    window.openActiveOrders(); // نعود للمستودع
+    window.showAlert('تم تسليم الطلب وتحديد الدفع بنجاح!', 'success');
 };
 
 // ---------------- الصرفيات ----------------
@@ -1088,12 +1158,29 @@ window.updateAdminDashboard = () => {
         let dayStr = inv.date || invDate.toLocaleDateString();
 
         if (isAllTime || monthStr === selectedMonth) {
-            let amount = (inv.type === 'credit' && inv.customer) ? inv.customer.paid : inv.total;
-            if(inv.type === 'cash' || inv.type === 'credit') totalSalesCash += amount;
-            else if (inv.type === 'electronic') totalSalesElectronic += amount;
+            let amountCash = 0;
+            let amountElectronic = 0;
+            
+            // النظام القديم
+            if(inv.type === 'cash') amountCash = inv.total;
+            else if(inv.type === 'electronic') amountElectronic = inv.total;
+            else if(inv.type === 'credit' && inv.customer) amountCash = inv.customer.paid;
+            
+            // النظام الجديد
+            if (inv.type === 'active' && inv.customer) amountCash = inv.customer.paid; // العربون
+            else if (inv.type === 'archived' && inv.customer) {
+                amountCash = inv.customer.paid; // العربون
+                let remainingPaid = inv.customer.remainingPaid || 0;
+                if(inv.paymentType === 'cash' || !inv.paymentType) amountCash += remainingPaid;
+                else if(inv.paymentType === 'electronic') amountElectronic += remainingPaid;
+                // الآجل لا نضيف المتبقي للصندوق
+            }
+
+            totalSalesCash += amountCash;
+            totalSalesElectronic += amountElectronic;
 
             if(!dailyReports[dayStr]) dailyReports[dayStr] = { sales: 0, expenses: 0, details: [], timestamp: invDate.getTime() };
-            dailyReports[dayStr].sales += amount;
+            dailyReports[dayStr].sales += (amountCash + amountElectronic);
         }
     });
 
@@ -1306,10 +1393,15 @@ window.viewLogDetails = (id) => {
                                 </div>
                             </div>`;
         } else {
-            // فاتورة محذوفة أو مبيوعة
+            // فاتورة محذوفة، أو مبيوعة، أو تسجيل طلب جديد، أو تسليم
+            let depositText = snap.customer ? `<p><strong>العربون المدفوع:</strong> <span style="color:var(--green-success);">${snap.customer.paid.toLocaleString()} د.ع</span></p>` : '';
+            let remainText = snap.customer ? `<p><strong>المتبقي (الذمة):</strong> <span style="color:var(--red-danger);">${snap.customer.remaining.toLocaleString()} د.ع</span></p>` : '';
+            
             contentHTML += `<div style="background:#111; padding:15px; border-radius:8px; border:1px solid #444;">
-                                <p><strong>رقم الفاتورة:</strong> <span style="color:var(--text-gray);">${snap.id || '-'}</span></p>
-                                <p><strong>المبلغ الكلي:</strong> <span style="color:var(--gold);">${(snap.total || log.amount).toLocaleString()} د.ع</span></p>
+                                <p><strong>رقم الطلب/الفاتورة:</strong> <span style="color:var(--text-gray);">${snap.dailyNumber || snap.id || '-'}</span></p>
+                                <p><strong>المبلغ الكلي:</strong> <span style="color:var(--gold);">${snap.total ? snap.total.toLocaleString() : (log.amount||0).toLocaleString()} د.ع</span></p>
+                                ${depositText}
+                                ${remainText}
                                 <p style="margin-top:10px;"><strong>تفاصيل القطع:</strong></p>
                                 ${renderItemsTable(snap.items)}
                             </div>`;
