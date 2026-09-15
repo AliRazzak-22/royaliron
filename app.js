@@ -62,8 +62,8 @@ async function initializeDB() {
     try {
         await signInAnonymously(auth);
 
-        // --- التدخل الجراحي: تحويل النظام إلى Real-Time (نبض لحظي) ---
-        onValue(ref(database, 'royal_data'), (snapshot) => {
+        // التدخل الجراحي: تفكيك قنبلة الذاكرة باستخدام get() لجلب البيانات مرة واحدة بذكاء
+        get(ref(database, 'royal_data')).then((snapshot) => {
             if (snapshot.exists()) {
                 let incomingData = snapshot.val();
                 
@@ -109,6 +109,9 @@ async function initializeDB() {
                 window.updateAdminDashboard();
                 if (sessionStorage.getItem('admin_tab') === 'logs') window.renderLogs();
             }
+        }).catch((error) => {
+            console.error("فشل جلب البيانات من السحابة:", error);
+            window.showAlert("تنبيه: يوجد ضعف في الاتصال بالإنترنت.", "error");
         });
 
         if(localStorage.getItem('cart_draft')) {
