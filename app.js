@@ -928,7 +928,6 @@ window.finalizePickup = (paymentType) => {
             remaining: remainingToPay
         };
         localData.debts.push(newDebt);
-        import { set, ref } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
         set(ref(database, 'royal_data/debts/' + debtId), newDebt);
     }
     
@@ -942,7 +941,6 @@ window.finalizePickup = (paymentType) => {
     }
 
     // 3. حفظ نقطي في الفايربيس
-    import { update, ref } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
     update(ref(database, 'royal_data/invoices/' + inv.id), {
         type: 'archived',
         paymentType: paymentType,
