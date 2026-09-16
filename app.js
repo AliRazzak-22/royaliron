@@ -536,13 +536,26 @@ function generateInvoiceID() {
 
 // ---------------- نظام البيع (تسجيل الطلبات) ----------------
 window.openCheckoutModal = () => {
-    if(currentCart.length === 0) return alert('السلة فارغة!');
+    if(currentCart.length === 0) return window.showAlert('السلة فارغة!', 'warning');
     
-    document.getElementById('checkout-name').value = '';
-    document.getElementById('checkout-phone').value = '';
-    document.getElementById('checkout-pickup-date').value = '';
-    document.getElementById('checkout-pickup-time').value = '';
-    document.getElementById('checkout-deposit').value = '0';
+    // إذا كنا في وضع "تعديل طلب سابق"
+    if (editingInvoiceId) {
+        const inv = localData.invoices.find(i => i.id === editingInvoiceId);
+        if (inv && inv.customer) {
+            document.getElementById('checkout-name').value = inv.customer.name || '';
+            document.getElementById('checkout-phone').value = inv.customer.phone || '';
+            document.getElementById('checkout-pickup-date').value = inv.customer.pickupDate || '';
+            document.getElementById('checkout-pickup-time').value = inv.customer.pickupTime || '';
+            document.getElementById('checkout-deposit').value = inv.customer.paid || 0;
+        }
+    } else {
+        // وضع "طلب جديد": تصفير الحقول
+        document.getElementById('checkout-name').value = '';
+        document.getElementById('checkout-phone').value = '';
+        document.getElementById('checkout-pickup-date').value = '';
+        document.getElementById('checkout-pickup-time').value = '';
+        document.getElementById('checkout-deposit').value = '0';
+    }
     
     document.getElementById('modal-checkout').style.display = 'flex';
 };
@@ -570,59 +583,82 @@ function getNextDailyNumber() {
 }
 
 window.confirmOrder = () => {
-    // التدخل الجراحي: تعقيم مدخلات الزبون ضد الأكواد الخبيثة
     const name = window.escapeHTML(document.getElementById('checkout-name').value);
     const phone = window.escapeHTML(document.getElementById('checkout-phone').value);
     const pickupDate = document.getElementById('checkout-pickup-date').value;
     const pickupTime = document.getElementById('checkout-pickup-time').value;
-    const deposit = parseFloat(document.getElementById('checkout-deposit').value) || 0;
+    const newDeposit = parseFloat(document.getElementById('checkout-deposit').value) || 0;
     
-    if(!name) return window.showAlert('يرجى إدخال اسم الزبون لتسجيل الطلب.', 'warning');
-    
+    if(!name) return window.showAlert('يرجى إدخال اسم الزبون.', 'warning');
     const total = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    
-    if(deposit > total) return window.showAlert('العربون لا يمكن أن يكون أكبر من المجموع الكلي!', 'error');
+    if(newDeposit > total) return window.showAlert('العربون أكبر من المجموع الكلي!', 'error');
 
-    const dailyNum = getNextDailyNumber();
-    const invoice = {
-        id: generateInvoiceID(), 
-        dailyNumber: dailyNum, // الرقم التسلسلي اليومي (مهم للطباعة والبحث)
-        date: new Date().toLocaleDateString(), 
-        time: new Date().toLocaleTimeString(),
-        timestamp: Date.now(), 
-        type: 'active', // حالة الفاتورة (طلب نشط في المستودع)
-        items: [...currentCart], 
-        total: total,
-        notes: document.getElementById('cart-notes').value, 
-        customer: { 
-            name: name, 
-            phone: phone, 
-            pickupDate: pickupDate, 
-            pickupTime: pickupTime,
-            paid: deposit, 
-            remaining: total - deposit 
+    // === حالة (تعديل طلب موجود) ===
+    if (editingInvoiceId) {
+        const index = localData.invoices.findIndex(i => i.id === editingInvoiceId);
+        const oldInv = localData.invoices[index];
+        const oldDeposit = oldInv.customer ? oldInv.customer.paid : 0;
+        
+        // القاعدة المالية: إذا تغير العربون، نعدل الصندوق لليوم الحالي حصراً (الفرق بين القديم والجديد)
+        const depositDifference = newDeposit - oldDeposit;
+        if (depositDifference !== 0 && new Date().toLocaleDateString() === oldInv.date) {
+            localData.dailySalesCash += depositDifference;
         }
-    };
 
-    localData.invoices.push(invoice);
-    
-    // تسجيل العربون في صندوق اليوم (إن وُجد)
-    if(deposit > 0) localData.dailySalesCash += deposit;
+        localData.invoices[index].items = [...currentCart];
+        localData.invoices[index].total = total;
+        localData.invoices[index].notes = document.getElementById('cart-notes').value;
+        localData.invoices[index].customer = { name, phone, pickupDate, pickupTime, paid: newDeposit, remaining: total - newDeposit };
 
-    window.logAction('تسجيل طلب جديد', `رقم تسلسلي: ${dailyNum} | للزبون: ${name}`, deposit, invoice);
-    
-    // التدخل الجراحي: الرفع النقطي الحصري
-    set(ref(database, 'royal_data/invoices/' + invoice.id), invoice);
-    
+        window.logAction('تعديل طلب', `تعديل طلب رقم: ${oldInv.dailyNumber || oldInv.id}`, total, { oldInvoice: oldInv, newCart: currentCart });
+        
+        // تحديث السحابة
+        update(ref(database, 'royal_data/invoices/' + editingInvoiceId), {
+            items: localData.invoices[index].items,
+            total: total,
+            notes: localData.invoices[index].notes,
+            customer: localData.invoices[index].customer
+        });
+        
+        window.showAlert('تم حفظ التعديلات بنجاح!', 'success');
+        
+        // إعادة واجهة الكاشير لطبيعتها
+        document.getElementById('btn-save-edit').style.display = 'none';
+        document.getElementById('btn-main-checkout').style.display = 'flex';
+        editingInvoiceId = null;
+
+    } 
+    // === حالة (تسجيل طلب جديد كلياً) ===
+    else {
+        const dailyNum = getNextDailyNumber();
+        const invoice = {
+            id: generateInvoiceID(), 
+            dailyNumber: dailyNum,
+            date: new Date().toLocaleDateString(), 
+            time: new Date().toLocaleTimeString(),
+            timestamp: Date.now(), 
+            type: 'active',
+            items: [...currentCart], 
+            total: total,
+            notes: document.getElementById('cart-notes').value, 
+            customer: { name, phone, pickupDate, pickupTime, paid: newDeposit, remaining: total - newDeposit }
+        };
+
+        localData.invoices.push(invoice);
+        if(newDeposit > 0) localData.dailySalesCash += newDeposit;
+
+        window.logAction('تسجيل طلب جديد', `رقم تسلسلي: ${dailyNum} | للزبون: ${name}`, newDeposit, invoice);
+        set(ref(database, 'royal_data/invoices/' + invoice.id), invoice);
+        window.showAlert(`تم تسجيل الطلب بنجاح (رقم ${dailyNum})`, 'success');
+        if(document.getElementById('auto-print').checked) window.printInvoice(invoice);
+    }
+
+    // تنظيف السلة وتحديث النظام في الحالتين
     window.recalculateDailySales(); 
     updateUI(); 
-    
-    if(document.getElementById('auto-print').checked) window.printInvoice(invoice);
-
     currentCart = []; document.getElementById('cart-notes').value = '';
     localStorage.removeItem('cart_draft'); renderCart();
     window.closeModals();
-    window.showAlert(`تم تسجيل الطلب بنجاح (رقم ${dailyNum})`, 'success');
 };
 
 // ---------------- الفواتير السابقة (عرض، تعديل، حذف) ----------------
@@ -674,19 +710,17 @@ window.filterInvoices = () => window.openPreviousInvoices();
 window.editInvoice = (id) => {
     const invoice = localData.invoices.find(i => i.id === id);
     if(invoice) {
-        // --- إصلاح: منع تعديل فواتير الآجل لتجنب تضارب سجلات الديون ---
-        if(invoice.type === 'credit') return window.showAlert('عذراً، لا يمكن تعديل فواتير البيع الآجل للحفاظ على دقة السجلات المالية للديون.', 'error');
-        // -----------------------------------------------------------
+        if(invoice.type === 'credit') return window.showAlert('عذراً، لا يمكن تعديل فواتير البيع الآجل.', 'error');
+        
         currentCart = JSON.parse(JSON.stringify(invoice.items));
         document.getElementById('cart-notes').value = invoice.notes || '';
         editingInvoiceId = invoice.id;
         renderCart();
         window.closeModals();
         
+        // التدخل الجراحي: إخفاء زر (بيع) وإظهار زر (حفظ التعديلات)
+        document.getElementById('btn-main-checkout').style.display = 'none';
         document.getElementById('btn-save-edit').style.display = 'flex';
-        document.querySelector('.btn-cash').style.display = 'none';
-        document.querySelector('.btn-electronic').style.display = 'none';
-        document.querySelector('.btn-credit').style.display = 'none';
     }
 };
 
@@ -763,7 +797,12 @@ window.deleteInvoice = (id) => {
         window.recalculateDailySales();
         updateUI();
         
-        window.openPreviousInvoices(); 
+       // التدخل الجراحي: تحديث فوري وسلس للنافذة المفتوحة أمام الكاشير
+        if (document.getElementById('modal-active-orders').style.display === 'flex') {
+            window.renderActiveOrders(); // تحديث المستودع فوراً
+        } else if (document.getElementById('modal-invoices').style.display === 'flex') {
+            window.openPreviousInvoices(); // تحديث الفواتير السابقة
+        } 
     });
 };
 
@@ -903,6 +942,7 @@ window.renderActiveOrders = () => {
                 <td style="color:var(--red-danger); font-weight:900;">${remaining.toLocaleString()}</td>
                 <td>
                     <button class="top-bar-btn" style="background:var(--green-success); color:white; border-color:var(--green-success); padding: 5px 10px;" onclick="window.confirmPickup('${inv.id}')"><i class="fa-solid fa-check"></i> تسليم</button>
+                    <i class="fa-solid fa-eye action-icon" style="color: var(--gold); font-size: 16px; margin: 0 5px;" onclick='window.viewInvoice("${inv.id}")' title="عرض التفاصيل بسرعة"></i>
                     <i class="fa-solid fa-pen action-icon" style="color: #4a90e2; font-size: 16px; margin: 0 5px;" onclick='window.editInvoice("${inv.id}")' title="تعديل القطع"></i>
                     <i class="fa-solid fa-trash action-icon" style="color: var(--red-danger); font-size: 16px; margin: 0 5px;" onclick='window.deleteInvoice("${inv.id}")' title="حذف وإلغاء الطلب"></i>
                 </td>
