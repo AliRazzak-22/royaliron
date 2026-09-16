@@ -49,6 +49,7 @@
                 <button class="top-bar-btn" id="fullscreen-btn" onclick="window.toggleFullScreen()" title="تكبير/تصغير الشاشة"><i class="fa-solid fa-expand"></i></button>
                 <!-- الزر الجديد لمستودع الاستلام -->
                 <button class="top-bar-btn" onclick="window.openActiveOrders()"><i class="fa-solid fa-box-open"></i> مستودع الاستلام</button>
+                <button class="top-bar-btn" style="border-color:var(--gold); color:var(--gold);" onclick="window.openCashierSubs()"><i class="fa-solid fa-crown"></i> إدارة الزبائن (VIP)</button>
                 <button class="top-bar-btn" onclick="window.openPreviousInvoices()"><i class="fa-solid fa-receipt"></i> الفواتير السابقة</button>
                 <button class="top-bar-btn" onclick="window.openExpensesModal()"><i class="fa-solid fa-money-bill-wave"></i> صرفيات</button>
                 <button class="top-bar-btn" style="border-color:#4a90e2; color:#4a90e2; font-weight:bold;" onclick="window.openPartnerTxModal()"><i class="fa-solid fa-vault"></i> سحب/إيداع</button>
@@ -118,7 +119,18 @@
                 </div>
             </div>
             
-            <div class="items-section" id="items-grid">
+            <!-- الفئات (الاشتراكات VIP) -->
+            <div id="packages-container" style="padding: 15px 20px 0; display:grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                <!-- سيتم توليد البطاقات برمجياً (برونزية، فضية، ذهبية، ماسية) بتصميم معدني فخم -->
+            </div>
+            
+            <div style="display:flex; align-items:center; margin: 15px 20px 5px;">
+                <hr style="flex:1; border: none; border-top: 1px dashed var(--gold); opacity:0.5;">
+                <span style="color:var(--text-gray); font-size:12px; margin:0 10px; font-weight:bold;">الخدمات والقطع</span>
+                <hr style="flex:1; border: none; border-top: 1px dashed var(--gold); opacity:0.5;">
+            </div>
+
+            <div class="items-section" id="items-grid" style="padding-top: 5px;">
                 <!-- Items generated via JS -->
             </div>
         </div>
@@ -137,6 +149,7 @@
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('costs')"><i class="fa-solid fa-building-columns"></i> التكاليف التشغيلية</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('logs')"><i class="fa-solid fa-clock-rotate-left"></i> سجل الحركات</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('wallet')"><i class="fa-solid fa-wallet"></i> المحفظة </button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('subscriptions')"><i class="fa-solid fa-id-card-clip"></i> إدارة الاشتراكات</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('settings')"><i class="fa-solid fa-gears"></i> التخصيصات</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('invoice-designer')"><i class="fa-solid fa-file-pen"></i> تصميم الفاتورة A5</button>
                 <button class="admin-nav-btn" style="margin-top:auto; color:var(--red-danger);" onclick="window.exitToMain()"><i class="fa-solid fa-right-from-bracket"></i> تسجيل خروج</button>
@@ -265,6 +278,24 @@
                             </tr>
                         </thead>
                         <tbody id="wallet-transactions-body"></tbody>
+                    </table>
+                </div>
+                <!-- قسم إدارة الاشتراكات (VIP) للآدمن -->
+                <div id="admin-subscriptions" class="admin-section">
+                    <h2 style="margin-bottom:30px; color:var(--gold);"><i class="fa-solid fa-id-card-clip"></i> إدارة الاشتراكات وعروض الزبائن</h2>
+                    <table class="cart-table">
+                        <thead>
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>اسم الزبون</th>
+                                <th>رقم الهاتف</th>
+                                <th>الفئة</th>
+                                <th style="color:var(--green-success);">المبلغ المدفوع</th>
+                                <th style="color:var(--gold);">الرصيد المتبقي</th>
+                                <th>الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-subs-body"></tbody>
                     </table>
                 </div>
             <!-- قسم التخصيصات -->
@@ -751,6 +782,7 @@
                 <button class="btn btn-cash" style="width: 100%;" onclick="window.finalizePickup('cash')"><i class="fa-solid fa-money-bill"></i> نقدي (كاش)</button>
                 <button class="btn btn-electronic" style="width: 100%;" onclick="window.finalizePickup('electronic')"><i class="fa-solid fa-credit-card"></i> إلكتروني</button>
                 <button class="btn btn-credit" style="width: 100%;" onclick="window.finalizePickup('credit')"><i class="fa-solid fa-address-book"></i> آجل (ذمة)</button>
+                <button class="btn btn-confirm" style="width: 100%; background: var(--gold-gradient); color: #000;" onclick="window.openPickupSubscription()"><i class="fa-solid fa-gem"></i> عبر إشتراك (باقة VIP)</button>
                 <button class="btn btn-cancel" style="width: 100%; margin-top: 10px;" onclick="window.closeModals()">إلغاء ورجوع للمستودع</button>
             </div>
         </div>
@@ -800,6 +832,107 @@
         </div>
     </div>
 
+<!-- ================== نوافذ الاشتراكات (VIP) ================== -->
+    
+    <!-- 1. شراء اشتراك / باقة جديدة -->
+    <div id="modal-buy-sub" class="modal-overlay" style="z-index: 3100;">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-title" id="buy-sub-title" style="color: var(--gold);"><i class="fa-solid fa-crown"></i> تفعيل فئة VIP</div>
+            
+            <div class="input-group" style="position: relative;">
+                <label>اسم الزبون (بحث ذكي أو إضافة جديد)</label>
+                <input type="text" id="sub-customer-name" placeholder="اكتب اسم الزبون..." oninput="window.filterCustomerNames(this.value)" autocomplete="off">
+                <!-- قائمة الاقتراحات المنسدلة -->
+                <div id="sub-autocomplete-list" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--light-gray); border:1px solid var(--gold); z-index:99; max-height:150px; overflow-y:auto; border-radius:0 0 8px 8px;"></div>
+            </div>
+            
+            <div class="input-group">
+                <label>رقم الهاتف</label>
+                <input type="tel" id="sub-customer-phone" placeholder="أدخل رقم الهاتف...">
+            </div>
+            <div class="input-group">
+                <label>تاريخ الاشتراك</label>
+                <input type="date" id="sub-date" readonly style="background: rgba(255,255,255,0.1); color: var(--gold); font-weight:bold;">
+            </div>
+            
+            <input type="hidden" id="sub-package-id">
+            
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background:var(--gold-gradient); color:#000;" onclick="window.confirmBuySub()"><i class="fa-solid fa-check"></i> تفعيل ودفع</button>
+                <button class="btn btn-cancel" onclick="window.closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. إدارة الزبائن (للكاشير) -->
+    <div id="modal-cashier-subs" class="modal-overlay" style="z-index: 3100;">
+        <div class="modal-content invoices-list-modal" style="max-width: 1000px;">
+            <div class="modal-title" style="color: var(--gold);"><i class="fa-solid fa-users-viewfinder"></i> إدارة الزبائن المشتركين</div>
+            <div class="admin-filters" style="margin-bottom:20px;">
+                <input type="text" id="cashier-sub-search" class="note-input" style="flex: 2;" placeholder="ابحث باسم الزبون أو الهاتف..." onkeyup="window.renderCashierSubs()">
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="invoices-table">
+                    <thead><tr>
+                        <th>التاريخ</th><th>اسم الزبون</th><th>الهاتف</th><th>الفئة</th><th style="color:var(--green-success);">دفع</th><th style="color:var(--gold);">المتبقي له</th><th>إجراءات</th>
+                    </tr></thead>
+                    <tbody id="cashier-subs-body"></tbody>
+                </table>
+            </div>
+            <div class="modal-actions"><button class="btn btn-cancel" style="width:100%" onclick="window.closeModals()">إغلاق</button></div>
+        </div>
+    </div>
+
+    <!-- 3. نافذة الدفع المختلط (اشتراك + كاش) -->
+    <div id="modal-pay-via-sub" class="modal-overlay" style="z-index: 3600;">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-title" style="color: var(--gold);"><i class="fa-solid fa-gem"></i> الدفع عبر الاشتراك</div>
+            <div class="input-group">
+                <label>اختر الزبون المشترك</label>
+                <select id="pay-sub-select" onchange="window.calculateSubPayment()" style="font-size: 16px; font-weight:bold;"></select>
+            </div>
+            <div id="pay-sub-details" style="display:none; background:#111; padding:15px; border-radius:8px; border:1px solid #444; margin-bottom:15px;">
+                <p>إجمالي الفاتورة: <span id="pay-sub-total" style="color:var(--text-white); font-weight:bold;">0</span> د.ع</p>
+                <p>الرصيد المتاح للزبون: <span id="pay-sub-balance" style="color:var(--gold); font-weight:bold;">0</span> د.ع</p>
+                <hr style="border: 1px dashed #444; margin:10px 0;">
+                <p style="font-size:18px;">سيتم خصم: <span id="pay-sub-deduct" style="color:var(--green-success); font-weight:900;">0</span> د.ع من الباقة</p>
+                <p style="font-size:18px; color:var(--red-danger); font-weight:900;" id="pay-sub-cash-row">متبقي يُدفع نقداً (كاش): <span id="pay-sub-cash">0</span> د.ع</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background:var(--gold-gradient); color:#000;" onclick="window.confirmSubPayment()">تنفيذ العملية وطباعة</button>
+                <button class="btn btn-cancel" onclick="document.getElementById('modal-pay-via-sub').style.display='none'">رجوع</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. نافذة تحذير الحذف الذكية المحاسبية -->
+    <div id="modal-delete-sub-warning" class="modal-overlay" style="z-index: 4000;">
+        <div class="modal-content" style="max-width: 450px; text-align:center; border: 2px solid var(--red-danger);">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size: 60px; color: var(--red-danger); margin-bottom: 20px;"></i>
+            <div class="modal-title" style="color: var(--red-danger); margin-bottom: 10px;">تحذير: حذف اشتراك زبون</div>
+            <div id="delete-sub-math-details" style="background:#111; padding:15px; border-radius:8px; text-align:right; margin-bottom:20px;">
+                <!-- سيتم حقن التفاصيل هنا برمجياً -->
+            </div>
+            <input type="hidden" id="delete-sub-id">
+            <div class="modal-actions" style="flex-direction: column; gap: 10px;">
+                <button class="btn btn-confirm" style="background: var(--red-danger); color: white; width: 100%;" onclick="window.executeSubDelete()">نعم، احذف وأرجع المبلغ (إن وجد)</button>
+                <button class="btn btn-cancel" style="width: 100%;" onclick="document.getElementById('modal-delete-sub-warning').style.display='none'">تراجع وإلغاء</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 5. نافذة الآدمن لمشاهدة فواتير الزبون المشترك -->
+    <div id="modal-admin-sub-invoices" class="modal-overlay" style="z-index: 4000;">
+        <div class="modal-content invoices-list-modal" style="max-width: 800px;">
+            <div class="modal-title" style="color: var(--gold);"><i class="fa-solid fa-list"></i> الفواتير المسحوبة من الباقة</div>
+            <table class="invoices-table">
+                <thead><tr><th>التاريخ والوقت</th><th>رقم الفاتورة</th><th>المسحوب من الباقة</th><th>المدفوع كاش فرق</th><th>إجراء</th></tr></thead>
+                <tbody id="admin-sub-invoices-body"></tbody>
+            </table>
+            <div class="modal-actions"><button class="btn btn-cancel" style="width:100%" onclick="document.getElementById('modal-admin-sub-invoices').style.display='none'">إغلاق</button></div>
+        </div>
+    </div>
+    
 <!-- 16. نافذة التحديثات الهوائية (OTA Updates) - تضاف للتطبيق المكتبي -->
     <div id="modal-ota-update" class="modal-overlay" style="z-index: 9999;">
         <div class="modal-content" style="max-width: 450px; text-align: center; border-color: #4a90e2;">
