@@ -941,7 +941,7 @@ window.renderActiveOrders = () => {
                 <td style="color:var(--green-success);">${deposit.toLocaleString()}</td>
                 <td style="color:var(--red-danger); font-weight:900;">${remaining.toLocaleString()}</td>
                 <td>
-                    <button class="top-bar-btn" style="background:var(--green-success); color:white; border-color:var(--green-success); padding: 5px 10px;" onclick="window.confirmPickup('${inv.id}')"><i class="fa-solid fa-check"></i> تسليم</button>
+                    <button class="btn-royal-action" style="background:var(--gold-gradient); color:#000; border:none; padding: 5px 12px;" onclick="window.confirmPickup('${inv.id}')"><i class="fa-solid fa-handshake"></i> تسليم</button>
                     <i class="fa-solid fa-eye action-icon" style="color: var(--gold); font-size: 16px; margin: 0 5px;" onclick='window.viewInvoice("${inv.id}")' title="عرض التفاصيل بسرعة"></i>
                     <i class="fa-solid fa-pen action-icon" style="color: #4a90e2; font-size: 16px; margin: 0 5px;" onclick='window.editInvoice("${inv.id}")' title="تعديل القطع"></i>
                     <i class="fa-solid fa-trash action-icon" style="color: var(--red-danger); font-size: 16px; margin: 0 5px;" onclick='window.deleteInvoice("${inv.id}")' title="حذف وإلغاء الطلب"></i>
@@ -966,54 +966,116 @@ window.confirmPickup = (id) => {
     document.getElementById('modal-pickup-payment').style.display = 'flex';
 };
 
+// توجيه الدفع
 window.finalizePickup = (paymentType) => {
-    const index = localData.invoices.findIndex(i => i.id === pendingPickupId);
-    if(index === -1) return;
-    
-    const inv = localData.invoices[index];
-    const remainingToPay = inv.customer ? inv.customer.remaining : inv.total;
-    
-    // 1. معالجة حالة "البيع الآجل" إذا اختارها الكاشير
     if (paymentType === 'credit') {
-        const debtId = 'DEBT-' + inv.id;
-        const newDebt = {
-            id: debtId, 
-            date: new Date().toLocaleDateString(), 
-            name: inv.customer.name, 
-            phone: inv.customer.phone, 
-            invoiceId: inv.id, 
-            total: inv.total, 
-            paid: inv.customer.paid, // العربون
-            remaining: remainingToPay
-        };
-        localData.debts.push(newDebt);
-        set(ref(database, 'royal_data/debts/' + debtId), newDebt);
+        window.openPickupCreditModal();
+    } else {
+        window.executeNormalPickup(paymentType);
     }
-    
-    // 2. تحديث بيانات الفاتورة
-    inv.type = 'archived'; // تحويل للمستلم
-    inv.paymentType = paymentType; // (cash, electronic, credit)
-    
-    if(inv.customer) {
-        inv.customer.remainingPaid = remainingToPay; // سجلنا كم دفع عند الاستلام
-        inv.customer.remaining = (paymentType === 'credit') ? remainingToPay : 0; // إذا آجل يبقى المتبقي، وإلا صفر
-    }
+};
 
-    // 3. حفظ نقطي في الفايربيس
-    update(ref(database, 'royal_data/invoices/' + inv.id), {
-        type: 'archived',
-        paymentType: paymentType,
-        customer: inv.customer
+// تشغيل نافذة الآجل
+window.openPickupCreditModal = () => {
+    const select = document.getElementById('credit-existing-customer');
+    select.innerHTML = '<option value="">-- اختر زبون من القائمة --</option>';
+    
+    // جلب أسماء الزبائن الفريدة من الديون السابقة
+    let uniqueCustomers = [];
+    (localData.debts || []).forEach(d => {
+        if(!uniqueCustomers.find(c => c.name === d.name)) uniqueCustomers.push({name: d.name, phone: d.phone});
     });
     
-    let logMsg = `تسليم طلب رقم ${inv.dailyNumber||inv.id} للزبون ${inv.customer.name} - الدفع: ${paymentType === 'cash' ? 'كاش' : (paymentType === 'electronic' ? 'إلكتروني' : 'آجل')}`;
-    window.logAction('تسليم طلب (أرشفة)', logMsg, remainingToPay, inv);
+    uniqueCustomers.forEach(c => {
+        select.innerHTML += `<option value="${c.name}" data-phone="${c.phone || ''}">${c.name}</option>`;
+    });
+
+    // جلب بيانات الطلب الحالي لملء الحقول تلقائياً
+    const inv = localData.invoices.find(i => i.id === pendingPickupId);
+    if(inv && inv.customer) {
+        document.getElementById('credit-new-name').value = inv.customer.name || '';
+        document.getElementById('credit-new-phone').value = inv.customer.phone || '';
+    }
+    document.getElementById('credit-paid-now').value = '0';
+    document.getElementById('modal-pickup-credit').style.display = 'flex';
+};
+
+// التعبئة التلقائية عند اختيار زبون
+window.selectExistingCustomer = () => {
+    const select = document.getElementById('credit-existing-customer');
+    if(select.value) {
+        document.getElementById('credit-new-name').value = select.value;
+        document.getElementById('credit-new-phone').value = select.options[select.selectedIndex].getAttribute('data-phone');
+    }
+};
+
+// تنفيذ البيع الآجل
+window.confirmPickupCredit = () => {
+    const name = window.escapeHTML(document.getElementById('credit-new-name').value.trim());
+    const phone = window.escapeHTML(document.getElementById('credit-new-phone').value.trim());
+    const paidNow = parseFloat(document.getElementById('credit-paid-now').value) || 0;
     
-    window.recalculateDailySales();
-    updateUI();
-    window.closeModals();
-    window.openActiveOrders(); // نعود للمستودع
-    window.showAlert('تم تسليم الطلب وتحديد الدفع بنجاح!', 'success');
+    if(!name) return window.showAlert('يرجى إدخال اسم الزبون لتسجيل الذمة', 'warning');
+
+    const inv = localData.invoices.find(i => i.id === pendingPickupId);
+    if(!inv) return;
+    
+    let originalRemaining = inv.customer ? inv.customer.remaining : inv.total;
+    if(paidNow > originalRemaining) return window.showAlert('المبلغ المسدد أكبر من المتبقي للطلب!', 'error');
+
+    const finalRemaining = originalRemaining - paidNow; 
+
+    // تسجيل دين جديد
+    const debtId = 'DEBT-' + Date.now();
+    const newDebt = {
+        id: debtId, date: new Date().toLocaleDateString(), 
+        name: name, phone: phone, invoiceId: inv.id, 
+        total: inv.total, paid: (inv.customer ? inv.customer.paid : 0) + paidNow, 
+        remaining: finalRemaining
+    };
+    if(!localData.debts) localData.debts = [];
+    localData.debts.push(newDebt);
+    set(ref(database, 'royal_data/debts/' + debtId), newDebt);
+
+    // تحديث الفاتورة للأرشفة
+    inv.type = 'archived'; inv.paymentType = 'credit'; 
+    if(!inv.customer) inv.customer = {};
+    inv.customer.name = name; inv.customer.phone = phone;
+    inv.customer.remainingPaid = paidNow; 
+    inv.customer.remaining = finalRemaining; 
+
+    update(ref(database, 'royal_data/invoices/' + inv.id), {
+        type: 'archived', paymentType: 'credit', customer: inv.customer
+    });
+
+    if(paidNow > 0) localData.dailySalesCash += paidNow; 
+    window.logAction('تسليم طلب (ذمة)', `للزبون ${name} - سدد: ${paidNow} ومتبقي: ${finalRemaining}`, paidNow, inv);
+    
+    window.recalculateDailySales(); updateUI();
+    document.getElementById('modal-pickup-credit').style.display = 'none';
+    document.getElementById('modal-pickup-payment').style.display = 'none';
+    window.openActiveOrders(); 
+    window.showAlert('تم تسجيل الذمة وتسليم الطلب بنجاح!', 'success');
+};
+
+// التنفيذ الطبيعي للكاش والإلكتروني
+window.executeNormalPickup = (paymentType) => {
+    const inv = localData.invoices.find(i => i.id === pendingPickupId);
+    if(!inv) return;
+    const remainingToPay = inv.customer ? inv.customer.remaining : inv.total;
+    
+    inv.type = 'archived'; inv.paymentType = paymentType; 
+    if(inv.customer) {
+        inv.customer.remainingPaid = remainingToPay;
+        inv.customer.remaining = 0;
+    }
+    update(ref(database, 'royal_data/invoices/' + inv.id), { type: 'archived', paymentType: paymentType, customer: inv.customer });
+    
+    window.logAction('تسليم طلب', `الدفع: ${paymentType==='cash'?'كاش':'إلكتروني'}`, remainingToPay, inv);
+    window.recalculateDailySales(); updateUI();
+    document.getElementById('modal-pickup-payment').style.display = 'none';
+    window.openActiveOrders(); 
+    window.showAlert('تم تسليم الطلب بنجاح!', 'success');
 };
 
 // ---------------- الصرفيات ----------------
@@ -1307,17 +1369,33 @@ window.updateAdminDashboard = () => {
         `;
     });
 
-    // قسم الديون
+    // قسم الديون - تجميع ذكي لكل زبون
     const debtsTbody = document.getElementById('debts-table-body');
     debtsTbody.innerHTML = '';
-    (localData.debts || []).forEach((d, index) => {
-        debtsTbody.innerHTML += `<tr>
-            <td>${d.name}</td><td>${d.invoiceId}</td>
-            <td style="color:var(--red-danger); font-weight:bold;">${d.remaining.toLocaleString()}</td>
-            <td><button class="top-bar-btn" onclick="window.payDebt(${index})">تسديد دفعة</button></td>
-        </tr>`;
+    
+    // تجميع الحسابات بناءً على اسم الزبون
+    let groupedDebts = {};
+    (localData.debts || []).forEach(d => {
+        if(d.remaining > 0) {
+            if(!groupedDebts[d.name]) groupedDebts[d.name] = { phone: d.phone, totalRemaining: 0, invoices: [] };
+            groupedDebts[d.name].totalRemaining += d.remaining;
+            groupedDebts[d.name].invoices.push(d.invoiceId);
+        }
     });
-};
+
+    for (let customerName in groupedDebts) {
+        let data = groupedDebts[customerName];
+        // التدخل الجراحي: عرض رقم الفواتير المرتبطة بشكل أنيق
+        let invList = data.invoices.join(' ، '); 
+        
+        debtsTbody.innerHTML += `<tr>
+            <td style="font-weight:bold; font-size:16px;">${customerName}</td>
+            <td>${data.phone || '-'}</td>
+            <td style="font-size:12px; color:var(--text-gray);">${invList}</td>
+            <td style="color:var(--red-danger); font-weight:bold; font-size:18px;">${data.totalRemaining.toLocaleString()}</td>
+            <td><button class="top-bar-btn" style="background:#4a90e2; color:white; border-color:#4a90e2;" onclick="window.payDebtByName('${customerName}')">تسديد دفعة</button></td>
+        </tr>`;
+    }
 
 // دوال التخصيصات الجديدة
 window.loadAllTimeStats = () => {
@@ -1379,37 +1457,54 @@ window.addOperatingCost = () => {
     document.getElementById('cost-name').value = ''; document.getElementById('cost-amount').value = '';
 };
 
-let currentDebtIndex = null;
-window.payDebt = (index) => {
-    currentDebtIndex = index;
-    let debt = localData.debts[index];
-    document.getElementById('debt-pay-msg').innerText = `المبلغ المتبقي على ${debt.name} هو ${debt.remaining.toLocaleString()} د.ع`;
+let currentDebtCustomerName = null;
+window.payDebtByName = (name) => {
+    currentDebtCustomerName = name;
+    let totalDebt = 0;
+    (localData.debts || []).forEach(d => { if(d.name === name) totalDebt += d.remaining; });
+    
+    document.getElementById('debt-pay-msg').innerText = `إجمالي المتبقي بذمة (${name}) هو ${totalDebt.toLocaleString()} د.ع`;
     document.getElementById('debt-pay-amount').value = '';
     document.getElementById('modal-pay-debt').style.display = 'flex';
 };
 
 window.confirmPayDebt = () => {
-    let debt = localData.debts[currentDebtIndex];
-    let pay = parseFloat(document.getElementById('debt-pay-amount').value);
+    let payAmount = parseFloat(document.getElementById('debt-pay-amount').value);
+    if (!payAmount || payAmount <= 0) return window.showAlert('الرجاء إدخال مبلغ صحيح', 'error');
+
+    // استخراج ديون هذا الزبون النشطة
+    let customerDebts = (localData.debts || []).filter(d => d.name === currentDebtCustomerName && d.remaining > 0);
+    let totalDebt = customerDebts.reduce((sum, d) => sum + d.remaining, 0);
+
+    if (payAmount > totalDebt) return window.showAlert('المبلغ المسدد أكبر من إجمالي الدين!', 'error');
+
+    let amountLeftToDistribute = payAmount;
+
+    // توزيع الدفعة على الفواتير القديمة فالأحدث
+    customerDebts.forEach(debt => {
+        if (amountLeftToDistribute <= 0) return;
+        
+        let dbRefIndex = localData.debts.findIndex(d => d.id === debt.id);
+        if(dbRefIndex === -1) return;
+
+        // خصم المبلغ من هذه الفاتورة
+        let amountToDeduct = Math.min(debt.remaining, amountLeftToDistribute);
+        localData.debts[dbRefIndex].remaining -= amountToDeduct;
+        localData.debts[dbRefIndex].paid += amountToDeduct;
+        
+        update(ref(database, 'royal_data/debts/' + debt.id), {
+            remaining: localData.debts[dbRefIndex].remaining,
+            paid: localData.debts[dbRefIndex].paid
+        });
+
+        amountLeftToDistribute -= amountToDeduct;
+    });
+
+    localData.dailySalesCash += payAmount; 
+    window.logAction('تسديد دين', `تسديد دفعة من حساب: ${currentDebtCustomerName}`, payAmount, { debtName: currentDebtCustomerName, amountPaid: payAmount });
     
-    if (pay && pay > 0 && pay <= debt.remaining) {
-        debt.remaining -= pay;
-        debt.paid += pay;
-        // المبالغ المسددة اليوم تُضاف لصندوق مبيعات اليوم مباشرة
-        localData.dailySalesCash += pay; 
-        
-        // --- إصلاح: تسجيل حركة تسديد الدين في سجل الحركات ---
-        window.logAction('تسديد دين', 'تسديد دفعة من حساب: ' + debt.name, pay, { debtName: debt.name, amountPaid: pay, remainingNow: debt.remaining });
-        // -------------------------------------------------
-        
-        saveDataToCloud();
-        window.closeModals();
-        
-        if(debt.remaining === 0) window.showAlert('تم تسديد الدين بالكامل!', 'success');
-        else window.showAlert('تم تسديد الدفعة بنجاح', 'success');
-    } else {
-        window.showAlert('مبلغ التسديد غير صحيح أو أكبر من المتبقي!', 'error');
-    }
+    saveDataToCloud(); window.updateAdminDashboard(); window.closeModals();
+    window.showAlert('تم تسديد الدفعة وتوزيعها بنجاح', 'success');
 };
 
 // دالة الفلترة (احتياطياً في حال لم تكن موجودة لضمان عمل شريط البحث)
