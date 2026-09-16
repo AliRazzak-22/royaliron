@@ -282,6 +282,58 @@ input, select { font-family: 'Cairo', sans-serif; outline: none; }
 }
 
 /* ========================================================= */
+/* --- نظام الاشتراكات والفئات (VIP Packages) --- */
+/* ========================================================= */
+.package-card {
+    position: relative;
+    border-radius: 15px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    overflow: hidden;
+    border: 2px solid transparent;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #fff;
+    min-height: 130px;
+}
+.package-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.6);
+    z-index: 10;
+}
+.package-card i { font-size: 35px; margin-bottom: 10px; text-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+.package-title { font-size: 20px; font-weight: 900; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); margin-bottom: 8px; }
+.package-details { font-size: 14px; font-weight: bold; background: rgba(0,0,0,0.3); padding: 5px 10px; border-radius: 8px; width: 100%; line-height: 1.6; }
+
+/* ألوان معدنية فخمة (Gradients) */
+.pkg-bronze { background: linear-gradient(135deg, #cd7f32 0%, #8b4513 100%); box-shadow: 0 5px 15px rgba(205, 127, 50, 0.3); border-color: #e69647; }
+.pkg-silver { background: linear-gradient(135deg, #bdc3c7 0%, #7f8c8d 100%); box-shadow: 0 5px 15px rgba(189, 195, 199, 0.3); border-color: #ecf0f1; }
+.pkg-gold { background: linear-gradient(135deg, #f6d365 0%, #ffb142 100%); box-shadow: 0 5px 15px rgba(255, 177, 66, 0.3); color: #000; border-color: #fff; }
+.pkg-gold .package-title { text-shadow: none; color: #000; }
+.pkg-gold .package-details { background: rgba(255,255,255,0.4); color: #000; }
+.pkg-diamond { background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%); box-shadow: 0 5px 15px rgba(0, 198, 255, 0.3); border-color: #74b9ff; }
+
+/* تأثير اللمعان المتحرك (Shine Effect) */
+.package-card::before {
+    content: ""; position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
+    background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
+    transform: skewX(-25deg); transition: 0.6s;
+}
+.package-card:hover::before { left: 125%; transition: 0.6s; }
+
+/* قائمة البحث الذكي للزبائن (Autocomplete) */
+.autocomplete-item {
+    padding: 12px 15px; cursor: pointer; border-bottom: 1px solid #d4af37;
+    font-size: 16px; color: #000; font-weight: bold; background: #fff; text-align: right;
+    transition: 0.2s;
+}
+.autocomplete-item:hover { background: var(--gold); color: #000; padding-right: 25px; }
+
+/* ========================================================= */
 /* --- نظام التجاوب الذكي (Mobile, Tablet & iPad) --- */
 /* ========================================================= */
 
