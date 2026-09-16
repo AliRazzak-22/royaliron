@@ -74,7 +74,10 @@ async function initializeDB() {
                 localData.operatingCosts = Object.values(incomingData.operatingCosts || {});
                 localData.debts = Object.values(incomingData.debts || {});
                 localData.logs = Object.values(incomingData.logs || {});
-                localData.settings = incomingData.settings || { name: "مكوى رويال VIP", phone: "07800000000", address: "الكوفة، النجف الأشرف", password: "ahmed2003" };
+                let fetchedSettings = incomingData.settings || { name: "مكوى رويال VIP", phone: "07800000000", address: "الكوفة، النجف الأشرف" };
+                // التدخل الجراحي: حذف كلمة المرور من الذاكرة المحلية فوراً لتعمية الـ Console
+                if(fetchedSettings.password) delete fetchedSettings.password;
+                localData.settings = fetchedSettings;
                 localData.lastDate = incomingData.lastDate || new Date().toDateString();
 
                 // تصفير مبيعات اليوم إذا بدأ يوم جديد
@@ -189,7 +192,19 @@ window.recalculateDailySales = () => {
 
 function saveDataToCloud() {
     window.recalculateDailySales(); // فلتر الأمان: إعادة حساب الصندوق قبل الحفظ
-    set(ref(database, 'royal_data'), localData).then(() => {
+    
+    // التدخل الجراحي: رفع المسارات الفرعية فقط لمنع التدمير اللحظي (Race Condition) للفواتير والصرفيات
+    const updates = {};
+    if(localData.catalog) updates['royal_data/catalog'] = localData.catalog;
+    if(localData.operatingCosts) updates['royal_data/operatingCosts'] = localData.operatingCosts;
+    if(localData.debts) updates['royal_data/debts'] = localData.debts;
+    if(localData.settings) {
+        updates['royal_data/settings/name'] = localData.settings.name;
+        updates['royal_data/settings/phone'] = localData.settings.phone;
+        updates['royal_data/settings/address'] = localData.settings.address;
+    }
+
+    update(ref(database), updates).then(() => {
         updateUI();
     }).catch((error) => {
         window.showAlert("فشل في حفظ البيانات: " + error.message, 'error');
@@ -279,18 +294,21 @@ window.executeConfirm = () => {
 };
 window.checkAdminPassword = () => {
     const inputPass = document.getElementById('admin-password').value;
-    if(inputPass === localData.settings.password) {
-        // توليد مفتاح جلسة معقد لا يمكن تخمينه
-        secureAdminToken = "AUTH_ROYAL_" + Math.random().toString(36).substring(2, 15);
-        sessionStorage.setItem('active_screen', 'admin'); 
-        window.closeModals();
-        document.getElementById('main-screen').style.display = 'none';
-        document.getElementById('admin-screen').classList.add('active-screen');
-        document.getElementById('admin-password').value = '';
-        window.updateAdminDashboard();
-    } else { 
-        window.showAlert('رمز الدخول خاطئ!', 'error'); 
-    }
+    // التدخل الجراحي: جلب الرمز من السحابة مباشرة لحظة التحقق فقط
+    get(ref(database, 'royal_data/settings/password')).then((snapshot) => {
+        const realPassword = snapshot.val() || "ahmed2003";
+        if(inputPass === realPassword) {
+            secureAdminToken = "AUTH_ROYAL_" + Math.random().toString(36).substring(2, 15);
+            sessionStorage.setItem('active_screen', 'admin'); 
+            window.closeModals();
+            document.getElementById('main-screen').style.display = 'none';
+            document.getElementById('admin-screen').classList.add('active-screen');
+            document.getElementById('admin-password').value = '';
+            window.updateAdminDashboard();
+        } else { 
+            window.showAlert('رمز الدخول خاطئ!', 'error'); 
+        }
+    });
 };
 // ---------------- نظام التنبيهات الذكي (بديل المتصفح) ----------------
 window.showAlert = (msg, type = 'warning') => {
@@ -552,8 +570,9 @@ function getNextDailyNumber() {
 }
 
 window.confirmOrder = () => {
-    const name = document.getElementById('checkout-name').value;
-    const phone = document.getElementById('checkout-phone').value;
+    // التدخل الجراحي: تعقيم مدخلات الزبون ضد الأكواد الخبيثة
+    const name = window.escapeHTML(document.getElementById('checkout-name').value);
+    const phone = window.escapeHTML(document.getElementById('checkout-phone').value);
     const pickupDate = document.getElementById('checkout-pickup-date').value;
     const pickupTime = document.getElementById('checkout-pickup-time').value;
     const deposit = parseFloat(document.getElementById('checkout-deposit').value) || 0;
@@ -1298,14 +1317,17 @@ window.changePassword = () => {
     const newP = document.getElementById('set-new-pass').value;
     const confP = document.getElementById('set-confirm-pass').value;
 
-    if (oldP !== localData.settings.password) return window.showAlert('كلمة المرور القديمة غير صحيحة!', 'error');
-    if (newP.length < 4) return window.showAlert('كلمة المرور الجديدة قصيرة جداً', 'error');
-    if (newP !== confP) return window.showAlert('كلمات المرور الجديدة غير متطابقة!', 'error');
+    get(ref(database, 'royal_data/settings/password')).then((snapshot) => {
+        const realPassword = snapshot.val() || "ahmed2003";
+        if (oldP !== realPassword) return window.showAlert('كلمة المرور القديمة غير صحيحة!', 'error');
+        if (newP.length < 4) return window.showAlert('كلمة المرور الجديدة قصيرة جداً', 'error');
+        if (newP !== confP) return window.showAlert('كلمات المرور الجديدة غير متطابقة!', 'error');
 
-    localData.settings.password = newP;
-    saveDataToCloud();
-    window.showAlert('تم تغيير كلمة المرور بنجاح!', 'success');
-    document.getElementById('set-old-pass').value = ''; document.getElementById('set-new-pass').value = ''; document.getElementById('set-confirm-pass').value = '';
+        set(ref(database, 'royal_data/settings/password'), newP).then(() => {
+            window.showAlert('تم تغيير كلمة المرور بنجاح!', 'success');
+            document.getElementById('set-old-pass').value = ''; document.getElementById('set-new-pass').value = ''; document.getElementById('set-confirm-pass').value = '';
+        });
+    });
 };
 
 window.addOperatingCost = () => {
