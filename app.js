@@ -1396,7 +1396,7 @@ window.updateAdminDashboard = () => {
             <td><button class="top-bar-btn" style="background:#4a90e2; color:white; border-color:#4a90e2;" onclick="window.payDebtByName('${customerName}')">تسديد دفعة</button></td>
         </tr>`;
     }
-
+};
 // دوال التخصيصات الجديدة
 window.loadAllTimeStats = () => {
     document.getElementById('admin-month-filter').value = 'all';
