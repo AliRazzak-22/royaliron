@@ -459,6 +459,20 @@ input, select { font-family: 'Cairo', sans-serif; outline: none; }
     .modal-actions { margin-top: 8px !important; gap: 6px !important; }
     .modal-actions .btn { height: 28px !important; font-size: 11px !important; }
     .input-group { margin-bottom: 6px !important; }
+
+    /* التدخل الجراحي: تأثيرات النبض والوقوف للأزرار الرئيسية */
+#btn-main-checkout, #btn-save-edit { 
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+}
+#btn-main-checkout:hover, #btn-save-edit:hover { 
+    transform: scale(1.03); 
+    filter: brightness(1.1); 
+    box-shadow: 0 8px 25px rgba(212, 175, 55, 0.5);
+}
+
+/* تأثيرات أزرار الدفع عند التسليم (الكاش، الإلكتروني، الآجل) */
+#modal-pickup-payment .btn { transition: all 0.3s ease; }
+#modal-pickup-payment .btn:hover { transform: scale(1.03) translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
     .input-group label { font-size: 10px !important; margin-bottom: 2px !important; }
     .input-group input, .input-group select { padding: 4px 6px !important; font-size: 11px !important; height: 26px !important; }
 }
