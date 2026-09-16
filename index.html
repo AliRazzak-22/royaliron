@@ -51,6 +51,7 @@
                 <button class="top-bar-btn" onclick="window.openActiveOrders()"><i class="fa-solid fa-box-open"></i> مستودع الاستلام</button>
                 <button class="top-bar-btn" onclick="window.openPreviousInvoices()"><i class="fa-solid fa-receipt"></i> الفواتير السابقة</button>
                 <button class="top-bar-btn" onclick="window.openExpensesModal()"><i class="fa-solid fa-money-bill-wave"></i> صرفيات</button>
+                <button class="top-bar-btn" style="border-color:#4a90e2; color:#4a90e2; font-weight:bold;" onclick="window.openPartnerTxModal()"><i class="fa-solid fa-vault"></i> سحب/إيداع</button>
                 <button class="top-bar-btn" style="border-color:var(--red-danger); color:var(--red-danger);" onclick="window.exitToMain()"><i class="fa-solid fa-right-from-bracket"></i> خروج</button>
             </div>
         </div>
@@ -135,7 +136,7 @@
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('debts')"><i class="fa-solid fa-address-book"></i> الديون والذمم</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('costs')"><i class="fa-solid fa-building-columns"></i> التكاليف التشغيلية</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('logs')"><i class="fa-solid fa-clock-rotate-left"></i> سجل الحركات</button>
-                <button class="admin-nav-btn" onclick="window.switchAdminTab('services')"><i class="fa-solid fa-star"></i> أداء الخدمات</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('wallet')"><i class="fa-solid fa-wallet"></i> المحفظة </button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('settings')"><i class="fa-solid fa-gears"></i> التخصيصات</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('invoice-designer')"><i class="fa-solid fa-file-pen"></i> تصميم الفاتورة A5</button>
                 <button class="admin-nav-btn" style="margin-top:auto; color:var(--red-danger);" onclick="window.exitToMain()"><i class="fa-solid fa-right-from-bracket"></i> تسجيل خروج</button>
@@ -229,12 +230,42 @@
                     </table>
                 </div>
 
-                <!-- قسم أداء الخدمات -->
-                <div id="admin-services" class="admin-section">
-                    <h2 style="margin-bottom:30px; color:var(--gold);">أداء الخدمات (الأكثر مبيعاً)</h2>
-                    <div class="stats-grid" id="top-services-grid">
-                        <!-- سيتم توليدها برمجياً -->
+                <!-- قسم المحفظة (الشركاء) -->
+                <div id="admin-wallet" class="admin-section">
+                    <h2 style="margin-bottom:30px; color:var(--gold);"><i class="fa-solid fa-wallet"></i> المحفظة (أرصدة الشركاء وحركة الأموال)</h2>
+                    
+                    <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 30px;">
+                        <!-- بطاقة أحمد رزاق -->
+                        <div class="stat-card" style="background: linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%); border-color: #4a90e2; box-shadow: 0 10px 20px rgba(74, 144, 226, 0.2);">
+                            <i class="fa-solid fa-user-tie stat-icon" style="color: #4a90e2; font-size: 50px;"></i>
+                            <div class="stat-title" style="color: #fff; font-size: 20px; font-weight: bold;">أحمد رزاق العامري</div>
+                            <div class="stat-value" id="wallet-ahmed-razaq" style="color: #4a90e2; font-size: 36px; margin-top: 15px; direction: ltr;">0 د.ع</div>
+                            <div style="color:var(--text-gray); font-size: 14px; margin-top: 10px;">الرصيد الفعلي (بناءً على التراكمي)</div>
+                        </div>
+                        
+                        <!-- بطاقة أحمد شبع -->
+                        <div class="stat-card" style="background: linear-gradient(135deg, #1a1a1a 0%, #34495e 100%); border-color: var(--green-success); box-shadow: 0 10px 20px rgba(46, 213, 115, 0.2);">
+                            <i class="fa-solid fa-user-tie stat-icon" style="color: var(--green-success); font-size: 50px;"></i>
+                            <div class="stat-title" style="color: #fff; font-size: 20px; font-weight: bold;">أحمد شاكر شبع</div>
+                            <div class="stat-value" id="wallet-ahmed-shaba" style="color: var(--green-success); font-size: 36px; margin-top: 15px; direction: ltr;">0 د.ع</div>
+                            <div style="color:var(--text-gray); font-size: 14px; margin-top: 10px;">الرصيد الفعلي (بناءً على التراكمي)</div>
+                        </div>
                     </div>
+
+                    <h3 style="margin: 40px 0 20px; color: var(--gold); border-bottom: 1px solid var(--light-gray); padding-bottom: 10px;"><i class="fa-solid fa-list-check"></i> سجل حركات المحفظة (سحب وإيداع)</h3>
+                    <table class="cart-table">
+                        <thead>
+                            <tr>
+                                <th>التاريخ والوقت</th>
+                                <th>الحساب</th>
+                                <th>نوع العملية</th>
+                                <th style="color:var(--gold);">المبلغ</th>
+                                <th>السبب</th>
+                                <th>الرصيد الحالي</th>
+                            </tr>
+                        </thead>
+                        <tbody id="wallet-transactions-body"></tbody>
+                    </table>
                 </div>
             <!-- قسم التخصيصات -->
                 <div id="admin-settings" class="admin-section">
@@ -384,6 +415,52 @@
         </div>
     </div>
 
+<!-- نافذة إيداع وسحب الشركاء (للكاشير) -->
+    <div id="modal-partner-tx" class="modal-overlay" style="z-index: 3000;">
+        <div class="modal-content" style="max-width: 450px; border: 2px solid #4a90e2; box-shadow: 0 10px 40px rgba(74, 144, 226, 0.3);">
+            <div class="modal-title" style="color: #4a90e2; margin-bottom: 20px;"><i class="fa-solid fa-vault"></i> تسجيل حركة مالية (شركاء)</div>
+            
+            <!-- أزرار اختيار نوع العملية بتصميم تفاعلي -->
+            <div class="input-group">
+                <label style="color: var(--gold); font-weight: bold;">نوع العملية</label>
+                <div style="display:flex; gap:10px;">
+                    <label style="flex:1; background:var(--light-gray); padding:15px; border-radius:10px; text-align:center; cursor:pointer; border: 2px solid transparent; transition:0.3s;" id="lbl-tx-deposit" onclick="document.getElementById('lbl-tx-deposit').style.borderColor='var(--green-success)'; document.getElementById('lbl-tx-withdraw').style.borderColor='transparent'; document.getElementById('partner-tx-amount').style.color='var(--green-success)';">
+                        <input type="radio" name="partner_tx_type" value="إيداع" style="display:none;" required>
+                        <i class="fa-solid fa-arrow-down" style="color:var(--green-success); font-size:20px; display:block; margin-bottom:5px;"></i> إيداع
+                    </label>
+                    <label style="flex:1; background:var(--light-gray); padding:15px; border-radius:10px; text-align:center; cursor:pointer; border: 2px solid transparent; transition:0.3s;" id="lbl-tx-withdraw" onclick="document.getElementById('lbl-tx-withdraw').style.borderColor='var(--red-danger)'; document.getElementById('lbl-tx-deposit').style.borderColor='transparent'; document.getElementById('partner-tx-amount').style.color='var(--red-danger)';">
+                        <input type="radio" name="partner_tx_type" value="سحب" style="display:none;" required>
+                        <i class="fa-solid fa-arrow-up" style="color:var(--red-danger); font-size:20px; display:block; margin-bottom:5px;"></i> سحب
+                    </label>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>اختر الحساب</label>
+                <select id="partner-tx-account" style="font-size: 16px; font-weight:bold; padding: 15px;">
+                    <option value="" disabled selected>-- اختر اسم الشريك --</option>
+                    <option value="أحمد رزاق العامري">أحمد رزاق العامري</option>
+                    <option value="أحمد شاكر شبع">أحمد شاكر شبع</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>المبلغ الكامل (د.ع)</label>
+                <input type="number" id="partner-tx-amount" placeholder="أدخل المبلغ..." style="font-size: 22px; font-weight:900; padding: 15px; text-align: center;">
+            </div>
+
+            <div class="input-group">
+                <label>السبب أو التفاصيل (اختياري)</label>
+                <input type="text" id="partner-tx-reason" placeholder="مثال: شراء كاوية، سحب أرباح..." style="padding: 12px;">
+            </div>
+
+            <div class="modal-actions" style="margin-top: 25px;">
+                <button class="btn btn-confirm" style="background: #4a90e2; color: white; font-size: 18px;" onclick="window.savePartnerTx()"><i class="fa-solid fa-floppy-disk"></i> تأكيد وتسجيل</button>
+                <button class="btn btn-cancel" onclick="window.closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+    
     <!-- 4. الصرفيات اليومية -->
     <div id="modal-expenses" class="modal-overlay">
         <div class="modal-content">
