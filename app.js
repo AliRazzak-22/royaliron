@@ -95,6 +95,7 @@ async function initializeDB() {
                 localData.debts = Object.values(incomingData.debts || {});
                 localData.logs = Object.values(incomingData.logs || {});
                 localData.partnerTx = Object.values(incomingData.partnerTx || {}); // تحميل المحفظة
+                localData.subscriptions = Object.values(incomingData.subscriptions || {}); // تحميل الاشتراكات VIP
                 let fetchedSettings = incomingData.settings || { name: "مكوى رويال ", phone: "07800000000", address: "الكوفة، النجف الأشرف" };
                 // التدخل الجراحي: حذف كلمة المرور من الذاكرة المحلية فوراً لتعمية الـ Console
                 if(fetchedSettings.password) delete fetchedSettings.password;
@@ -130,6 +131,7 @@ async function initializeDB() {
             
             document.getElementById('loading-screen').style.display = 'none';
             renderItems();
+            if(window.renderPackages) window.renderPackages();
             updateUI();
 
             // 🔴 سحر الآدمن اللحظي: إذا كانت شاشة الآدمن مفتوحة، يتم تحديث الأرقام والجداول فوراً أمام عينه
@@ -224,6 +226,7 @@ function saveDataToCloud() {
     if(localData.operatingCosts) updates['royal_data/operatingCosts'] = localData.operatingCosts;
     if(localData.debts) updates['royal_data/debts'] = localData.debts;
     if(localData.partnerTx) updates['royal_data/partnerTx'] = localData.partnerTx; // حفظ المحفظة
+    if(localData.subscriptions) updates['royal_data/subscriptions'] = localData.subscriptions; // حفظ الاشتراكات
     if(localData.settings) {
         updates['royal_data/settings/name'] = localData.settings.name;
         updates['royal_data/settings/phone'] = localData.settings.phone;
@@ -1340,6 +1343,7 @@ window.switchAdminTab = (tab) => {
     
     if(tab === 'dashboard') window.updateAdminDashboard();
     if(tab === 'logs') window.renderLogs();
+    if(tab === 'subscriptions' && window.renderAdminSubs) window.renderAdminSubs();
     if(tab === 'settings') {
         document.getElementById('set-name').value = localData.settings.name;
         document.getElementById('set-phone').value = localData.settings.phone;
@@ -1852,6 +1856,366 @@ window.startOtaUpdate = () => {
     setTimeout(() => {
         window.location.reload(); 
     }, 4000);
+};
+
+// ==========================================
+// --- نظام الاشتراكات (VIP Packages) ---
+// ==========================================
+const VIP_PACKAGES = [
+    { id: 'bronze', name: 'البرونزية', pay: 35000, value: 50000, icon: 'fa-medal', css: 'pkg-bronze' },
+    { id: 'silver', name: 'الفضية', pay: 50000, value: 70000, icon: 'fa-award', css: 'pkg-silver' },
+    { id: 'gold', name: 'الذهبية', pay: 75000, value: 100000, icon: 'fa-trophy', css: 'pkg-gold' },
+    { id: 'diamond', name: 'الماسية', pay: 100000, value: 140000, icon: 'fa-gem', css: 'pkg-diamond' }
+];
+
+window.renderPackages = () => {
+    const container = document.getElementById('packages-container');
+    if(!container) return;
+    container.innerHTML = '';
+    VIP_PACKAGES.forEach(pkg => {
+        container.innerHTML += `
+            <div class="package-card ${pkg.css}" onclick="window.openBuySubModal('${pkg.id}')">
+                <i class="fa-solid ${pkg.icon}"></i>
+                <div class="package-title">الفئة ${pkg.name}</div>
+                <div class="package-details">ادفع ${pkg.pay.toLocaleString()} د.ع<br>واحصل على رصيد ${pkg.value.toLocaleString()} د.ع</div>
+            </div>
+        `;
+    });
+};
+
+window.openBuySubModal = (pkgId) => {
+    const pkg = VIP_PACKAGES.find(p => p.id === pkgId);
+    document.getElementById('buy-sub-title').innerHTML = `<i class="fa-solid ${pkg.icon}"></i> تفعيل الفئة ${pkg.name} (${pkg.pay.toLocaleString()} د.ع)`;
+    document.getElementById('sub-package-id').value = pkg.id;
+    document.getElementById('sub-customer-name').value = '';
+    document.getElementById('sub-customer-phone').value = '';
+    
+    let now = new Date();
+    document.getElementById('sub-date').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    
+    document.getElementById('sub-autocomplete-list').style.display = 'none';
+    document.getElementById('modal-buy-sub').style.display = 'flex';
+};
+
+// محرك البحث الذكي (Autocomplete)
+window.filterCustomerNames = (val) => {
+    const list = document.getElementById('sub-autocomplete-list');
+    list.innerHTML = '';
+    if(!val) { list.style.display = 'none'; return; }
+    
+    let uniqueCustomers = [];
+    (localData.subscriptions || []).forEach(s => {
+        if(!uniqueCustomers.find(c => c.name === s.customerName)) uniqueCustomers.push({name: s.customerName, phone: s.customerPhone});
+    });
+    (localData.invoices || []).forEach(inv => {
+        if(inv.customer && inv.customer.name && !uniqueCustomers.find(c => c.name === inv.customer.name)) {
+            uniqueCustomers.push({name: inv.customer.name, phone: inv.customer.phone || ''});
+        }
+    });
+
+    let matches = uniqueCustomers.filter(c => c.name.includes(val));
+    if(matches.length > 0) {
+        matches.forEach(c => {
+            let div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.innerText = c.name;
+            div.onclick = () => {
+                document.getElementById('sub-customer-name').value = c.name;
+                document.getElementById('sub-customer-phone').value = c.phone;
+                list.style.display = 'none';
+            };
+            list.appendChild(div);
+        });
+        list.style.display = 'block';
+    } else {
+        list.style.display = 'none';
+    }
+};
+
+document.addEventListener('click', (e) => {
+    if(e.target.id !== 'sub-customer-name') {
+        const list = document.getElementById('sub-autocomplete-list');
+        if(list) list.style.display = 'none';
+    }
+});
+
+window.confirmBuySub = () => {
+    const pkgId = document.getElementById('sub-package-id').value;
+    const name = window.escapeHTML(document.getElementById('sub-customer-name').value.trim());
+    const phone = window.escapeHTML(document.getElementById('sub-customer-phone').value.trim());
+    const date = new Date().toLocaleDateString();
+    
+    if(!name) return window.showAlert('يرجى إدخال اسم الزبون لتفعيل الباقة', 'warning');
+    
+    const pkg = VIP_PACKAGES.find(p => p.id === pkgId);
+    const subId = 'SUB-' + Date.now();
+    const sub = {
+        id: subId, timestamp: Date.now(), date: date, time: new Date().toLocaleTimeString(),
+        customerName: name, customerPhone: phone, packageId: pkg.id, packageName: pkg.name,
+        paidAmount: pkg.pay, totalValue: pkg.value, consumedAmount: 0, invoices: []
+    };
+    
+    if(!localData.subscriptions) localData.subscriptions = [];
+    localData.subscriptions.push(sub);
+    
+    localData.dailySalesCash += pkg.pay;
+    window.logAction('اشتراك VIP', `تفعيل الفئة ${pkg.name} للزبون ${name}`, pkg.pay, sub);
+    
+    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set, ref }) => {
+        set(ref(window.db || database, 'royal_data/subscriptions/' + subId), sub);
+    });
+    
+    window.recalculateDailySales();
+    updateUI();
+    window.closeModals();
+    window.showAlert(`تم تفعيل الفئة ${pkg.name} للزبون ${name} بنجاح!`, 'success');
+};
+
+// إدارة الاشتراكات للكاشير
+window.openCashierSubs = () => {
+    window.renderCashierSubs();
+    document.getElementById('modal-cashier-subs').style.display = 'flex';
+};
+
+window.renderCashierSubs = () => {
+    const tbody = document.getElementById('cashier-subs-body');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+    
+    let filterText = document.getElementById('cashier-sub-search')?.value.toLowerCase() || '';
+    let sorted = [...(localData.subscriptions || [])].sort((a,b) => b.timestamp - a.timestamp);
+    
+    sorted.forEach(sub => {
+        if(filterText && !sub.customerName.toLowerCase().includes(filterText) && !(sub.customerPhone || '').includes(filterText)) return;
+        
+        let remaining = sub.totalValue - sub.consumedAmount;
+        let actions = '';
+        
+        if(sub.consumedAmount === 0) {
+            actions += `<button class="top-bar-btn" style="padding:4px 8px; font-size:12px; color:#4a90e2; border-color:#4a90e2; margin-left:5px;" onclick="window.upgradeSub('${sub.id}')">تعديل (ترقية)</button>`;
+        }
+        actions += `<button class="top-bar-btn" style="padding:4px 8px; font-size:12px; color:var(--green-success); border-color:var(--green-success); margin-left:5px;" onclick="window.renewSub('${sub.id}')">تجديد</button>`;
+        actions += `<button class="top-bar-btn" style="padding:4px 8px; font-size:12px; color:var(--red-danger); border-color:var(--red-danger);" onclick="window.confirmDeleteSubWarning('${sub.id}')">حذف</button>`;
+        
+        tbody.innerHTML += `<tr>
+            <td style="font-size:12px;">${sub.date}</td>
+            <td style="font-weight:bold;">${sub.customerName}</td>
+            <td style="font-size:12px;">${sub.customerPhone || '-'}</td>
+            <td><span style="background:var(--dark-gray); padding:3px 6px; border-radius:4px; border:1px solid var(--gold);">${sub.packageName}</span></td>
+            <td style="color:var(--green-success); font-weight:bold;">${sub.paidAmount.toLocaleString()}</td>
+            <td style="color:var(--gold); font-weight:bold; font-size:16px;">${remaining.toLocaleString()}</td>
+            <td>${actions}</td>
+        </tr>`;
+    });
+};
+
+window.renewSub = (subId) => {
+    const sub = localData.subscriptions.find(s => s.id === subId);
+    if(!sub) return;
+    window.showConfirm(`هل تريد تجديد اشتراك ${sub.customerName} بنفس الفئة (${sub.packageName})؟ سيتم إضافة ${sub.paidAmount.toLocaleString()} د.ع للصندوق اليوم.`, () => {
+        sub.timestamp = Date.now();
+        sub.date = new Date().toLocaleDateString();
+        sub.consumedAmount = 0; 
+        sub.invoices = [];
+        
+        localData.dailySalesCash += sub.paidAmount;
+        window.logAction('تجديد VIP', `تجديد باقة ${sub.packageName} للزبون ${sub.customerName}`, sub.paidAmount, sub);
+        saveDataToCloud();
+        window.renderCashierSubs();
+        window.showAlert('تم تجديد الباقة وتصفير الاستهلاك بنجاح!', 'success');
+    });
+};
+
+window.upgradeSub = (subId) => {
+    const sub = localData.subscriptions.find(s => s.id === subId);
+    if(!sub || sub.consumedAmount > 0) return;
+    
+    window.showConfirm(`سيتم إلغاء فئة (${sub.packageName}) للزبون واسترجاع مبلغه برمجياً. يرجى اختيار الفئة الجديدة بعد الإغلاق. موافق؟`, () => {
+         if(sub.date === new Date().toLocaleDateString()) localData.dailySalesCash -= sub.paidAmount;
+         localData.subscriptions = localData.subscriptions.filter(s => s.id !== subId);
+         saveDataToCloud();
+         window.closeModals();
+         document.getElementById('sub-customer-name').value = sub.customerName;
+         document.getElementById('sub-customer-phone').value = sub.customerPhone;
+         window.showAlert('اختر الفئة الجديدة الآن من الواجهة الرئيسية.', 'success');
+    });
+};
+
+window.confirmDeleteSubWarning = (subId) => {
+    const sub = localData.subscriptions.find(s => s.id === subId);
+    if(!sub) return;
+    
+    let refundable = sub.paidAmount - sub.consumedAmount;
+    if(refundable < 0) refundable = 0;
+    
+    let details = `<p>الزبون: <strong>${sub.customerName}</strong></p>
+                   <p>رأس المال المدفوع: <strong style="color:var(--green-success);">${sub.paidAmount.toLocaleString()} د.ع</strong></p>
+                   <p>المبلغ المستهلك من الرصيد: <strong style="color:var(--gold);">${sub.consumedAmount.toLocaleString()} د.ع</strong></p>`;
+    
+    if(refundable > 0) {
+        details += `<hr style="border:1px dashed #444; margin:10px 0;">
+                    <p style="color:var(--red-danger); font-size:18px;">المبلغ الواجب إرجاعه للزبون: <strong>${refundable.toLocaleString()} د.ع</strong></p>
+                    <p style="font-size:12px; color:var(--text-gray);">(سيتم خصم هذا المبلغ من كاصة اليوم إذا كان الاشتراك بتاريخ اليوم حصراً)</p>`;
+    } else {
+        details += `<hr style="border:1px dashed #444; margin:10px 0;">
+                    <p style="color:var(--red-danger); font-size:18px;">المبلغ الواجب إرجاعه: <strong>0 د.ع</strong></p>
+                    <p style="font-size:12px; color:var(--text-gray);">(لقد استهلك الزبون أكثر من رأس ماله. لا يوجد مبلغ مسترجع لحماية المكوى).</p>`;
+    }
+    
+    document.getElementById('delete-sub-math-details').innerHTML = details;
+    document.getElementById('delete-sub-id').value = sub.id;
+    
+    document.getElementById('modal-cashier-subs').style.display = 'none';
+    document.getElementById('modal-delete-sub-warning').style.display = 'flex';
+};
+
+window.executeSubDelete = () => {
+    const subId = document.getElementById('delete-sub-id').value;
+    const subIndex = localData.subscriptions.findIndex(s => s.id === subId);
+    if(subIndex === -1) return;
+    const sub = localData.subscriptions[subIndex];
+    
+    let refundable = sub.paidAmount - sub.consumedAmount;
+    if(refundable < 0) refundable = 0;
+    
+    if(refundable > 0 && sub.date === new Date().toLocaleDateString()) {
+        localData.dailySalesCash -= refundable;
+    }
+    
+    window.logAction('إلغاء اشتراك VIP', `حذف اشتراك ${sub.customerName} (المبلغ المُرجع: ${refundable})`, refundable, sub);
+    localData.subscriptions.splice(subIndex, 1);
+    
+    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ remove, ref }) => {
+        remove(ref(window.db || database, 'royal_data/subscriptions/' + subId));
+    });
+    
+    saveDataToCloud();
+    document.getElementById('modal-delete-sub-warning').style.display = 'none';
+    window.openCashierSubs();
+};
+
+// الدفع المختلط (اشتراك + كاش)
+window.openPickupSubscription = () => {
+    const select = document.getElementById('pay-sub-select');
+    select.innerHTML = '<option value="" disabled selected>-- اختر المشترك لسحب الرصيد --</option>';
+    
+    let hasActive = false;
+    (localData.subscriptions || []).forEach(sub => {
+        let remaining = sub.totalValue - sub.consumedAmount;
+        if(remaining > 0) {
+            select.innerHTML += `<option value="${sub.id}">${sub.customerName} - المتبقي: ${remaining.toLocaleString()} د.ع</option>`;
+            hasActive = true;
+        }
+    });
+    
+    if(!hasActive) return window.showAlert('لا يوجد مشتركون لديهم رصيد متاح حالياً.', 'warning');
+    
+    document.getElementById('pay-sub-details').style.display = 'none';
+    document.getElementById('modal-pickup-payment').style.display = 'none';
+    document.getElementById('modal-pay-via-sub').style.display = 'flex';
+};
+
+window.calculateSubPayment = () => {
+    const subId = document.getElementById('pay-sub-select').value;
+    const sub = localData.subscriptions.find(s => s.id === subId);
+    const inv = localData.invoices.find(i => i.id === pendingPickupId);
+    if(!sub || !inv) return;
+    
+    let invRemainingToPay = inv.customer ? inv.customer.remaining : inv.total;
+    let subBalance = sub.totalValue - sub.consumedAmount;
+    
+    let deductAmount = Math.min(invRemainingToPay, subBalance);
+    let cashAmount = invRemainingToPay - deductAmount;
+    
+    document.getElementById('pay-sub-total').innerText = invRemainingToPay.toLocaleString();
+    document.getElementById('pay-sub-balance').innerText = subBalance.toLocaleString();
+    document.getElementById('pay-sub-deduct').innerText = deductAmount.toLocaleString();
+    document.getElementById('pay-sub-cash').innerText = cashAmount.toLocaleString();
+    
+    document.getElementById('pay-sub-cash-row').style.display = cashAmount > 0 ? 'block' : 'none';
+    document.getElementById('pay-sub-details').style.display = 'block';
+};
+
+window.confirmSubPayment = () => {
+    const subId = document.getElementById('pay-sub-select').value;
+    const sub = localData.subscriptions.find(s => s.id === subId);
+    const inv = localData.invoices.find(i => i.id === pendingPickupId);
+    if(!sub || !inv) return;
+    
+    let invRemainingToPay = inv.customer ? inv.customer.remaining : inv.total;
+    let subBalance = sub.totalValue - sub.consumedAmount;
+    let deductAmount = Math.min(invRemainingToPay, subBalance);
+    let cashAmount = invRemainingToPay - deductAmount;
+    
+    sub.consumedAmount += deductAmount;
+    if(!sub.invoices) sub.invoices = [];
+    sub.invoices.push({ id: inv.id, date: inv.date, deducted: deductAmount, cash: cashAmount });
+    
+    inv.type = 'archived'; 
+    inv.paymentType = cashAmount > 0 ? 'mixed' : 'subscription';
+    if(inv.customer) {
+        inv.customer.remainingPaid = cashAmount; 
+        inv.customer.subDeducted = deductAmount;
+        inv.customer.remaining = 0;
+        // وسم الفاتورة الذكي للطباعة
+        let remainingBalText = (sub.totalValue - sub.consumedAmount).toLocaleString();
+        inv.notes = (inv.notes ? inv.notes + ' | ' : '') + `💳 دُفعت عبر فئة VIP (خُصم ${deductAmount.toLocaleString()} د.ع). المتبقي من الباقة: ${remainingBalText} د.ع.` + (cashAmount > 0 ? ` (المتبقي دُفع كاش: ${cashAmount.toLocaleString()} د.ع)` : '');
+    }
+    
+    if(cashAmount > 0) localData.dailySalesCash += cashAmount;
+    
+    window.logAction('تسليم طلب (VIP)', `خصم ${deductAmount} من باقة ${sub.customerName}` + (cashAmount > 0 ? ` ودفع ${cashAmount} كاش` : ''), cashAmount, inv);
+    saveDataToCloud();
+    
+    document.getElementById('modal-pay-via-sub').style.display = 'none';
+    window.openActiveOrders();
+    window.printInvoice(inv); 
+    window.showAlert('تم الخصم من الباقة وطباعة الفاتورة بنجاح!', 'success');
+};
+
+// شاشة إدارة الاشتراكات للآدمن
+window.renderAdminSubs = () => {
+    const tbody = document.getElementById('admin-subs-body');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+    
+    let sorted = [...(localData.subscriptions || [])].sort((a,b) => b.timestamp - a.timestamp);
+    
+    sorted.forEach(sub => {
+        let remaining = sub.totalValue - sub.consumedAmount;
+        tbody.innerHTML += `<tr>
+            <td>${sub.date}</td>
+            <td style="font-weight:bold;">${sub.customerName}</td>
+            <td>${sub.customerPhone || '-'}</td>
+            <td><span style="background:var(--dark-gray); padding:3px 6px; border-radius:4px; border:1px solid var(--gold);">${sub.packageName}</span></td>
+            <td style="color:var(--green-success); font-weight:bold;">${sub.paidAmount.toLocaleString()}</td>
+            <td style="color:var(--gold); font-weight:bold; font-size:16px;">${remaining.toLocaleString()}</td>
+            <td><button class="top-bar-btn" style="padding:4px 8px; font-size:12px; border-color:#4a90e2; color:#4a90e2;" onclick="window.viewAdminSubInvoices('${sub.id}')">عرض الفواتير</button></td>
+        </tr>`;
+    });
+};
+
+window.viewAdminSubInvoices = (subId) => {
+    const sub = localData.subscriptions.find(s => s.id === subId);
+    if(!sub) return;
+    
+    const tbody = document.getElementById('admin-sub-invoices-body');
+    tbody.innerHTML = '';
+    
+    if(!sub.invoices || sub.invoices.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">لا توجد فواتير مسحوبة من هذه الباقة حتى الآن</td></tr>';
+    } else {
+        sub.invoices.forEach(invData => {
+            tbody.innerHTML += `<tr>
+                <td>${invData.date}</td>
+                <td style="font-weight:bold;">${invData.id}</td>
+                <td style="color:var(--gold); font-weight:bold;">${invData.deducted.toLocaleString()}</td>
+                <td style="color:var(--green-success); font-weight:bold;">${invData.cash.toLocaleString()}</td>
+                <td><button class="top-bar-btn" style="padding:4px 8px; font-size:12px;" onclick="window.viewInvoice('${invData.id}')"><i class="fa-solid fa-eye"></i> الفاتورة</button></td>
+            </tr>`;
+        });
+    }
+    document.getElementById('modal-admin-sub-invoices').style.display = 'flex';
 };
 
 window.onload = initializeDB;
