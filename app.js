@@ -33,6 +33,26 @@ let pendingItem = null;
 // --- جدار الحماية: توكن الجلسة لمنع التجاوز برمجياً ---
 let secureAdminToken = null;
 
+// --- بذور نظام المزامنة اللحظية الأوفلاين ---
+window.addEventListener('online', updateSyncStatus);
+window.addEventListener('offline', updateSyncStatus);
+
+function updateSyncStatus() {
+    const icon = document.getElementById('sync-icon');
+    const text = document.getElementById('sync-text');
+    if (!icon || !text) return;
+    
+    if(navigator.onLine) {
+        icon.className = 'fa-solid fa-cloud';
+        text.innerText = 'متصل';
+        text.parentElement.style.color = 'var(--green-success)';
+    } else {
+        icon.className = 'fa-solid fa-cloud-arrow-up';
+        text.innerText = 'أوفلاين';
+        text.parentElement.style.color = 'var(--red-danger)';
+    }
+}
+
 // --- جدار الحماية (XSS): دالة تعقيم المدخلات لتدمير الأكواد الخبيثة ---
 window.escapeHTML = (str) => {
     if(typeof str !== 'string') return str;
@@ -102,6 +122,10 @@ async function initializeDB() {
                 localData.settings = { name: "مكوى رويال VIP", phone: "07800000000", address: "الكوفة، النجف الأشرف", password: "ahmed2003" };
                 saveDataToCloud();
             }
+            
+            // تفعيل حالة الاتصال وتحميل تصميم الفاتورة A5
+            updateSyncStatus();
+            if(window.loadInvoiceTemplateToEditor) window.loadInvoiceTemplateToEditor();
             
             document.getElementById('loading-screen').style.display = 'none';
             renderItems();
@@ -569,17 +593,29 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// دالة حساب الرقم اليومي التسلسلي
+// دالة حساب الرقم التسلسلي (تصفير تلقائي كل 3 أيام)
 function getNextDailyNumber() {
-    const today = new Date().toLocaleDateString();
-    let maxNumber = 0;
+    // نعتمد نقطة صفر ثابتة ومستقرة رياضياً
+    const MS_PER_DAY = 1000 * 60 * 60 * 24;
+    const epoch = new Date('2024-01-01T00:00:00').getTime();
     
+    // حساب دورة الـ 3 أيام الحالية
+    const currentDays = Math.floor((Date.now() - epoch) / MS_PER_DAY);
+    const currentCycle = Math.floor(currentDays / 3);
+    
+    let maxNumber = 0;
     (localData.invoices || []).forEach(inv => {
-        if (inv.date === today && inv.dailyNumber) {
-            if (inv.dailyNumber > maxNumber) maxNumber = inv.dailyNumber;
+        if (inv.dailyNumber && inv.timestamp) {
+            const invDays = Math.floor((inv.timestamp - epoch) / MS_PER_DAY);
+            const invCycle = Math.floor(invDays / 3);
+            
+            // إذا كانت الفاتورة السابقة ضمن نفس دورة الـ 3 أيام، ننافس على أعلى رقم
+            if (invCycle === currentCycle && inv.dailyNumber > maxNumber) {
+                maxNumber = inv.dailyNumber;
+            }
         }
     });
-    return maxNumber + 1;
+    return maxNumber + 1; // إعطاء الرقم التالي
 }
 
 window.confirmOrder = () => {
@@ -838,47 +874,45 @@ window.viewInvoice = (id) => {
 };
 
 window.printInvoice = (invoice) => {
-    document.getElementById('print-header-name').innerText = localData.settings.name;
-    document.getElementById('print-footer-info').innerHTML = `العنوان: ${localData.settings.address}<br>هاتف: ${localData.settings.phone}<br>لمسة ملكية تليق بك`;
-    document.getElementById('p-date').innerText = invoice.date; document.getElementById('p-time').innerText = invoice.time;
+    const printArea = document.getElementById('print-area');
+    let template = localStorage.getItem('royal_invoice_template');
     
-    // إظهار الرقم اليومي بشكل بارز للزبون، والرقم الطويل للبحث
-    document.getElementById('p-inv').innerText = (invoice.dailyNumber ? `اليومي: ${invoice.dailyNumber}` : invoice.id); 
-    
-    // إظهار حالة الطلب
-    let statusText = '';
-    if(invoice.type === 'active') statusText = 'طلب قيد العمل';
-    else if(invoice.type === 'archived') statusText = 'فاتورة مستلمة';
-    else statusText = 'مستلمة (نظام قديم)'; // لدعم الفواتير القديمة
-
-    document.getElementById('p-type').innerText = statusText;
-    
-    if(invoice.customer) {
-        document.getElementById('p-customer-row').style.display = 'block'; 
-        
-        let custInfo = `<b>${invoice.customer.name}</b>`;
-        if(invoice.customer.pickupDate) custInfo += `<br>الاستلام: ${invoice.customer.pickupDate}`;
-        document.getElementById('p-customer').innerHTML = custInfo;
-    } else { 
-        document.getElementById('p-customer-row').style.display = 'none'; 
+    // إذا لم يقم الآدمن بوضع تصميم بعد، نعطيه تصميماً احتياطياً قوياً
+    if (!template) {
+        template = `<div style="text-align:center; font-family:'Cairo', sans-serif;"><h2>مكوى رويال VIP</h2><p>رقم الطلب: [رقم_الطلب]</p>[جدول_المبيعات]<p style="font-weight:bold;">المجموع: [المجموع] د.ع</p></div>`;
     }
 
-    const tbody = document.getElementById('p-items');
-    tbody.innerHTML = '';
-    invoice.items.forEach(item => { tbody.innerHTML += `<tr><td>${item.name}</td><td>${item.serviceName}</td><td>${item.qty}</td><td>${item.price * item.qty}</td></tr>`; });
+    // 1. توليد جدول المبيعات وتنسيقه
+    let itemsRows = invoice.items.map(item => `<tr><td style="border:1px solid #000; padding:5px;">${item.name} (${item.serviceName})</td><td style="border:1px solid #000; padding:5px;">${item.qty}</td><td style="border:1px solid #000; padding:5px;">${(item.price * item.qty).toLocaleString()}</td></tr>`).join('');
+    let itemsTable = `<table style="width:100%; border-collapse:collapse; margin:15px 0; border:2px solid #000; text-align:center; font-size:14px;">
+                        <thead><tr style="background:#e0e0e0; font-weight:bold;"><th style="border:1px solid #000; padding:5px;">القطعة والخدمة</th><th style="border:1px solid #000; padding:5px;">العدد</th><th style="border:1px solid #000; padding:5px;">المجموع</th></tr></thead>
+                        <tbody>${itemsRows}</tbody>
+                      </table>`;
+
+    // 2. تجهيز المتغيرات الذكية
+    let custName = invoice.customer ? invoice.customer.name : 'بدون اسم';
+    let deposit = invoice.customer ? invoice.customer.paid.toLocaleString() : '0';
+    let remaining = invoice.customer ? invoice.customer.remaining.toLocaleString() : invoice.total.toLocaleString();
+    let dailyNum = invoice.dailyNumber ? invoice.dailyNumber.toString() : invoice.id;
+    let dayName = new Intl.DateTimeFormat('ar-IQ', { weekday: 'long' }).format(new Date(invoice.timestamp));
+    let timeOnly = new Date(invoice.timestamp).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' });
+
+    // 3. حقن المتغيرات داخل قالب الـ A5
+    let finalPrint = template
+        .replace(/\[رقم_الطلب\]/g, dailyNum)
+        .replace(/\[اليوم\]/g, dayName)
+        .replace(/\[الوقت\]/g, timeOnly)
+        .replace(/\[التاريخ\]/g, invoice.date)
+        .replace(/\[اسم_الزبون\]/g, custName)
+        .replace(/\[جدول_المبيعات\]/g, itemsTable)
+        .replace(/\[المجموع\]/g, invoice.total.toLocaleString())
+        .replace(/\[العربون\]/g, deposit)
+        .replace(/\[المتبقي\]/g, remaining);
+
+    printArea.innerHTML = finalPrint;
     
-    // إضافة تفاصيل العربون والمتبقي في الفاتورة
-    let totalHTML = `المجموع: ${invoice.total.toLocaleString()} د.ع`;
-    if (invoice.customer && invoice.type === 'active') {
-        totalHTML += `<br><span style="font-size: 14px; font-weight: normal;">العربون: ${invoice.customer.paid.toLocaleString()} د.ع</span>`;
-        totalHTML += `<br><span style="color: black; font-weight: 900;">المطلوب عند الاستلام: ${invoice.customer.remaining.toLocaleString()} د.ع</span>`;
-    }
-    document.getElementById('p-total').innerHTML = totalHTML;
-    
-    if(invoice.notes) {
-        document.getElementById('p-notes-row').style.display = 'block'; document.getElementById('p-notes').innerText = invoice.notes;
-    } else { document.getElementById('p-notes-row').style.display = 'none'; }
-    window.print();
+    // أمر الطباعة السريع والمباشر (في Electron سيتم توجيهه للطابعة الصامتة)
+    setTimeout(() => { window.print(); }, 150);
 };
 
 // ==========================================
@@ -1597,6 +1631,78 @@ window.viewLogDetails = (id) => {
 
     document.getElementById('log-deep-view-content').innerHTML = contentHTML;
     document.getElementById('modal-log-details').style.display = 'flex';
+};
+
+// ==========================================
+// --- دوال المحرر المرئي للفاتورة (A5) ---
+// ==========================================
+window.insertTag = (tag) => {
+    const editor = document.getElementById('invoice-editor-area');
+    editor.focus();
+    
+    // إدراج المتغير بدقة في مكان وقوف مؤشر الماوس
+    if (window.getSelection && window.getSelection().getRangeAt && window.getSelection().rangeCount > 0) {
+        let range = window.getSelection().getRangeAt(0);
+        let node = document.createTextNode(tag);
+        range.insertNode(node);
+        range.setStartAfter(node);
+        range.setEndAfter(node);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+    } else {
+        editor.innerHTML += tag;
+    }
+};
+
+window.saveInvoiceDesign = () => {
+    const htmlContent = document.getElementById('invoice-editor-area').innerHTML;
+    localStorage.setItem('royal_invoice_template', htmlContent);
+    window.showAlert('تم حفظ تصميم الفاتورة A5 بنجاح! سيتم اعتماده للطباعة فوراً.', 'success');
+};
+
+window.loadInvoiceTemplateToEditor = () => {
+    const editor = document.getElementById('invoice-editor-area');
+    if (!editor) return;
+    
+    let saved = localStorage.getItem('royal_invoice_template');
+    if (saved) {
+        editor.innerHTML = saved;
+    } else {
+        // التصميم الافتراضي الأنيق الذي سيجده الآدمن جاهزاً للتعديل
+        editor.innerHTML = `<div style="text-align: center;">
+            <h1 style="margin-bottom: 5px;">مكوى رويال VIP</h1>
+            <p style="margin-top: 0; font-size: 14px; color: #555;">لمسة ملكية تليق بك</p>
+            <hr style="border: 2px solid #000; margin: 15px 0;">
+            <div style="display: flex; justify-content: space-between; text-align: right; font-size: 16px; font-weight:bold;">
+                <div>رقم الطلب اليومي: <span style="font-size:24px;">[رقم_الطلب]</span></div>
+                <div>[اليوم] - [الوقت]</div>
+            </div>
+            <div style="text-align: right; font-size: 18px; margin-top: 15px;"><strong>السيد/ة:</strong> [اسم_الزبون]</div>
+            [جدول_المبيعات]
+            <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: 900; margin-top: 15px; border-top: 1px solid #000; padding-top:10px;">
+                <div>المجموع الكلي: [المجموع] د.ع</div>
+                <div style="color: green;">العربون: [العربون] د.ع</div>
+                <div style="color: red;">المطلوب عند الاستلام: [المتبقي] د.ع</div>
+            </div>
+            <hr style="border: 1px dashed #000; margin: 20px 0;">
+            <p style="font-size: 14px;">العنوان: الكوفة - النجف الأشرف | هاتف: 07800000000</p>
+        </div>`;
+    }
+};
+
+// ==========================================
+// --- نظام التحديثات الهوائية التلقائية (OTA) ---
+// ==========================================
+window.startOtaUpdate = () => {
+    document.getElementById('ota-update-msg').innerText = "جاري تحميل وتثبيت التحديث... يرجى عدم إغلاق النظام أو إطفاء اللابتوب.";
+    const btn = document.querySelector('#modal-ota-update .btn-confirm');
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التحديث...';
+    btn.disabled = true;
+    
+    // محاكاة مؤقتة لعملية التحديث (في مرحلة Electron سنربطها بـ Auto-Updater)
+    setTimeout(() => {
+        window.location.reload(); 
+    }, 4000);
 };
 
 window.onload = initializeDB;
