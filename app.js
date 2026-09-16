@@ -94,7 +94,8 @@ async function initializeDB() {
                 localData.operatingCosts = Object.values(incomingData.operatingCosts || {});
                 localData.debts = Object.values(incomingData.debts || {});
                 localData.logs = Object.values(incomingData.logs || {});
-                let fetchedSettings = incomingData.settings || { name: "مكوى رويال VIP", phone: "07800000000", address: "الكوفة، النجف الأشرف" };
+                localData.partnerTx = Object.values(incomingData.partnerTx || {}); // تحميل المحفظة
+                let fetchedSettings = incomingData.settings || { name: "مكوى رويال ", phone: "07800000000", address: "الكوفة، النجف الأشرف" };
                 // التدخل الجراحي: حذف كلمة المرور من الذاكرة المحلية فوراً لتعمية الـ Console
                 if(fetchedSettings.password) delete fetchedSettings.password;
                 localData.settings = fetchedSettings;
@@ -222,6 +223,7 @@ function saveDataToCloud() {
     if(localData.catalog) updates['royal_data/catalog'] = localData.catalog;
     if(localData.operatingCosts) updates['royal_data/operatingCosts'] = localData.operatingCosts;
     if(localData.debts) updates['royal_data/debts'] = localData.debts;
+    if(localData.partnerTx) updates['royal_data/partnerTx'] = localData.partnerTx; // حفظ المحفظة
     if(localData.settings) {
         updates['royal_data/settings/name'] = localData.settings.name;
         updates['royal_data/settings/phone'] = localData.settings.phone;
@@ -1240,6 +1242,62 @@ window.deleteExpense = (index) => {
     });
 };
 
+// ==========================================
+// --- دوال المحفظة وحركة الشركاء (الكاشير) ---
+// ==========================================
+window.openPartnerTxModal = () => {
+    document.getElementById('partner-tx-amount').value = '';
+    document.getElementById('partner-tx-reason').value = '';
+    document.getElementById('partner-tx-account').selectedIndex = 0;
+    
+    // تصفير الأزرار
+    document.getElementById('lbl-tx-deposit').style.borderColor = 'transparent';
+    document.getElementById('lbl-tx-withdraw').style.borderColor = 'transparent';
+    let radios = document.getElementsByName('partner_tx_type');
+    radios.forEach(r => r.checked = false);
+
+    document.getElementById('modal-partner-tx').style.display = 'flex';
+};
+
+window.savePartnerTx = () => {
+    let typeRadio = document.querySelector('input[name="partner_tx_type"]:checked');
+    let account = document.getElementById('partner-tx-account').value;
+    let amount = parseFloat(document.getElementById('partner-tx-amount').value);
+    let reason = document.getElementById('partner-tx-reason').value || 'بدون تفاصيل';
+
+    if (!typeRadio) return window.showAlert('يرجى اختيار نوع العملية (سحب أو إيداع)', 'warning');
+    if (!account) return window.showAlert('يرجى اختيار حساب الشريك', 'warning');
+    if (isNaN(amount) || amount <= 0) return window.showAlert('يرجى إدخال مبلغ صحيح', 'warning');
+
+    let type = typeRadio.value;
+    let txId = 'PTX-' + Date.now();
+    
+    let newTx = {
+        id: txId,
+        timestamp: Date.now(),
+        date: new Date().toLocaleDateString(),
+        time: new Date().toLocaleTimeString(),
+        type: type,
+        account: account,
+        amount: amount,
+        reason: reason
+    };
+
+    if (!localData.partnerTx) localData.partnerTx = [];
+    localData.partnerTx.push(newTx);
+
+    // حفظ في السحابة فوراً (لا يؤثر على الكاصة اليومية)
+    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set, ref }) => {
+        set(ref(window.db || database, 'royal_data/partnerTx/' + txId), newTx);
+    });
+
+    window.logAction('حركة شركاء', `${type} بقيمة ${amount} لحساب (${account})`, amount, newTx);
+    
+    if(document.getElementById('admin-screen').classList.contains('active-screen')) window.updateAdminDashboard();
+    window.closeModals();
+    window.showAlert(`تم تسجيل ${type} بنجاح لحساب ${account}`, 'success');
+};
+
 // ---------------- تحديث الـ UI (مبيعات اليوم) ----------------
 let lastSalesTotal = 0;
 function updateUI() {
@@ -1430,6 +1488,97 @@ window.updateAdminDashboard = () => {
             <td><button class="top-bar-btn" style="background:#4a90e2; color:white; border-color:#4a90e2;" onclick="window.payDebtByName('${customerName}')">تسديد دفعة</button></td>
         </tr>`;
     }
+    // ==========================================
+        // --- الحسابات التراكمية للمحفظة (الشركاء) ---
+        // ==========================================
+        let lifetimeSales = 0, lifetimeExpenses = 0, lifetimeCosts = 0;
+
+        // 1. حساب كل المبيعات التراكمية
+        (localData.invoices || []).forEach(inv => {
+            let amount = 0;
+            if(inv.type === 'cash' || inv.type === 'electronic') amount = inv.total;
+            else if(inv.type === 'credit' && inv.customer) amount = inv.customer.paid;
+            else if(inv.type === 'active' && inv.customer) amount = inv.customer.paid;
+            else if(inv.type === 'archived' && inv.customer) {
+                amount = inv.customer.paid;
+                if(inv.paymentType !== 'credit') amount += (inv.customer.remainingPaid || 0);
+            }
+            lifetimeSales += amount;
+        });
+        (localData.logs || []).forEach(log => { if(log.type === 'تسديد دين') lifetimeSales += log.amount; });
+        
+        // 2. المصروفات والتكاليف
+        (localData.expenses || []).forEach(e => lifetimeExpenses += e.amount);
+        (localData.operatingCosts || []).forEach(c => lifetimeCosts += c.amount);
+
+        // 3. صافي الربح الكلي وحصة كل شريك (50%)
+        let lifetimeNetProfit = lifetimeSales - lifetimeExpenses - lifetimeCosts;
+        let baseShare = lifetimeNetProfit / 2;
+        let razaqBal = baseShare, shabaBal = baseShare;
+
+        // 4. تطبيق السحب والإيداع للحصول على الرصيد النهائي
+        (localData.partnerTx || []).forEach(tx => {
+            if(tx.account === 'أحمد رزاق العامري') {
+                if(tx.type === 'إيداع') razaqBal += tx.amount; else razaqBal -= tx.amount;
+            } else if(tx.account === 'أحمد شاكر شبع') {
+                if(tx.type === 'إيداع') shabaBal += tx.amount; else shabaBal -= tx.amount;
+            }
+        });
+
+        // 5. عرض الأرصدة في الواجهة
+        if(document.getElementById('wallet-ahmed-razaq')) {
+            document.getElementById('wallet-ahmed-razaq').innerText = razaqBal.toLocaleString() + ' د.ع';
+            document.getElementById('wallet-ahmed-razaq').style.color = razaqBal >= 0 ? '#4a90e2' : 'var(--red-danger)';
+            document.getElementById('wallet-ahmed-shaba').innerText = shabaBal.toLocaleString() + ' د.ع';
+            document.getElementById('wallet-ahmed-shaba').style.color = shabaBal >= 0 ? 'var(--green-success)' : 'var(--red-danger)';
+        }
+
+        // 6. عرض جدول الحركات مع حساب "الرصيد التاريخي" اللحظي
+        const walletTbody = document.getElementById('wallet-transactions-body');
+        if(walletTbody) {
+            walletTbody.innerHTML = '';
+            const sortedTx = [...(localData.partnerTx || [])].sort((a,b) => b.timestamp - a.timestamp);
+            
+            // دالة دقيقة تحسب رصيد الشريك في اللحظة الزمنية التي تمت فيها الحركة
+            const getHistoricalBal = (acc, ts) => {
+                let tS = 0, tE = 0, tC = 0;
+                (localData.invoices || []).forEach(i => {
+                    if(i.timestamp <= ts) {
+                        if(i.type === 'cash' || i.type === 'electronic') tS += i.total;
+                        else if(i.type === 'active' || i.type === 'archived' || i.type === 'credit') tS += (i.customer ? i.customer.paid : 0);
+                        if(i.type === 'archived' && i.paymentType !== 'credit') tS += (i.customer ? i.customer.remainingPaid || 0 : 0);
+                    }
+                });
+                (localData.logs || []).forEach(l => { if(l.type === 'تسديد دين' && l.timestamp <= ts) tS += l.amount; });
+                (localData.expenses || []).forEach(e => { if(e.timestamp <= ts) tE += e.amount; });
+                (localData.operatingCosts || []).forEach(c => { 
+                    if(new Date(c.date).getTime() <= ts) tC += c.amount; 
+                });
+                
+                let histBal = (tS - tE - tC) / 2;
+                (localData.partnerTx || []).forEach(t => {
+                    if(t.account === acc && t.timestamp <= ts) {
+                        if(t.type === 'إيداع') histBal += t.amount; else histBal -= t.amount;
+                    }
+                });
+                return histBal;
+            };
+
+            sortedTx.forEach(tx => {
+                let typeColor = tx.type === 'إيداع' ? 'var(--green-success)' : 'var(--red-danger)';
+                let icon = tx.type === 'إيداع' ? 'fa-arrow-down' : 'fa-arrow-up';
+                let histBal = getHistoricalBal(tx.account, tx.timestamp);
+                
+                walletTbody.innerHTML += `<tr>
+                    <td style="font-size:13px; color:var(--text-gray);">${tx.date} <br> ${tx.time}</td>
+                    <td style="font-weight:bold;">${tx.account}</td>
+                    <td><span style="color:${typeColor}; font-weight:bold; background:rgba(0,0,0,0.3); padding:4px 8px; border-radius:5px;"><i class="fa-solid ${icon}"></i> ${tx.type}</span></td>
+                    <td style="color:var(--gold); font-weight:bold; font-size:16px;">${tx.amount.toLocaleString()}</td>
+                    <td>${tx.reason || '-'}</td>
+                    <td style="font-weight:900; color:${histBal >= 0 ? 'var(--green-success)' : 'var(--red-danger)'};" dir="ltr">${histBal.toLocaleString()}</td>
+                </tr>`;
+            });
+        }
 };
 // دوال التخصيصات الجديدة
 window.loadAllTimeStats = () => {
