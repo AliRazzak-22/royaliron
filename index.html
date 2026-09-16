@@ -622,6 +622,22 @@
         </div>
     </div>
 
+<!-- 14. نافذة الدفع عند الاستلام (حل مشكلة المستودع) -->
+    <div id="modal-pickup-payment" class="modal-overlay" style="z-index: 3500;">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <div class="modal-title" style="color: var(--gold);"><i class="fa-solid fa-handshake"></i> إتمام تسليم الطلب</div>
+            <p style="font-size: 18px; margin-bottom: 10px;">المبلغ المتبقي للدفع:</p>
+            <div style="font-size: 30px; font-weight: 900; color: var(--red-danger); margin-bottom: 25px;"><span id="pickup-amount-display">0</span> د.ع</div>
+            <p style="margin-bottom: 15px; color: var(--text-gray);">اختر طريقة الدفع للمبلغ المتبقي:</p>
+            <div class="modal-actions" style="flex-direction: column; gap: 10px;">
+                <button class="btn btn-cash" style="width: 100%;" onclick="window.finalizePickup('cash')"><i class="fa-solid fa-money-bill"></i> نقدي (كاش)</button>
+                <button class="btn btn-electronic" style="width: 100%;" onclick="window.finalizePickup('electronic')"><i class="fa-solid fa-credit-card"></i> إلكتروني</button>
+                <button class="btn btn-credit" style="width: 100%;" onclick="window.finalizePickup('credit')"><i class="fa-solid fa-address-book"></i> آجل (ذمة)</button>
+                <button class="btn btn-cancel" style="width: 100%; margin-top: 10px;" onclick="window.closeModals()">إلغاء ورجوع للمستودع</button>
+            </div>
+        </div>
+    </div>
+    
 <!-- 13. نافذة المشاهدة العميقة للسجل (Deep View) -->
     <div id="modal-log-details" class="modal-overlay" style="z-index: 5000;">
         <div class="modal-content" style="max-width: 600px;">
