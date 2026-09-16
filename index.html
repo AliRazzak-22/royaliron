@@ -42,6 +42,10 @@
                 مبيعات اليوم: <span id="daily-sales-val">0</span> د.ع
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
+                <!-- مؤشر حالة الاتصال والمزامنة -->
+                <div id="sync-status" style="display:flex; align-items:center; gap:5px; padding:0 10px; font-size:14px; color:var(--green-success); font-weight:bold; cursor:help;" title="متصل بالسحابة">
+                    <i class="fa-solid fa-cloud" id="sync-icon"></i> <span id="sync-text">متصل</span>
+                </div>
                 <button class="top-bar-btn" id="fullscreen-btn" onclick="window.toggleFullScreen()" title="تكبير/تصغير الشاشة"><i class="fa-solid fa-expand"></i></button>
                 <!-- الزر الجديد لمستودع الاستلام -->
                 <button class="top-bar-btn" onclick="window.openActiveOrders()"><i class="fa-solid fa-box-open"></i> مستودع الاستلام</button>
@@ -133,6 +137,7 @@
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('logs')"><i class="fa-solid fa-clock-rotate-left"></i> سجل الحركات</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('services')"><i class="fa-solid fa-star"></i> أداء الخدمات</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('settings')"><i class="fa-solid fa-gears"></i> التخصيصات</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('invoice-designer')"><i class="fa-solid fa-file-pen"></i> تصميم الفاتورة A5</button>
                 <button class="admin-nav-btn" style="margin-top:auto; color:var(--red-danger);" onclick="window.exitToMain()"><i class="fa-solid fa-right-from-bracket"></i> تسجيل خروج</button>
             </div>
             <div class="admin-content">
@@ -251,10 +256,59 @@
                         </div>
                     </div>
                 </div>
+                </div>
+                
+                <!-- قسم تصميم الفاتورة A5 (المحرر المرئي) -->
+                <div id="admin-invoice-designer" class="admin-section">
+                    <h2 style="margin-bottom:20px; color:var(--gold);">تصميم فاتورة A5 (المحرر المرئي)</h2>
+                    <div style="background:var(--dark-gray); padding:20px; border-radius:15px; border:1px solid var(--light-gray);">
+                        <!-- شريط الأدوات -->
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px; background:#111; padding:10px; border-radius:8px;" id="editor-toolbar">
+                            <button class="top-bar-btn" onclick="document.execCommand('bold', false, null)"><i class="fa-solid fa-bold"></i></button>
+                            <button class="top-bar-btn" onclick="document.execCommand('italic', false, null)"><i class="fa-solid fa-italic"></i></button>
+                            <button class="top-bar-btn" onclick="document.execCommand('underline', false, null)"><i class="fa-solid fa-underline"></i></button>
+                            <div style="width:2px; background:var(--light-gray); margin:0 5px;"></div>
+                            <button class="top-bar-btn" onclick="document.execCommand('justifyRight', false, null)"><i class="fa-solid fa-align-right"></i></button>
+                            <button class="top-bar-btn" onclick="document.execCommand('justifyCenter', false, null)"><i class="fa-solid fa-align-center"></i></button>
+                            <button class="top-bar-btn" onclick="document.execCommand('justifyLeft', false, null)"><i class="fa-solid fa-align-left"></i></button>
+                            <div style="width:2px; background:var(--light-gray); margin:0 5px;"></div>
+                            <select id="font-size-selector" class="note-input" style="width:auto; padding:5px;" onchange="document.execCommand('fontSize', false, this.value)">
+                                <option value="3">خط عادي</option>
+                                <option value="4">خط متوسط</option>
+                                <option value="5">خط كبير</option>
+                                <option value="6">خط ضخم</option>
+                                <option value="7">خط عملاق</option>
+                            </select>
+                        </div>
+                        
+                        <!-- أزرار المتغيرات الذكية -->
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; padding-bottom:15px; border-bottom:1px solid var(--light-gray);">
+                            <span style="color:var(--text-gray); align-self:center;">إدراج سريع:</span>
+                            <button class="btn-royal-action" onclick="window.insertTag('[رقم_الطلب]')">رقم الطلب</button>
+                            <button class="btn-royal-action" onclick="window.insertTag('[اليوم]')">اليوم</button>
+                            <button class="btn-royal-action" onclick="window.insertTag('[الوقت]')">الوقت</button>
+                            <button class="btn-royal-action" onclick="window.insertTag('[اسم_الزبون]')">اسم الزبون</button>
+                            <button class="btn-royal-action" style="border-color:var(--gold);" onclick="window.insertTag('[جدول_المبيعات]')">جدول المبيعات</button>
+                            <button class="btn-royal-action" onclick="window.insertTag('[المجموع]')">المجموع</button>
+                            <button class="btn-royal-action" onclick="window.insertTag('[العربون]')">العربون</button>
+                            <button class="btn-royal-action" onclick="window.insertTag('[المتبقي]')">المتبقي</button>
+                        </div>
+                        
+                        <!-- ورقة الـ A5 الافتراضية للتصميم -->
+                        <div style="background:white; color:black; width:148mm; min-height:210mm; padding:20mm; margin:0 auto; font-family:'Cairo', sans-serif; box-shadow:0 0 20px rgba(0,0,0,0.8); overflow-wrap: break-word;" id="invoice-editor-area" contenteditable="true">
+                            <!-- سيتم حقن التصميم الافتراضي هنا بواسطة JS -->
+                        </div>
+                        
+                        <div style="text-align:center; margin-top:30px;">
+                            <button class="btn btn-confirm" style="width:100%; max-width:400px; margin:0 auto; font-size:20px;" onclick="window.saveInvoiceDesign()"><i class="fa-solid fa-floppy-disk"></i> حفظ التصميم كافتراضي</button>
+                        </div>
+                    </div>
+                </div>
+
             </div> <!-- إغلاق admin-content -->
         </div>
     </div>
-
+           
     <!-- نافذة تفاصيل الصرفيات الخاصة بالآدمن -->
     <div id="modal-admin-expenses" class="modal-overlay">
         <div class="modal-content invoices-list-modal">
@@ -604,26 +658,9 @@
     </div>
 
     
-    <!-- هيكل الطباعة (مخفي للطباعة الحرارية 80mm) -->
+   <!-- هيكل الطباعة (مخفي، يستقبل تصميم الـ A5 لحظة الطباعة) -->
     <div id="print-area">
-        <div class="print-logo"><i class="fa-solid fa-crown"></i></div>
-        <div class="print-header" id="print-header-name">مكوى رويال VIP</div>
-        <div class="print-info">
-            التاريخ: <span id="p-date"></span><br>
-            الوقت: <span id="p-time"></span><br>
-            رقم الفاتورة: <b id="p-inv"></b><br>
-            نوع البيع: <span id="p-type"></span><br>
-            <span id="p-customer-row" style="display:none;">الزبون: <b id="p-customer"></b></span>
-        </div>
-        <table class="print-table">
-            <thead><tr><th>القطعة</th><th>النوع</th><th>العدد</th><th>السعر</th></tr></thead>
-            <tbody id="p-items"></tbody>
-        </table>
-        <div class="print-total">المجموع: <span id="p-total"></span> د.ع</div>
-        <div class="print-info" id="p-notes-row" style="display:none;">ملاحظات: <span id="p-notes"></span></div>
-        <div class="print-footer" id="print-footer-info">
-            <!-- سيتم توليده برمجياً من الإعدادات -->
-        </div>
+        <!-- سيتم حقن التصميم المرئي المحفوظ هنا برمجياً واستبدال المتغيرات بالبيانات الحقيقية -->
     </div>
 
 <!-- 14. نافذة الدفع عند الاستلام (حل مشكلة المستودع) -->
@@ -682,6 +719,19 @@
             </div>
             <div class="modal-actions">
                 <button class="btn btn-cancel" style="width: 100%;" onclick="window.closeModals()">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+<!-- 16. نافذة التحديثات الهوائية (OTA Updates) - تضاف للتطبيق المكتبي -->
+    <div id="modal-ota-update" class="modal-overlay" style="z-index: 9999;">
+        <div class="modal-content" style="max-width: 450px; text-align: center; border-color: #4a90e2;">
+            <i class="fa-solid fa-cloud-arrow-down" style="font-size: 70px; color: #4a90e2; margin-bottom: 20px; animation: pulse 1.5s infinite;"></i>
+            <div class="modal-title" style="color: #4a90e2; margin-bottom: 10px;">تحديث جديد متاح!</div>
+            <p id="ota-update-msg" style="font-size: 16px; margin-bottom: 25px; color: var(--text-white);">تم العثور على إصدار جديد من نظام مكوى رويال VIP. يحتوي التحديث على تحسينات هامة واستقرار أعلى. (سيتم إعادة تشغيل النظام تلقائياً بعد التحديث).</p>
+            <div class="modal-actions" style="flex-direction: column; gap: 15px;">
+                <button class="btn btn-confirm" style="background: #4a90e2; color: white; width: 100%; font-size:18px;" onclick="window.startOtaUpdate()">تحديث النظام الآن</button>
+                <button class="btn btn-cancel" style="width: 100%; background: transparent; border: 1px solid var(--text-gray);" onclick="document.getElementById('modal-ota-update').style.display='none'">تأجيل (ليس الآن)</button>
             </div>
         </div>
     </div>
