@@ -24,7 +24,7 @@ const auth = getAuth(app); // تشغيل محرك الأمان
 
 // المتغيرات العامة
 let localData = {
-    catalog: [], invoices: [], expenses: [], operatingCosts: [], debts: [], logs: [],
+    catalog: [], invoices: [], expenses: [], operatingCosts: [], debts: [], logs: [], payments: [], // تمت إضافة payments
     dailySalesCash: 0, dailySalesElectronic: 0, lastDate: new Date().toDateString()
 };
 let currentCart = [];
@@ -32,6 +32,63 @@ let editingInvoiceId = null;
 let pendingItem = null;
 // --- جدار الحماية: توكن الجلسة لمنع التجاوز برمجياً ---
 let secureAdminToken = null;
+
+// --- التدخل الجراحي الأمني: محرك الوقت العالمي (بغداد/النجف) لمنع تلاعب الكاشير ---
+// يقوم بجلب الوقت من خادم عالمي مع حساب فرق الوقت بين الاستجابة والتنفيذ
+let globalTimeOffset = 0;
+let isTimeSynced = false;
+
+async function syncGlobalTime() {
+    try {
+        const response = await fetch('http://worldtimeapi.org/api/timezone/Asia/Baghdad');
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        
+        const serverTime = new Date(data.datetime).getTime();
+        const localTime = Date.now();
+        globalTimeOffset = serverTime - localTime; 
+        isTimeSynced = true;
+        console.log("تمت مزامنة الوقت بنجاح. فرق الوقت:", globalTimeOffset, "ملي ثانية");
+    } catch (error) {
+        console.warn("فشل الاتصال بخادم الوقت العالمي، سيتم الاعتماد على توقيت فايربيس أو الجهاز مؤقتاً.", error);
+        isTimeSynced = false;
+    }
+}
+
+// تشغيل المزامنة عند الإقلاع
+syncGlobalTime();
+// إعادة المزامنة كل ساعة لضمان الدقة
+setInterval(syncGlobalTime, 60 * 60 * 1000);
+
+// دالة سحرية تُرجع الوقت الحقيقي والمحمي دائماً
+function getRealTime() {
+    const timeNow = Date.now() + globalTimeOffset;
+    const realDate = new Date(timeNow);
+    
+    // إجبار التنسيق على توقيت العراق (بغداد/النجف)
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Baghdad',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false // تنسيق 24 ساعة لسهولة المعالجة لاحقاً
+    });
+
+    const parts = formatter.formatToParts(realDate);
+    const dateObj = {};
+    parts.forEach(p => dateObj[p.type] = p.value);
+
+    // بناء سلاسل التاريخ والوقت بدقة (YYYY-MM-DD)
+    const dateString = `${dateObj.year}-${dateObj.month}-${dateObj.day}`;
+    // تحويل الوقت لصيغة AM/PM للواجهة
+    const realTimeFormat = realDate.toLocaleTimeString('ar-IQ', { timeZone: 'Asia/Baghdad' });
+
+    return {
+        timestamp: timeNow,
+        date: dateString,
+        time: realTimeFormat,
+        obj: realDate
+    };
+}
 
 // --- بذور نظام المزامنة اللحظية الأوفلاين ---
 window.addEventListener('online', updateSyncStatus);
@@ -61,15 +118,17 @@ window.escapeHTML = (str) => {
     }[tag]));
 };
 // -----------------------------------------------------------------
-// --- التدخل الجراحي: توحيد صيغة التاريخ لجميع الأجهزة لحماية الحسابات المالية ---
-Date.prototype.toLocaleDateString = function() {
-    const year = this.getFullYear();
-    const month = String(this.getMonth() + 1).padStart(2, '0');
-    const day = String(this.getDate()).padStart(2, '0');
+// --- التدخل الجراحي: الدالة المساعدة الآمنة لتوحيد التاريخ دون تشويه أساسيات اللغة ---
+window.formatRoyalDate = (dateObj) => {
+    // إذا لم يتم تمرير تاريخ، نستخدم الوقت العالمي المحمي الذي برمجناه في الخطوة السابقة
+    if(!dateObj) return getRealTime().date; 
+    
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 };
 // -----------------------------------------------------------------------
-
 const availableIcons = [
     'fa-shirt', 'fa-user-tie', 'fa-person-dress', 'fa-user-nurse', 'fa-person-military-rifle',
     'fa-user-secret', 'fa-user-doctor', 'fa-person', 'fa-socks', 'fa-mitten', 
@@ -97,6 +156,7 @@ async function initializeDB() {
                 localData.logs = Object.values(incomingData.logs || {});
                 localData.partnerTx = Object.values(incomingData.partnerTx || {});
                 localData.subscriptions = Object.values(incomingData.subscriptions || {});
+                localData.payments = Object.values(incomingData.payments || {});
                 
                 let fetchedSettings = incomingData.settings || { name: "مكوى رويال ", phone: "07800000000", address: "الكوفة، النجف الأشرف" };
                 if(fetchedSettings.password) delete fetchedSettings.password;
@@ -121,7 +181,7 @@ async function initializeDB() {
                     { id: 'coat', name: 'كوت', icon: 'fa-user-secret', prices: { wash_iron: 6000, iron_only: 4000 } },
                     { id: 'shirt', name: 'قميص', icon: 'fa-shirt', prices: { wash_iron: 3000, iron_only: 2000 } }
                 ];
-                localData.invoices = []; localData.expenses = []; localData.operatingCosts = []; localData.debts = []; localData.logs = [];
+                localData.invoices = []; localData.expenses = []; localData.operatingCosts = []; localData.debts = []; localData.logs = []; localData.payments = [];
                 localData.settings = { name: "مكوى رويال VIP", phone: "07800000000", address: "الكوفة، النجف الأشرف", password: "ahmed2003" };
                 saveDataToCloud();
             }
@@ -221,10 +281,10 @@ window.recalculateDailySales = () => {
         }
     });
     
-    // 3. إضافة الديون المسددة اليوم
-    (localData.logs || []).forEach(log => {
-        if(log.type === 'تسديد دين' && log.timestamp && log.timestamp >= todayStart.getTime()) { 
-            realCash += log.amount; 
+   // 3. إضافة الديون المسددة اليوم (تم النقل إلى المسار المالي payments)
+    (localData.payments || []).forEach(pay => {
+        if(pay.type === 'تسديد دين' && pay.timestamp && pay.timestamp >= todayStart.getTime()) { 
+            realCash += pay.amount; 
         }
     });
     
@@ -243,6 +303,7 @@ function saveDataToCloud() {
     if(localData.debts) updates['royal_data/debts'] = localData.debts;
     if(localData.partnerTx) updates['royal_data/partnerTx'] = localData.partnerTx; // حفظ المحفظة
     if(localData.subscriptions) updates['royal_data/subscriptions'] = localData.subscriptions; // حفظ الاشتراكات
+    if(localData.payments) updates['royal_data/payments'] = localData.payments;
     if(localData.settings) {
         updates['royal_data/settings/name'] = localData.settings.name;
         updates['royal_data/settings/phone'] = localData.settings.phone;
@@ -260,19 +321,21 @@ function saveDataToCloud() {
 // دالة المراقبة (سجل الحركات) - تسجل كل حركة تلقائياً
 window.logAction = (actionType, details, amount = 0, snapshot = null) => {
     if(!localData.logs) localData.logs = [];
+    const realT = getRealTime();
     const newLog = {
-        id: 'LOG-' + Date.now() + '-' + Math.floor(Math.random() * 1000), // أمان إضافي للمعرف
-        date: new Date().toLocaleDateString(),
-        time: new Date().toLocaleTimeString(),
-        timestamp: Date.now(),
+        id: 'LOG-' + realT.timestamp + '-' + Math.floor(Math.random() * 1000),
+        date: realT.date,
+        time: realT.time,
+        timestamp: realT.timestamp,
         type: actionType,
         details: details,
         amount: amount,
         snapshot: snapshot
     };
     localData.logs.push(newLog);
-    // التدخل الجراحي: توجيه مباشر للمسار لمنع التداخل
-    set(ref(database, 'royal_data/logs/' + newLog.id), newLog);
+    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set, ref }) => {
+        set(ref(window.db || database, 'royal_data/logs/' + newLog.id), newLog);
+    });
 };
 // ---------------- الأزرار العامة ----------------
 window.showPOS = () => { 
@@ -616,17 +679,23 @@ document.addEventListener('keydown', (e) => {
 
 // دالة حساب الرقم التسلسلي (تصفير تلقائي كل 3 أيام)
 function getNextDailyNumber() {
-    // نعتمد نقطة صفر ثابتة ومستقرة رياضياً
     const MS_PER_DAY = 1000 * 60 * 60 * 24;
     const epoch = new Date('2024-01-01T00:00:00').getTime();
+    const now = Date.now();
     
     // حساب دورة الـ 3 أيام الحالية
-    const currentDays = Math.floor((Date.now() - epoch) / MS_PER_DAY);
+    const currentDays = Math.floor((now - epoch) / MS_PER_DAY);
     const currentCycle = Math.floor(currentDays / 3);
     
     let maxNumber = 0;
+    
+    // التدخل الجراحي: جدار زمني لفلترة الفواتير (نبحث في آخر 4 أيام فقط)
+    // هذا سيمنع المعالج من فحص آلاف الفواتير القديمة!
+    const timeBarrier = now - (4 * MS_PER_DAY);
+    
     (localData.invoices || []).forEach(inv => {
-        if (inv.dailyNumber && inv.timestamp) {
+        // فلتر الأمان: إذا كانت الفاتورة أقدم من 4 أيام، نتجاوزها فوراً بدون عمليات رياضية
+        if (inv.dailyNumber && inv.timestamp && inv.timestamp >= timeBarrier) {
             const invDays = Math.floor((inv.timestamp - epoch) / MS_PER_DAY);
             const invCycle = Math.floor(invDays / 3);
             
@@ -658,7 +727,7 @@ window.confirmOrder = () => {
         
         // القاعدة المالية: إذا تغير العربون، نعدل الصندوق لليوم الحالي حصراً (الفرق بين القديم والجديد)
         const depositDifference = newDeposit - oldDeposit;
-        if (depositDifference !== 0 && new Date().toLocaleDateString() === oldInv.date) {
+        if (depositDifference !== 0 && getRealTime().date === oldInv.date) {
             localData.dailySalesCash += depositDifference;
         }
 
@@ -688,12 +757,13 @@ window.confirmOrder = () => {
     // === حالة (تسجيل طلب جديد كلياً) ===
     else {
         const dailyNum = getNextDailyNumber();
+        const realT = getRealTime();
         const invoice = {
             id: generateInvoiceID(), 
             dailyNumber: dailyNum,
-            date: new Date().toLocaleDateString(), 
-            time: new Date().toLocaleTimeString(),
-            timestamp: Date.now(), 
+            date: realT.date, 
+            time: realT.time,
+            timestamp: realT.timestamp, 
             type: 'active',
             items: [...currentCart], 
             total: total,
@@ -728,7 +798,7 @@ window.openPreviousInvoices = () => {
 
     // الافتراضي: عرض فواتير اليوم فقط لحماية الذاكرة وتسريع الفتح
     if (!dateFilter) {
-        dateFilter = new Date().toLocaleDateString();
+        dateFilter = getRealTime().date;
         if (document.getElementById('inv-date-filter')) document.getElementById('inv-date-filter').value = dateFilter;
     }
 
@@ -787,7 +857,7 @@ window.saveEditedInvoice = () => {
     const oldInvoice = localData.invoices[oldIndex];
     
     // تعديل الدخل اليومي إذا كانت الفاتورة تابعة لليوم
-    if (oldInvoice.date === new Date().toLocaleDateString()) {
+    if (oldInvoice.date === getRealTime().date) {
         if(oldInvoice.type === 'cash') localData.dailySalesCash -= oldInvoice.total;
         if(oldInvoice.type === 'electronic') localData.dailySalesElectronic -= oldInvoice.total;
         
@@ -828,7 +898,7 @@ window.deleteInvoice = (id) => {
         const index = localData.invoices.findIndex(i => i.id === id);
         const inv = localData.invoices[index];
 
-        if (inv.date === new Date().toLocaleDateString()) {
+        if (inv.date === getRealTime().date) {
             if(inv.type === 'cash') localData.dailySalesCash -= inv.total;
             else if(inv.type === 'electronic') localData.dailySalesElectronic -= inv.total;
             else if(inv.type === 'credit' && inv.customer) localData.dailySalesCash -= inv.customer.paid;
@@ -1081,9 +1151,10 @@ window.confirmPickupCredit = () => {
     const finalRemaining = originalRemaining - paidNow; 
 
     // تسجيل دين جديد
-    const debtId = 'DEBT-' + Date.now();
+    const realT = getRealTime();
+    const debtId = 'DEBT-' + realT.timestamp;
     const newDebt = {
-        id: debtId, date: new Date().toLocaleDateString(), 
+        id: debtId, date: realT.date, 
         name: name, phone: phone, invoiceId: inv.id, 
         total: inv.total, paid: (inv.customer ? inv.customer.paid : 0) + paidNow, 
         remaining: finalRemaining
@@ -1142,10 +1213,11 @@ window.saveExpense = () => {
     if(!detail || isNaN(amount)) return alert('يرجى ملء الحقول');
 
     if(!localData.expenses) localData.expenses = [];
+    const realT = getRealTime();
     const newExpense = { 
-        id: 'EXP-' + Date.now(), // منحرف فريد يحمي المصروف من التداخل
-        timestamp: Date.now(),
-        date: new Date().toLocaleDateString(), 
+        id: 'EXP-' + realT.timestamp,
+        timestamp: realT.timestamp,
+        date: realT.date, 
         detail: detail, 
         amount: amount 
     };
@@ -1216,7 +1288,7 @@ window.saveEditedExpense = () => {
 
     const oldExp = localData.expenses[editingExpenseIndex];
     
-    if(oldExp.date === new Date().toLocaleDateString()) {
+    if(oldExp.date === getRealTime().date) {
         localData.dailySalesCash += oldExp.amount; 
         localData.dailySalesCash -= newAmount;     
     }
@@ -1242,7 +1314,7 @@ window.deleteExpense = (index) => {
     window.showConfirm('هل أنت متأكد من حذف هذا المصروف نهائياً؟ سيتم إرجاع مبلغه لصندوق اليوم.', () => {
         const exp = localData.expenses[index];
         
-        if(exp && exp.date === new Date().toLocaleDateString()) {
+        if(exp && exp.date === getRealTime().date) {
             localData.dailySalesCash += exp.amount;
         }
 
@@ -1386,7 +1458,7 @@ window.updateAdminDashboard = () => {
     (localData.invoices || []).forEach(inv => {
         let invDate = new Date(inv.timestamp || Date.now());
         let monthStr = inv.monthStr || `${invDate.getFullYear()}-${String(invDate.getMonth() + 1).padStart(2, '0')}`;
-        let dayStr = inv.date || invDate.toLocaleDateString();
+        let dayStr = inv.date || window.formatRoyalDate(invDate);
 
         if (isAllTime || monthStr === selectedMonth) {
             let amountCash = 0;
@@ -1419,7 +1491,7 @@ window.updateAdminDashboard = () => {
     (localData.expenses || []).forEach(exp => {
         let expDate = new Date(exp.timestamp || Date.now());
         let monthStr = exp.monthStr || `${expDate.getFullYear()}-${String(expDate.getMonth() + 1).padStart(2, '0')}`;
-        let dayStr = exp.date || expDate.toLocaleDateString();
+        let dayStr = exp.date || window.formatRoyalDate(expDate);
 
         if (isAllTime || monthStr === selectedMonth) {
             totalExpenses += exp.amount;
@@ -1429,17 +1501,17 @@ window.updateAdminDashboard = () => {
         }
     });
 
-    // --- إصلاح: إدخال الدفعات المسددة من الديون في تقارير وملخص الآدمن ---
-    (localData.logs || []).forEach(log => {
-        if(log.type === 'تسديد دين') {
-            let logDate = new Date(log.timestamp || Date.now());
-            let monthStr = `${logDate.getFullYear()}-${String(logDate.getMonth() + 1).padStart(2, '0')}`;
-            let dayStr = logDate.toLocaleDateString();
+    // --- إصلاح: إدخال الدفعات المسددة من الديون في تقارير وملخص الآدمن (من المسار المالي) ---
+    (localData.payments || []).forEach(pay => {
+        if(pay.type === 'تسديد دين') {
+            let payDate = new Date(pay.timestamp || Date.now());
+            let monthStr = `${payDate.getFullYear()}-${String(payDate.getMonth() + 1).padStart(2, '0')}`;
+            let dayStr = window.formatRoyalDate(payDate);
 
             if (isAllTime || monthStr === selectedMonth) {
-                totalSalesCash += log.amount; // إضافتها للكاش الإجمالي
-                if(!dailyReports[dayStr]) dailyReports[dayStr] = { sales: 0, expenses: 0, details: [], timestamp: logDate.getTime() };
-                dailyReports[dayStr].sales += log.amount; // إضافتها لمبيعات اليوم
+                totalSalesCash += pay.amount; 
+                if(!dailyReports[dayStr]) dailyReports[dayStr] = { sales: 0, expenses: 0, details: [], timestamp: payDate.getTime() };
+                dailyReports[dayStr].sales += pay.amount; 
             }
         }
     });
@@ -1703,9 +1775,27 @@ window.confirmPayDebt = () => {
         amountLeftToDistribute -= amountToDeduct;
     });
 
+    // تسجيل العملية في المسار المالي المستقل
+    const realT = getRealTime();
+    const paymentId = 'PAY-' + realT.timestamp;
+    const newPayment = {
+        id: paymentId,
+        timestamp: realT.timestamp,
+        date: realT.date,
+        type: 'تسديد دين',
+        amount: payAmount,
+        details: `تسديد دفعة من حساب: ${currentDebtCustomerName}`
+    };
+    if(!localData.payments) localData.payments = [];
+    localData.payments.push(newPayment);
+    // التدخل الجراحي: حقن الدفعة مباشرة في السحابة
+    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set, ref }) => {
+        set(ref(window.db || database, 'royal_data/payments/' + paymentId), newPayment);
+    });
+
     localData.dailySalesCash += payAmount; 
     window.logAction('تسديد دين', `تسديد دفعة من حساب: ${currentDebtCustomerName}`, payAmount, { debtName: currentDebtCustomerName, amountPaid: payAmount });
-    
+
     saveDataToCloud(); window.updateAdminDashboard(); window.closeModals();
     window.showAlert('تم تسديد الدفعة وتوزيعها بنجاح', 'success');
 };
@@ -2030,7 +2120,7 @@ window.renewSub = (subId) => {
     if(!sub) return;
     window.showConfirm(`هل تريد تجديد اشتراك ${sub.customerName} بنفس الفئة (${sub.packageName})؟ سيتم إضافة ${sub.paidAmount.toLocaleString()} د.ع للصندوق اليوم.`, () => {
         sub.timestamp = Date.now();
-        sub.date = new Date().toLocaleDateString();
+        sub.date = getRealTime().date;
         sub.consumedAmount = 0; 
         sub.invoices = [];
         
@@ -2047,7 +2137,7 @@ window.upgradeSub = (subId) => {
     if(!sub || sub.consumedAmount > 0) return;
     
     window.showConfirm(`سيتم إلغاء فئة (${sub.packageName}) للزبون واسترجاع مبلغه برمجياً. يرجى اختيار الفئة الجديدة بعد الإغلاق. موافق؟`, () => {
-         if(sub.date === new Date().toLocaleDateString()) localData.dailySalesCash -= sub.paidAmount;
+         if(sub.date === getRealTime().date) localData.dailySalesCash -= sub.paidAmount;
          localData.subscriptions = localData.subscriptions.filter(s => s.id !== subId);
          saveDataToCloud();
          window.closeModals();
@@ -2094,7 +2184,7 @@ window.executeSubDelete = () => {
     let refundable = sub.paidAmount - sub.consumedAmount;
     if(refundable < 0) refundable = 0;
     
-    if(refundable > 0 && sub.date === new Date().toLocaleDateString()) {
+    if(refundable > 0 && sub.date === getRealTime().date) {
         localData.dailySalesCash -= refundable;
     }
     
