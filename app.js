@@ -82,34 +82,35 @@ async function initializeDB() {
     try {
         await signInAnonymously(auth);
 
-        // التدخل الجراحي: تفكيك قنبلة الذاكرة باستخدام get() لجلب البيانات مرة واحدة بذكاء
-        get(ref(database, 'royal_data')).then((snapshot) => {
+       // التدخل الجراحي المطور: تشغيل محرك المزامنة الحية اللحظية (Realtime Engine)
+        let isFirstLoad = true;
+        onValue(ref(database, 'royal_data'), (snapshot) => {
             if (snapshot.exists()) {
                 let incomingData = snapshot.val();
                 
-                // تحديث الذاكرة المحلية فوراً بأحدث بيانات السحابة (تزامن لحظي)
+                // مزامنة فورية للذاكرة المحلية
                 localData.invoices = Object.values(incomingData.invoices || {});
                 localData.catalog = Object.values(incomingData.catalog || {});
                 localData.expenses = Object.values(incomingData.expenses || {});
                 localData.operatingCosts = Object.values(incomingData.operatingCosts || {});
                 localData.debts = Object.values(incomingData.debts || {});
                 localData.logs = Object.values(incomingData.logs || {});
-                localData.partnerTx = Object.values(incomingData.partnerTx || {}); // تحميل المحفظة
-                localData.subscriptions = Object.values(incomingData.subscriptions || {}); // تحميل الاشتراكات VIP
+                localData.partnerTx = Object.values(incomingData.partnerTx || {});
+                localData.subscriptions = Object.values(incomingData.subscriptions || {});
+                
                 let fetchedSettings = incomingData.settings || { name: "مكوى رويال ", phone: "07800000000", address: "الكوفة، النجف الأشرف" };
-                // التدخل الجراحي: حذف كلمة المرور من الذاكرة المحلية فوراً لتعمية الـ Console
                 if(fetchedSettings.password) delete fetchedSettings.password;
                 localData.settings = fetchedSettings;
                 localData.lastDate = incomingData.lastDate || new Date().toDateString();
 
-                // تصفير مبيعات اليوم إذا بدأ يوم جديد
+                // فحص بداية يوم جديد
                 if(localData.lastDate !== new Date().toDateString()) {
                     localData.dailySalesCash = 0;
                     localData.dailySalesElectronic = 0;
                     localData.lastDate = new Date().toDateString();
                     saveDataToCloud(); 
                 } else {
-                    window.recalculateDailySales(); // تأكيد دقة الأرقام بناءً على آخر مزامنة
+                    window.recalculateDailySales();
                 }
             } else {
                 localData.catalog = [
@@ -125,25 +126,40 @@ async function initializeDB() {
                 saveDataToCloud();
             }
             
-            // تفعيل حالة الاتصال وتحميل تصميم الفاتورة A5
             updateSyncStatus();
-            if(window.loadInvoiceTemplateToEditor) window.loadInvoiceTemplateToEditor();
             
-            document.getElementById('loading-screen').style.display = 'none';
+            // في أول تشغيل للنظام فقط
+            if (isFirstLoad) {
+                if(window.loadInvoiceTemplateToEditor) window.loadInvoiceTemplateToEditor();
+                const loadingScreen = document.getElementById('loading-screen');
+                if (loadingScreen) loadingScreen.style.display = 'none';
+                isFirstLoad = false;
+            }
+
+            // تحديث واجهات النظام فور وصول أي بايت من السحابة
             renderItems();
             if(window.renderPackages) window.renderPackages();
             updateUI();
 
-            // 🔴 سحر الآدمن اللحظي: إذا كانت شاشة الآدمن مفتوحة، يتم تحديث الأرقام والجداول فوراً أمام عينه
-            if (document.getElementById('admin-screen').classList.contains('active-screen')) {
+            // المزامنة الحية للواجهات المفتوحة تلقائياً دون رفرش
+            if (document.getElementById('modal-active-orders') && document.getElementById('modal-active-orders').style.display === 'flex') {
+                window.renderActiveOrders();
+            }
+            if (document.getElementById('modal-invoices') && document.getElementById('modal-invoices').style.display === 'flex') {
+                window.openPreviousInvoices();
+            }
+            if (document.getElementById('modal-cashier-subs') && document.getElementById('modal-cashier-subs').style.display === 'flex') {
+                window.renderCashierSubs();
+            }
+            if (document.getElementById('admin-screen') && document.getElementById('admin-screen').classList.contains('active-screen')) {
                 window.updateAdminDashboard();
                 if (sessionStorage.getItem('admin_tab') === 'logs') window.renderLogs();
+                if (sessionStorage.getItem('admin_tab') === 'subscriptions' && window.renderAdminSubs) window.renderAdminSubs();
             }
-        }).catch((error) => {
+        }, (error) => {
             console.error("فشل جلب البيانات من السحابة:", error);
-            window.showAlert("تنبيه: يوجد ضعف في الاتصال بالإنترنت.", "error");
+            window.showAlert("تنبيه: انقطع الاتصال بقاعدة البيانات السحابية.", "error");
         });
-
         if(localStorage.getItem('cart_draft')) {
             currentCart = JSON.parse(localStorage.getItem('cart_draft'));
             renderCart();
