@@ -2228,10 +2228,8 @@ window.renderCashierSubs = () => {
         let remaining = sub.totalValue - sub.consumedAmount;
         let actions = '';
         
-        // 1. زر التعديل (يغير الاسم أو الرقم)
-        actions += `<button class="top-bar-btn" style="padding:4px 8px; font-size:12px; color:#f39c12; border-color:#f39c12; margin-left:5px;" onclick="window.editCustomerInfo('${sub.id}')">تعديل معلومات</button>`;
-        // 2. زر الترقية (متصل بالنافذة العلوية للفئات)
-        actions += `<button class="top-bar-btn" style="padding:4px 8px; font-size:12px; color:#4a90e2; border-color:#4a90e2; margin-left:5px;" onclick="window.upgradeSub('${sub.id}')">ترقية الفئة</button>`;
+       // 1. زر التعديل الشامل (الاسم، الرقم، الفئة)
+        actions += `<button class="top-bar-btn" style="padding:4px 8px; font-size:12px; color:#f39c12; border-color:#f39c12; margin-left:5px;" onclick="window.openEditSubModal('${sub.id}')">تعديل</button>`;
         // 3. زر التجديد
         actions += `<button class="top-bar-btn" style="padding:4px 8px; font-size:12px; color:var(--green-success); border-color:var(--green-success); margin-left:5px;" onclick="window.renewSub('${sub.id}')">تجديد</button>`;
         // 4. زر الحذف
@@ -2249,24 +2247,106 @@ window.renderCashierSubs = () => {
     });
 };
 
-window.editCustomerInfo = (subId) => {
+window.openEditSubModal = (subId) => {
     const sub = localData.subscriptions.find(s => s.id === subId);
     if(!sub) return;
-    let newName = prompt('تعديل اسم الزبون:', sub.customerName);
-    if(newName === null || newName.trim() === '') return;
-    let newPhone = prompt('تعديل رقم الهاتف:', sub.customerPhone || '');
 
-    sub.customerName = newName.trim();
-    sub.customerPhone = newPhone ? newPhone.trim() : '';
+    document.getElementById('edit-sub-id').value = sub.id;
+    document.getElementById('edit-sub-name').value = sub.customerName;
+    document.getElementById('edit-sub-phone').value = sub.customerPhone || '';
 
-    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ update, ref }) => {
-        update(ref(window.db || database, 'royal_data/subscriptions/' + subId), {
-            customerName: sub.customerName,
-            customerPhone: sub.customerPhone
-        });
-        window.renderCashierSubs();
-        window.showAlert('تم تعديل معلومات الزبون بنجاح', 'success');
+    const select = document.getElementById('edit-sub-package');
+    select.innerHTML = '';
+    // إضافة الفئات المتاحة (يسمح بالبقاء على نفس الفئة أو الترقية لفئة أعلى)
+    VIP_PACKAGES.forEach(pkg => {
+        if (pkg.id === sub.packageId || pkg.pay > sub.paidAmount) {
+            let isSelected = pkg.id === sub.packageId ? 'selected' : '';
+            select.innerHTML += `<option value="${pkg.id}" data-pay="${pkg.pay}" ${isSelected}>${pkg.name} (${pkg.pay.toLocaleString()} د.ع)</option>`;
+        }
     });
+
+    // نظام الكشف المحاسبي الحي أثناء تغيير الفئة (يظهر الفرق المالي)
+    select.onchange = () => {
+        let selectedOption = select.options[select.selectedIndex];
+        let newPay = parseFloat(selectedOption.getAttribute('data-pay'));
+        let diff = newPay - sub.paidAmount;
+        let warningDiv = document.getElementById('edit-sub-upgrade-warning');
+        if (diff > 0) {
+            document.getElementById('edit-sub-diff').innerText = diff.toLocaleString();
+            warningDiv.style.display = 'block';
+        } else {
+            warningDiv.style.display = 'none';
+        }
+    };
+    select.onchange(); 
+
+    window.closeModals();
+    document.getElementById('modal-edit-sub').style.display = 'flex';
+};
+
+window.saveEditedSub = () => {
+    const subId = document.getElementById('edit-sub-id').value;
+    const subIndex = localData.subscriptions.findIndex(s => s.id === subId);
+    if(subIndex === -1) return;
+    
+    let sub = localData.subscriptions[subIndex];
+    let newName = window.escapeHTML(document.getElementById('edit-sub-name').value.trim());
+    let newPhone = window.escapeHTML(document.getElementById('edit-sub-phone').value.trim());
+    let newPkgId = document.getElementById('edit-sub-package').value;
+    
+    if(!newName) return window.showAlert('يرجى إدخال اسم الزبون', 'warning');
+
+    let newPkg = VIP_PACKAGES.find(p => p.id === newPkgId);
+    let diff = newPkg.pay - sub.paidAmount;
+
+    let logMsg = `تعديل معلومات المشترك: ${newName}`;
+    let actionType = 'تعديل VIP';
+    let paymentId = null;
+    let newPayment = null;
+
+    // في حال قرر الكاشير ترقية الفئة، سنقوم بالتعديل المالي الدقيق
+    if (diff > 0) {
+        actionType = 'ترقية VIP';
+        logMsg = `ترقية باقة الزبون ${newName} إلى ${newPkg.name} (دفع الفرق كاش: ${diff.toLocaleString()})`;
+        
+        sub.packageId = newPkg.id;
+        sub.packageName = newPkg.name;
+        sub.paidAmount = newPkg.pay; // رأس المال الجديد للمكوى
+        sub.totalValue = newPkg.value; // الرصيد الكلي الجديد (بدون تصفير المستهلك القديم)
+        
+        const realT = getRealTime();
+        paymentId = 'PAY-' + realT.timestamp;
+        newPayment = {
+            id: paymentId, timestamp: realT.timestamp, date: realT.date,
+            type: actionType, amount: diff, details: logMsg
+        };
+        if(!localData.payments) localData.payments = [];
+        localData.payments.push(newPayment);
+        
+        // إضافة الفرق إلى كاصة المبيعات اليومية
+        localData.dailySalesCash += diff; 
+    }
+
+    sub.customerName = newName;
+    sub.customerPhone = newPhone;
+
+    // مزامنة البيانات مع السحابة
+    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ update, set, ref }) => {
+        update(ref(window.db || database, 'royal_data/subscriptions/' + subId), sub);
+        if(paymentId && newPayment) {
+            set(ref(window.db || database, 'royal_data/payments/' + paymentId), newPayment);
+        }
+        
+        if (diff > 0) {
+            window.recalculateDailySales();
+            updateUI();
+        }
+        window.renderCashierSubs();
+        document.getElementById('modal-edit-sub').style.display = 'none';
+        window.showAlert('تم حفظ التعديلات بنجاح!', 'success');
+    });
+
+    window.logAction(actionType, logMsg, diff > 0 ? diff : 0, { sub: sub });
 };
 
 window.renewSub = (subId) => {
@@ -2289,17 +2369,6 @@ window.renewSub = (subId) => {
         window.logAction('تجديد VIP', newPayment.details, sub.paidAmount, sub);
         saveDataToCloud(); window.renderCashierSubs(); window.showAlert('تم التجديد!', 'success');
     });
-};
-
-window.upgradeSub = (subId) => {
-    const sub = localData.subscriptions.find(s => s.id === subId);
-    if(!sub) return;
-    // تجهيز حقل الاسم تلقائياً ليقوم بالترقية بشكل سليم في دالة الاشتراك
-    document.getElementById('sub-customer-name').value = sub.customerName;
-    document.getElementById('sub-customer-phone').value = sub.customerPhone || '';
-    window.closeModals();
-    // تنبيه يوجه الكاشير لاختيار الفئة من الأعلى
-    window.showAlert('انقر الآن على الفئة (الذهبية، الماسية...) من الأعلى لترقية هذا الزبون وسحب الفرق المالي.', 'success');
 };
 
 // التدخل الجراحي: حساب وإظهار البونص مقابل رأس المال بوضوح للكاشير
