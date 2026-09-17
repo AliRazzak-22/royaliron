@@ -79,8 +79,8 @@ function getRealTime() {
 
     // بناء سلاسل التاريخ والوقت بدقة (YYYY-MM-DD)
     const dateString = `${dateObj.year}-${dateObj.month}-${dateObj.day}`;
-    // تحويل الوقت لصيغة AM/PM للواجهة
-    const realTimeFormat = realDate.toLocaleTimeString('ar-IQ', { timeZone: 'Asia/Baghdad' });
+    // تحويل الوقت لصيغة إنجليزية (AM/PM) بدون ثوانٍ
+    const realTimeFormat = realDate.toLocaleTimeString('en-US', { timeZone: 'Asia/Baghdad', hour: 'numeric', minute: '2-digit', hour12: true });
 
     return {
         timestamp: timeNow,
@@ -1048,250 +1048,84 @@ window.viewInvoice = (id) => {
     document.getElementById('modal-view-invoice').style.display = 'flex';
 };
 
-window.printInvoice = (invoice) => {
-    // ==========================================
-    // 1. منطقة التعديل السهل (إعدادات الفاتورة)
-    // ==========================================
-    let shopName = localData.settings?.name || 'مكوى رويال VIP';
-    let shopSubTitle = 'عناية فائقة وتفاصيل ملكية'; // يمكنك تغيير الوصف أسفل اللوكو
-    let shopPhone = localData.settings?.phone || '+964 780 000 0000';
-    let shopAddress = localData.settings?.address || 'الكوفة، النجف الأشرف - الشارع العام';
-    let shopEmail = 'info@royal-laundry.com'; // بريد إلكتروني أو انستكرام
-
-    // بيانات الزبون والفاتورة
-    let custName = invoice.customer ? invoice.customer.name : 'عميل نقدي سريع';
+window.printInvoice = async (invoice) => {
+    // 1. تجهيز المتغيرات والأرقام
+    let custName = invoice.customer ? invoice.customer.name : 'عميل نقدي';
     let custPhone = invoice.customer && invoice.customer.phone ? invoice.customer.phone : '---';
-    let deposit = invoice.customer ? invoice.customer.paid : 0;
-    let remaining = invoice.customer ? invoice.customer.remaining : invoice.total;
+    let deposit = invoice.customer ? invoice.customer.paid.toLocaleString() : '0';
+    let remaining = invoice.customer ? invoice.customer.remaining.toLocaleString() : invoice.total.toLocaleString();
     let dailyNum = invoice.dailyNumber ? invoice.dailyNumber.toString().padStart(4, '0') : invoice.id.slice(-4);
-    
-    // ==========================================
-    // 2. بناء جدول القطع والخدمات (التصميم الداخلي)
-    // ==========================================
+    let totalAmt = invoice.total.toLocaleString();
+    let notes = invoice.notes || '';
+
+    // 2. بناء جدول المنتجات الداخلي ليتعوض داخل القالب
     let itemsRows = invoice.items.map((item, index) => `
-        <tr class="item-row">
-            <td class="col-no">${String(index + 1).padStart(2, '0')}</td>
-            <td class="col-desc">
-                <strong>${item.name}</strong> 
-                <span class="serv-type">(${item.serviceName})</span>
+        <tr>
+            <td style="text-align: center; border-bottom: 1px solid #ddd; padding: 8px;">${index + 1}</td>
+            <td style="text-align: right; border-bottom: 1px solid #ddd; padding: 8px; font-weight: bold;">
+                ${item.name} <br><span style="font-size: 11px; color: #555;">(${item.serviceName})</span>
             </td>
-            <td class="col-qty">${item.qty}</td>
-            <td class="col-price">${item.price.toLocaleString()}</td>
-            <td class="col-amt">${(item.price * item.qty).toLocaleString()}</td>
+            <td style="text-align: center; border-bottom: 1px solid #ddd; padding: 8px;">${item.qty}</td>
+            <td style="text-align: center; border-bottom: 1px solid #ddd; padding: 8px;">${item.price.toLocaleString()}</td>
+            <td style="text-align: center; border-bottom: 1px solid #ddd; padding: 8px;">${(item.price * item.qty).toLocaleString()}</td>
         </tr>
     `).join('');
 
-    // ==========================================
-    // 3. التصميم المرئي الاحترافي (مستوحى من Rovel)
-    // ==========================================
-    const printHTML = `
-    <!DOCTYPE html>
-    <html lang="ar" dir="rtl">
-    <head>
-        <meta charset="UTF-8">
-        <title>فاتورة - ${dailyNum}</title>
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&display=swap');
-            
-            /* إعدادات صفحة A5 الصارمة للطابعة */
-            @page { size: 148mm 210mm; margin: 0; }
-            
-            body { 
-                font-family: 'Cairo', sans-serif; 
-                margin: 0; padding: 0;
-                width: 148mm; height: 210mm; 
-                box-sizing: border-box;
-                background-color: #FAF6F0; /* لون بيج فخم وناعم جداً */
-                color: #1A1A1A;
-                position: relative;
-                -webkit-print-color-adjust: exact !important; 
-                print-color-adjust: exact !important;
-            }
-
-            /* الزاوية العلوية الداكنة (مقلوبة لليمين لتناسب العربي) */
-            .top-dark-shape {
-                position: absolute;
-                top: 0; right: 0;
-                width: 60%; height: 35mm;
-                background-color: #1A1A1A;
-                border-bottom-left-radius: 40mm;
-                z-index: 1;
-            }
-
-            /* حاوية المحتوى العلوية */
-            .header-container {
-                position: relative; z-index: 2;
-                display: flex; justify-content: space-between;
-                padding: 10mm 10mm 5mm 10mm;
-            }
-
-            .logo-area { color: #D4AF37; margin-top: 5mm;}
-            .logo-icon { font-size: 26px; font-weight: 900; letter-spacing: 2px; margin: 0; line-height: 1; text-transform: uppercase;}
-            .logo-sub { font-size: 10px; color: #E0E0E0; letter-spacing: 1px; margin-top: 4px; font-weight: 600; }
-
-            .invoice-title {
-                font-size: 28px; font-weight: 900;
-                color: #1A1A1A; letter-spacing: 1px;
-                margin-top: 8mm;
-            }
-
-            /* معلومات الزبون والفاتورة */
-            .info-section {
-                display: flex; justify-content: space-between;
-                padding: 0 10mm; margin-bottom: 8mm;
-            }
-            .bill-to h4 { color: #C5A059; font-size: 11px; margin: 0 0 5px 0; font-weight: 800; }
-            .bill-to h2 { font-size: 16px; margin: 0 0 4px 0; font-weight: 800; }
-            .bill-to p { font-size: 11px; color: #444; margin: 2px 0; font-weight: 600; }
-
-            .invoice-details table { border-collapse: collapse; }
-            .invoice-details td { padding: 3px 0; font-size: 11px; font-weight: 600; }
-            .invoice-details .label { color: #555; text-align: left; padding-left: 15px; width: 60px;}
-            .invoice-details .value { color: #1A1A1A; text-align: right; }
-
-            /* جدول المبيعات الفخم */
-            .table-container { padding: 0 8mm; margin-bottom: 8mm; }
-            table.main-table { width: 100%; border-collapse: collapse; border: 1px solid #E5DFD5; border-radius: 6px; overflow: hidden; }
-            table.main-table thead { background-color: #1A1A1A; color: #D4AF37; }
-            table.main-table th { padding: 8px 5px; font-size: 10px; font-weight: 800; text-align: center; }
-            table.main-table th.left-align { text-align: right; padding-right: 15px; }
-            table.main-table td { padding: 8px 5px; font-size: 12px; font-weight: 700; border-bottom: 1px solid #E5DFD5; text-align: center;}
-            table.main-table td.left-align { text-align: right; padding-right: 15px; }
-            
-            .item-row .serv-type { font-size: 10px; color: #777; font-weight: 600;}
-
-            /* قسم المجاميع (Totals) */
-            .totals-section {
-                display: flex; justify-content: space-between;
-                padding: 0 10mm; margin-bottom: 15mm;
-            }
-            .notes-area { width: 50%; padding-top: 5px; }
-            .notes-area h4 { color: #C5A059; font-size: 11px; margin: 0 0 5px 0; font-weight: 800; }
-            .notes-area p { font-size: 10px; color: #555; font-weight: 600; line-height: 1.5; }
-
-            .calculation-area { width: 45%; }
-            .calc-row { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; padding: 4px 0; }
-            .calc-row.discount { color: #27ae60; border-bottom: 1px solid #E5DFD5; padding-bottom: 8px; margin-bottom: 8px;}
-            .calc-row.total-box {
-                background-color: #1A1A1A; color: #FFF;
-                padding: 10px; border-radius: 6px;
-                font-size: 16px; font-weight: 900;
-                align-items: center;
-                margin-top: 5px;
-            }
-            .total-box span:last-child { color: #D4AF37; }
-
-            /* الزاوية السفلية الداكنة */
-            .bottom-dark-shape {
-                position: absolute;
-                bottom: 0; left: 0;
-                width: 100%; height: 25mm;
-                background-color: #1A1A1A;
-                border-top-right-radius: 40mm;
-                z-index: 1;
-                display: flex; align-items: center; justify-content: center; gap: 15px;
-            }
-            .footer-info { color: #D4AF37; font-size: 11px; font-weight: 600; z-index: 2; display:flex; gap: 20px;}
-            .footer-info span { display: flex; align-items: center; gap: 5px; }
-        </style>
-    </head>
-    <body>
-        <div class="top-dark-shape"></div>
-        
-        <div class="header-container">
-            <div class="logo-area">
-                <div class="logo-icon">${shopName}</div>
-                <div class="logo-sub">${shopSubTitle}</div>
-            </div>
-            <div class="invoice-title">فاتورة طلب</div>
-        </div>
-
-        <div class="info-section">
-            <div class="bill-to">
-                <h4>فاتورة إلى:</h4>
-                <h2>${custName}</h2>
-                <p>هاتف: <span dir="ltr">${custPhone}</span></p>
-                <p>${invoice.customer && invoice.customer.pickupDate ? 'موعد الاستلام: ' + invoice.customer.pickupDate : 'الطلب قيد المعالجة'}</p>
-            </div>
-            <div class="invoice-details">
-                <table>
-                    <tr><td class="label">رقم الطلب</td><td class="value">: ${dailyNum}</td></tr>
-                    <tr><td class="label">التاريخ</td><td class="value">: ${invoice.date}</td></tr>
-                    <tr><td class="label">الوقت</td><td class="value">: ${invoice.time}</td></tr>
-                </table>
-            </div>
-        </div>
-
-        <div class="table-container">
-            <table class="main-table">
-                <thead>
-                    <tr>
-                        <th style="width: 8%;">ت.</th>
-                        <th class="left-align" style="width: 45%;">القطعة والتفاصيل</th>
-                        <th style="width: 12%;">العدد</th>
-                        <th style="width: 15%;">السعر</th>
-                        <th style="width: 20%;">المجموع</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${itemsRows}
-                </tbody>
-            </table>
-        </div>
-
-        <div class="totals-section">
-            <div class="notes-area">
-                <h4>ملاحظات الدفع</h4>
-                <p>${invoice.notes ? invoice.notes : 'شكراً لاختياركم مكوى رويال VIP. نحرص دائماً على تقديم أفضل عناية لملابسكم.'}</p>
-            </div>
-            <div class="calculation-area">
-                <div class="calc-row">
-                    <span>المجموع الكلي</span>
-                    <span>${invoice.total.toLocaleString()} د.ع</span>
-                </div>
-                <div class="calc-row discount">
-                    <span>العربون المدفوع</span>
-                    <span>- ${deposit.toLocaleString()} د.ع</span>
-                </div>
-                <div class="calc-row total-box">
-                    <span>المطلوب</span>
-                    <span>${remaining.toLocaleString()} د.ع</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="bottom-dark-shape">
-            <div class="footer-info">
-                <span>📞 ${shopPhone}</span>
-                <span>📍 ${shopAddress}</span>
-                <span>✉️ ${shopEmail}</span>
-            </div>
-        </div>
-    </body>
-    </html>
+    let itemsTable = `
+        <table style="width: 100%; border-collapse: collapse; font-family: 'Cairo', sans-serif; font-size: 14px; direction: rtl;">
+            <thead>
+                <tr style="background-color: #f5f5f5; border-bottom: 2px solid #000;">
+                    <th style="padding: 8px;">ت.</th>
+                    <th style="padding: 8px; text-align:right;">القطعة والتفاصيل</th>
+                    <th style="padding: 8px;">العدد</th>
+                    <th style="padding: 8px;">السعر</th>
+                    <th style="padding: 8px;">المجموع</th>
+                </tr>
+            </thead>
+            <tbody>${itemsRows}</tbody>
+        </table>
     `;
 
-    // ==========================================
-    // 4. تقنية الطباعة الصامتة والمعزولة (Iframe)
-    // ==========================================
-    const printFrame = document.createElement('iframe');
-    printFrame.style.position = 'absolute';
-    printFrame.style.top = '-9999px';
-    printFrame.style.left = '-9999px';
-    document.body.appendChild(printFrame);
+    // 3. جلب القالب الخارجي (الذي ستصممه أنت بيدك)
+    try {
+        const response = await fetch('invoice_template.html');
+        if (!response.ok) throw new Error('Template file not found');
+        let templateHTML = await response.text();
 
-    printFrame.contentWindow.document.open();
-    printFrame.contentWindow.document.write(printHTML);
-    printFrame.contentWindow.document.close();
+        // 4. عملية الزرع (استبدال المتغيرات)
+        let finalPrint = templateHTML
+            .replace(/\[رقم_الطلب\]/g, dailyNum)
+            .replace(/\[التاريخ\]/g, invoice.date)
+            .replace(/\[الوقت\]/g, invoice.time)
+            .replace(/\[اسم_الزبون\]/g, custName)
+            .replace(/\[رقم_الهاتف\]/g, custPhone)
+            .replace(/\[جدول_المبيعات\]/g, itemsTable)
+            .replace(/\[المجموع\]/g, totalAmt)
+            .replace(/\[العربون\]/g, deposit)
+            .replace(/\[المتبقي\]/g, remaining)
+            .replace(/\[الملاحظات\]/g, notes);
 
-    // انتظار بسيط لضمان تحميل خط (Cairo) ثم إصدار أمر الطباعة
-    setTimeout(() => {
-        printFrame.contentWindow.focus();
-        printFrame.contentWindow.print();
-        
-        // تنظيف الذاكرة بعد الطباعة
-        setTimeout(() => { document.body.removeChild(printFrame); }, 1000);
-    }, 500);
+        // 5. الطباعة المعزولة
+        const printFrame = document.createElement('iframe');
+        printFrame.style.position = 'absolute';
+        printFrame.style.top = '-9999px';
+        printFrame.style.left = '-9999px';
+        document.body.appendChild(printFrame);
+
+        printFrame.contentWindow.document.open();
+        printFrame.contentWindow.document.write(finalPrint);
+        printFrame.contentWindow.document.close();
+
+        // انتظار بسيط لتحميل الخطوط والصور الخاصة بك، ثم الطباعة
+        setTimeout(() => {
+            printFrame.contentWindow.focus();
+            printFrame.contentWindow.print();
+            setTimeout(() => { document.body.removeChild(printFrame); }, 1000);
+        }, 800);
+
+    } catch (error) {
+        window.showAlert('لم يتم العثور على ملف القالب! تأكد من وجود ملف اسمه (invoice_template.html) بجانب الأكواد.', 'error');
+    }
 };
 
 // ==========================================
