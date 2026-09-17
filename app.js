@@ -2672,4 +2672,49 @@ window.renderLogs = () => {
     });
 };
 
+// ==========================================================
+// ⚠️ الزر النووي: تصفير قاعدة البيانات بالكامل (استخدام لمرة واحدة فقط) ⚠️
+// ==========================================================
+window.nukeDatabaseAndReset = () => {
+    let confirmNuke = prompt("تحذير خطير: هذا الإجراء سيمسح جميع البيانات (الفواتير، الزبائن، المحفظة، السجل، الديون). اكتب 'نعم' للتأكيد:");
+    
+    if (confirmNuke === 'نعم') {
+        import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set, ref }) => {
+            // نكتب بيانات فارغة/أساسية فوق كل مسارات النظام
+            const resetData = {
+                catalog: [
+                    { id: 'suit', name: 'بدلة رجالية', icon: 'fa-user-tie', prices: { wash_iron: 8000, iron_only: 5000 } },
+                    { id: 'abaya', name: 'عباءة نسائية', icon: 'fa-person-dress', prices: { wash_iron: 6000, iron_only: 4000 } },
+                    { id: 'arabic', name: 'الزي العربي', icon: 'fa-user-nurse', prices: { wash_iron: 4000, iron_only: 3000 } },
+                    { id: 'military', name: 'بدلة عسكرية', icon: 'fa-person-military-rifle', prices: { wash_iron: 6000, iron_only: 5000 } },
+                    { id: 'coat', name: 'كوت', icon: 'fa-user-secret', prices: { wash_iron: 6000, iron_only: 4000 } },
+                    { id: 'shirt', name: 'قميص', icon: 'fa-shirt', prices: { wash_iron: 3000, iron_only: 2000 } }
+                ],
+                invoices: {},
+                expenses: {},
+                operatingCosts: {},
+                debts: {},
+                logs: {},
+                partnerTx: {},
+                subscriptions: {},
+                payments: {},
+                settings: { name: "مكوى رويال VIP", phone: "07800000000", address: "الكوفة، النجف الأشرف" },
+                lastDate: new Date().toDateString()
+            };
+
+            set(ref(window.db || database, 'royal_data'), resetData)
+                .then(() => {
+                    // تصفير الذاكرة المحلية للكاش
+                    localStorage.removeItem('cart_draft');
+                    alert("💥 تم تدمير وتصفير قاعدة البيانات بنجاح! سيتم إعادة تحميل النظام الآن.");
+                    window.location.reload();
+                })
+                .catch((error) => {
+                    alert("حدث خطأ أثناء التصفير: " + error.message);
+                });
+        });
+    } else {
+        alert("تم إلغاء عملية التصفير.");
+    }
+};
 window.filterLogs = () => window.renderLogs();
