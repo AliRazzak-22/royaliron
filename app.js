@@ -2332,9 +2332,6 @@ window.saveEditedSub = () => {
     window.logAction(actionType, logMsg, diff > 0 ? diff : 0, { sub: sub });
 };
 
-    window.logAction(actionType, logMsg, diff > 0 ? diff : 0, { sub: sub });
-};
-
 window.renewSub = (subId) => {
     const sub = localData.subscriptions.find(s => s.id === subId);
     if(!sub) return;
