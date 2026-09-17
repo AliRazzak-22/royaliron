@@ -1503,17 +1503,26 @@ window.updateAdminDashboard = () => {
         }
     });
 
-    // --- إصلاح: إدخال الدفعات واشتراكات الـ VIP في تقارير الآدمن ---
+    // --- التدخل الجراحي: الحساب الدقيق لاشتراكات الـ VIP وتصفية المبالغ المسترجعة ---
     (localData.payments || []).forEach(pay => {
         if(pay.type === 'تسديد دين' || pay.type.includes('VIP')) {
             let payDate = new Date(pay.timestamp || Date.now());
             let monthStr = `${payDate.getFullYear()}-${String(payDate.getMonth() + 1).padStart(2, '0')}`;
+            // استخدام دالتنا الآمنة للتاريخ 
             let dayStr = window.formatRoyalDate(payDate);
 
             if (isAllTime || monthStr === selectedMonth) {
-                totalSalesCash += pay.amount; 
                 if(!dailyReports[dayStr]) dailyReports[dayStr] = { sales: 0, expenses: 0, details: [], timestamp: payDate.getTime() };
-                dailyReports[dayStr].sales += pay.amount; 
+                
+                // الخدعة المحاسبية: إذا كان نوع العملية "إلغاء اشتراك"، يجب (خصمها) من المبيعات
+                if (pay.type === 'إلغاء اشتراك VIP') {
+                    totalSalesCash -= pay.amount; 
+                    dailyReports[dayStr].sales -= pay.amount; 
+                    dailyReports[dayStr].details.push(`استرجاع اشتراك: -${pay.amount}`);
+                } else {
+                    totalSalesCash += pay.amount; 
+                    dailyReports[dayStr].sales += pay.amount; 
+                }
             }
         }
     });
@@ -2177,25 +2186,28 @@ window.upgradeSub = (subId) => {
     window.showAlert('انقر على الفئة الجديدة التي يريد الترقية إليها لسحب الفرق المالي.', 'success');
 };
 
+// التدخل الجراحي: حساب وإظهار البونص مقابل رأس المال بوضوح للكاشير
 window.confirmDeleteSubWarning = (subId) => {
     const sub = localData.subscriptions.find(s => s.id === subId);
     if(!sub) return;
     
+    // المعادلة المحاسبية الذهبية: رأس المال - ما تم استهلاكه
     let refundable = sub.paidAmount - sub.consumedAmount;
-    if(refundable < 0) refundable = 0;
+    if(refundable < 0) refundable = 0; // إذا استهلك أكثر من رأس ماله لا يرجع له شيء
     
-    let details = `<p>الزبون: <strong>${sub.customerName}</strong></p>
+    let bonusAmount = sub.totalValue - sub.paidAmount; // البونص المجاني
+    
+    let details = `<p style="font-size:16px;">الزبون: <strong style="color:var(--text-white);">${sub.customerName}</strong></p>
                    <p>رأس المال المدفوع: <strong style="color:var(--green-success);">${sub.paidAmount.toLocaleString()} د.ع</strong></p>
-                   <p>المبلغ المستهلك من الرصيد: <strong style="color:var(--gold);">${sub.consumedAmount.toLocaleString()} د.ع</strong></p>`;
+                   <p>المبلغ المستهلك (المكوي): <strong style="color:var(--gold);">${sub.consumedAmount.toLocaleString()} د.ع</strong></p>
+                   <hr style="border:1px dashed #444; margin:10px 0;">`;
     
     if(refundable > 0) {
-        details += `<hr style="border:1px dashed #444; margin:10px 0;">
-                    <p style="color:var(--red-danger); font-size:18px;">المبلغ الواجب إرجاعه للزبون: <strong>${refundable.toLocaleString()} د.ع</strong></p>
-                    <p style="font-size:12px; color:var(--text-gray);">(سيتم خصم هذا المبلغ من كاصة اليوم إذا كان الاشتراك بتاريخ اليوم حصراً)</p>`;
+        details += `<p style="color:var(--red-danger); font-size:18px;">المبلغ الواجب إرجاعه للزبون: <strong>${refundable.toLocaleString()} د.ع</strong></p>
+                    <p style="font-size:13px; color:var(--text-gray); text-align:right;">(المعادلة: رأس المال - المستهلك. البونص المجاني وقدره ${bonusAmount.toLocaleString()} د.ع يُلغى ولا يُعوض، وسيتم خصم الـ ${refundable.toLocaleString()} من صندوق المكوى).</p>`;
     } else {
-        details += `<hr style="border:1px dashed #444; margin:10px 0;">
-                    <p style="color:var(--red-danger); font-size:18px;">المبلغ الواجب إرجاعه: <strong>0 د.ع</strong></p>
-                    <p style="font-size:12px; color:var(--text-gray);">(لقد استهلك الزبون أكثر من رأس ماله. لا يوجد مبلغ مسترجع لحماية المكوى).</p>`;
+        details += `<p style="color:var(--red-danger); font-size:18px;">المبلغ الواجب إرجاعه: <strong>0 د.ع</strong></p>
+                    <p style="font-size:13px; color:var(--text-gray); text-align:right;">(لقد استهلك الزبون ${sub.consumedAmount.toLocaleString()} د.ع، وهذا يتجاوز رأس ماله المدفوع. المتبقي لديه هو من البونص المجاني ولا يُسترد لحماية المكوى).</p>`;
     }
     
     document.getElementById('delete-sub-math-details').innerHTML = details;
