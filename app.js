@@ -2205,6 +2205,7 @@ window.confirmBuySub = () => {
         // إعادة الحساب وتحديث الواجهة *فقط* بعد إرسال البيانات
         window.recalculateDailySales();
         updateUI();
+        if(window.renderCashierSubs) window.renderCashierSubs(); // 👈 إضافة هذا السطر لرسم الزبون
     });
     
     window.logAction(actionType, logMsg, payAmount, { customerName: name, pkgName: pkg.name });
@@ -2316,7 +2317,7 @@ window.confirmDeleteSubWarning = (subId) => {
     document.getElementById('modal-delete-sub-warning').style.display = 'flex';
 };
 
-// الحذف مع استرجاع المبالغ
+// الحذف مع استرجاع المبالغ (معدل جراحياً لمنع الخصم المضاعف)
 window.executeSubDelete = () => {
     const subId = document.getElementById('delete-sub-id').value;
     const subIndex = localData.subscriptions.findIndex(s => s.id === subId);
@@ -2327,19 +2328,38 @@ window.executeSubDelete = () => {
     if(refundable < 0) refundable = 0;
     
     const realT = getRealTime();
+    let paymentId = null;
+    let newPayment = null;
+    
     if(refundable > 0) {
-        const paymentId = 'PAY-' + realT.timestamp;
-        const newPayment = { id: paymentId, timestamp: realT.timestamp, date: realT.date, type: 'إلغاء اشتراك VIP', amount: refundable, details: `إرجاع مبلغ اشتراك ${sub.customerName}` };
-        if(!localData.payments) localData.payments = []; localData.payments.push(newPayment);
-        import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set, ref }) => set(ref(window.db || database, 'royal_data/payments/' + paymentId), newPayment));
+        paymentId = 'PAY-' + realT.timestamp;
+        newPayment = { id: paymentId, timestamp: realT.timestamp, date: realT.date, type: 'إلغاء اشتراك VIP', amount: refundable, details: `إرجاع مبلغ اشتراك ${sub.customerName}` };
+        if(!localData.payments) localData.payments = []; 
+        localData.payments.push(newPayment);
     }
     
     window.logAction('إلغاء اشتراك VIP', `حذف اشتراك ${sub.customerName} (المبلغ المُرجع: ${refundable})`, refundable, sub);
     localData.subscriptions.splice(subIndex, 1);
     
-    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ remove, ref }) => remove(ref(window.db || database, 'royal_data/subscriptions/' + subId)));
+    // التدخل الجراحي: حقن مباشر في السحابة بدون استدعاء saveDataToCloud لمنع التكرار
+    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ remove, set, ref }) => {
+        // إزالة الاشتراك من السحابة
+        remove(ref(window.db || database, 'royal_data/subscriptions/' + subId));
+        
+        // إذا كان هناك مبلغ مسترجع، نحفظه كحركة مالية
+        if (refundable > 0 && paymentId && newPayment) {
+             set(ref(window.db || database, 'royal_data/payments/' + paymentId), newPayment);
+        }
+        
+        // إعادة الحساب الدقيقة وتحديث الواجهة بعد الحذف المباشر
+        window.recalculateDailySales();
+        updateUI();
+        if(window.renderCashierSubs) window.renderCashierSubs();
+        if(document.getElementById('admin-screen').classList.contains('active-screen')) window.updateAdminDashboard();
+    });
     
-    saveDataToCloud(); document.getElementById('modal-delete-sub-warning').style.display = 'none'; window.openCashierSubs();
+    document.getElementById('modal-delete-sub-warning').style.display = 'none'; 
+    window.openCashierSubs();
 };
 // الدفع المختلط (اشتراك + كاش)
 window.openPickupSubscription = () => {
