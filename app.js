@@ -268,7 +268,7 @@ window.recalculateDailySales = () => {
             else if (inv.type === 'archived' && inv.customer) {
                 // نضيف العربون
                 realCash += (inv.customer.paid || 0); 
-                // المتبقي تمت معالجته كدفعة منفصلة في مسار payments لتجنب التكرار
+                // المتبقي تتم معالجته كدفعة منفصلة في مسار payments لتجنب التكرار
                 // لذلك لا نجمعه من هنا!
             }
         }
@@ -295,11 +295,13 @@ window.recalculateDailySales = () => {
                 pay.type === 'دفع كاش (متبقي طلب)' ||
                 pay.type === 'دفع إلكتروني (متبقي طلب)'
             ) {
-                // دفعات الكاش تذهب لـ realCash
-                if(pay.type !== 'دفع إلكتروني (متبقي طلب)') {
-                    realCash += pay.amount;
-                } else {
-                    realElectronic += pay.amount; // الدفع الإلكتروني
+                // التدخل الجراحي: نضمن عدم الجمع المزدوج للدفع المختلط
+                if(pay.type !== 'دفع مختلط (VIP + كاش)') {
+                    if(pay.type !== 'دفع إلكتروني (متبقي طلب)') {
+                        realCash += pay.amount;
+                    } else {
+                        realElectronic += pay.amount; // الدفع الإلكتروني
+                    }
                 }
             }
             // المبالغ السالبة (كاش خارج من الصندوق)
@@ -313,22 +315,6 @@ window.recalculateDailySales = () => {
     localData.dailySalesCash = realCash;
     localData.dailySalesElectronic = realElectronic;
 };
-    
-    // 2. خصم المصروفات لليوم الحالي
-    (localData.expenses || []).forEach(exp => {
-        if(exp.timestamp && exp.timestamp >= todayStart.getTime()) { 
-            realCash -= exp.amount; 
-        }
-    });
-    
-   // 3. إضافة مبالغ الديون واشتراكات الـ VIP للصندوق اليومي
-    (localData.payments || []).forEach(pay => {
-        if((pay.type === 'تسديد دين' || pay.type.includes('VIP')) && pay.timestamp && pay.timestamp >= todayStart.getTime()) { 
-            // إذا كانت العملية "إلغاء اشتراك"، سيتم خصم المبلغ من الصندوق
-            if(pay.type === 'إلغاء اشتراك VIP') realCash -= pay.amount;
-            else realCash += pay.amount; 
-        }
-    });
 
 function saveDataToCloud() {
     window.recalculateDailySales(); // فلتر الأمان: إعادة حساب الصندوق قبل الحفظ
@@ -893,39 +879,86 @@ window.saveEditedInvoice = () => {
     const oldIndex = localData.invoices.findIndex(i => i.id === editingInvoiceId);
     const oldInvoice = localData.invoices[oldIndex];
     
-    // تعديل الدخل اليومي إذا كانت الفاتورة تابعة لليوم
+    // 1. معالجة الفواتير المدفوعة جزئياً أو كلياً عبر اشتراك VIP
+    if (oldInvoice.paymentType === 'subscription' || oldInvoice.paymentType === 'mixed' || (oldInvoice.notes && oldInvoice.notes.includes('VIP'))) {
+        const subIndex = (localData.subscriptions || []).findIndex(s => s.customerName === (oldInvoice.customer?.name || ''));
+        if (subIndex > -1) {
+            const sub = localData.subscriptions[subIndex];
+            // البحث عن تفاصيل الخصم القديم داخل الباقة
+            const invIndexInSub = (sub.invoices || []).findIndex(i => i.id === oldInvoice.id);
+            
+            if (invIndexInSub > -1) {
+                const oldDeducted = sub.invoices[invIndexInSub].deducted;
+                const oldCash = sub.invoices[invIndexInSub].cash;
+                
+                // إعادة الرصيد القديم للباقة
+                sub.consumedAmount -= oldDeducted;
+                
+                let subBalance = sub.totalValue - sub.consumedAmount;
+                let newDeducted = Math.min(newTotal, subBalance);
+                let newCashAmount = newTotal - newDeducted;
+                
+                // تطبيق الرصيد الجديد
+                sub.consumedAmount += newDeducted;
+                sub.invoices[invIndexInSub].deducted = newDeducted;
+                sub.invoices[invIndexInSub].cash = newCashAmount;
+                
+                // تحديث الفاتورة
+                oldInvoice.customer.remainingPaid = newCashAmount;
+                oldInvoice.customer.subDeducted = newDeducted;
+                
+                let remainingBalText = (sub.totalValue - sub.consumedAmount).toLocaleString();
+                // استخراج الملاحظات القديمة بدون جزء الـ VIP لتحديثها
+                let baseNotes = (oldInvoice.notes || '').split('| 💳')[0].trim();
+                oldInvoice.notes = (baseNotes ? baseNotes + ' | ' : '') + `💳 دُفعت عبر فئة VIP (خُصم ${newDeducted.toLocaleString()} د.ع). المتبقي من الباقة: ${remainingBalText} د.ع.` + (newCashAmount > 0 ? ` (المتبقي دُفع كاش: ${newCashAmount.toLocaleString()} د.ع)` : '');
+                
+                oldInvoice.paymentType = newCashAmount > 0 ? 'mixed' : 'subscription';
+                
+                // تحديث السحابة باشتراك الـ VIP
+                update(ref(database, 'royal_data/subscriptions/' + sub.id), sub);
+                
+                // تحديث الدفعات المستقلة (Payments) إذا كان هناك كاش جديد
+                // للتبسيط، نعتبر تعديل الفاتورة المختلطة يتطلب فقط تحديث الصندوق اليومي إذا كانت بنفس اليوم
+            }
+        }
+    }
+
+    // 2. تحديث الكاصة اليومية للفواتير العادية والمختلطة
     if (oldInvoice.date === getRealTime().date) {
-        if(oldInvoice.type === 'cash') localData.dailySalesCash -= oldInvoice.total;
-        if(oldInvoice.type === 'electronic') localData.dailySalesElectronic -= oldInvoice.total;
+        if(oldInvoice.type === 'cash' || oldInvoice.paymentType === 'mixed' || oldInvoice.paymentType === 'cash') localData.dailySalesCash -= oldInvoice.total;
+        if(oldInvoice.type === 'electronic' || oldInvoice.paymentType === 'electronic') localData.dailySalesElectronic -= oldInvoice.total;
         
-        if(oldInvoice.type === 'cash') localData.dailySalesCash += newTotal;
-        if(oldInvoice.type === 'electronic') localData.dailySalesElectronic += newTotal;
+        if(oldInvoice.type === 'cash' || oldInvoice.paymentType === 'mixed' || oldInvoice.paymentType === 'cash') localData.dailySalesCash += newTotal;
+        if(oldInvoice.type === 'electronic' || oldInvoice.paymentType === 'electronic') localData.dailySalesElectronic += newTotal;
     }
 
     localData.invoices[oldIndex].items = [...currentCart];
     localData.invoices[oldIndex].total = newTotal;
-    localData.invoices[oldIndex].notes = document.getElementById('cart-notes').value;
+    // تحديث الملاحظات العادية إذا لم تكن فاتورة VIP
+    if (!(oldInvoice.paymentType === 'subscription' || oldInvoice.paymentType === 'mixed' || (oldInvoice.notes && oldInvoice.notes.includes('VIP')))) {
+         localData.invoices[oldIndex].notes = document.getElementById('cart-notes').value;
+    }
 
     window.logAction('تعديل فاتورة', 'تعديل فاتورة رقم: ' + editingInvoiceId, newTotal, { oldInvoice: oldInvoice, newCart: currentCart });
     
-    // التدخل الجراحي: تحديث الفاتورة في مسارها الخاص فقط باستخدام update
+    // تحديث الفاتورة في السحابة
     const invoiceRef = ref(database, 'royal_data/invoices/' + editingInvoiceId);
     update(invoiceRef, {
         items: localData.invoices[oldIndex].items,
         total: localData.invoices[oldIndex].total,
-        notes: localData.invoices[oldIndex].notes
+        notes: localData.invoices[oldIndex].notes,
+        paymentType: localData.invoices[oldIndex].paymentType,
+        customer: localData.invoices[oldIndex].customer
     });
     
-    window.recalculateDailySales();
+    window.recalculateDailySales(); // إعادة الحساب لتأكيد الدقة
     updateUI();
 
     editingInvoiceId = null; currentCart = []; document.getElementById('cart-notes').value = '';
     localStorage.removeItem('cart_draft'); renderCart();
 
     document.getElementById('btn-save-edit').style.display = 'none';
-    document.querySelector('.btn-cash').style.display = 'flex';
-    document.querySelector('.btn-electronic').style.display = 'flex';
-    document.querySelector('.btn-credit').style.display = 'flex';
+    document.getElementById('btn-main-checkout').style.display = 'flex';
     window.showAlert('تم حفظ تعديلات الفاتورة بنجاح!', 'success');
 };
 
