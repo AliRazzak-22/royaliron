@@ -1048,84 +1048,267 @@ window.viewInvoice = (id) => {
     document.getElementById('modal-view-invoice').style.display = 'flex';
 };
 
-window.printInvoice = async (invoice) => {
-    // 1. تجهيز المتغيرات والأرقام
+window.printInvoice = (invoice) => {
+    // 1. سحب بيانات التخصيصات من الآدمن
+    // قمنا بمسح كلمة VIP برمجياً في حال كانت مكتوبة في الإعدادات
+    let rawShopName = localData.settings?.name || 'مكوى رويال';
+    let shopName = rawShopName.replace('VIP', '').trim(); 
+    let shopPhone = localData.settings?.phone || '07800000000';
+    let shopAddress = localData.settings?.address || 'الكوفة، النجف الأشرف';
+
+    // 2. تجهيز بيانات الزبون والوقت
     let custName = invoice.customer ? invoice.customer.name : 'عميل نقدي';
     let custPhone = invoice.customer && invoice.customer.phone ? invoice.customer.phone : '---';
     let deposit = invoice.customer ? invoice.customer.paid.toLocaleString() : '0';
     let remaining = invoice.customer ? invoice.customer.remaining.toLocaleString() : invoice.total.toLocaleString();
     let dailyNum = invoice.dailyNumber ? invoice.dailyNumber.toString().padStart(4, '0') : invoice.id.slice(-4);
-    let totalAmt = invoice.total.toLocaleString();
-    let notes = invoice.notes || '';
+    let notes = invoice.notes || 'شكراً لاختياركم مكوى رويال. نحرص دائماً على تقديم أفضل عناية لملابسكم.';
+    
+    // ضبط الوقت ليكون إنجليزي (AM/PM) وبدون ثوانٍ
+    let formattedTime = new Date(invoice.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
-    // 2. بناء جدول المنتجات الداخلي ليتعوض داخل القالب
+    // 3. بناء صفوف الجدول
     let itemsRows = invoice.items.map((item, index) => `
         <tr>
-            <td style="text-align: center; border-bottom: 1px solid #ddd; padding: 8px;">${index + 1}</td>
-            <td style="text-align: right; border-bottom: 1px solid #ddd; padding: 8px; font-weight: bold;">
-                ${item.name} <br><span style="font-size: 11px; color: #555;">(${item.serviceName})</span>
+            <td style="text-align: center;">${String(index + 1).padStart(2, '0')}</td>
+            <td class="text-right">
+                <span style="font-weight: 900; font-size: 14px;">${item.name}</span> <br>
+                <span style="font-size: 11px; color: #444;">(${item.serviceName})</span>
             </td>
-            <td style="text-align: center; border-bottom: 1px solid #ddd; padding: 8px;">${item.qty}</td>
-            <td style="text-align: center; border-bottom: 1px solid #ddd; padding: 8px;">${item.price.toLocaleString()}</td>
-            <td style="text-align: center; border-bottom: 1px solid #ddd; padding: 8px;">${(item.price * item.qty).toLocaleString()}</td>
+            <td style="text-align: center;">${item.qty}</td>
+            <td style="text-align: center;">${item.price.toLocaleString()}</td>
+            <td style="text-align: center; font-weight: 900;">${(item.price * item.qty).toLocaleString()}</td>
         </tr>
     `).join('');
 
-    let itemsTable = `
-        <table style="width: 100%; border-collapse: collapse; font-family: 'Cairo', sans-serif; font-size: 14px; direction: rtl;">
+    // 4. التصميم الهندسي الأبيض النقي للفاتورة (A5)
+    const printHTML = `
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+        <meta charset="UTF-8">
+        <title>فاتورة - ${dailyNum}</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+            
+            /* إعدادات A5 وإلغاء هوامش المتصفح */
+            @page { size: A5; margin: 0; }
+            
+            body { 
+                font-family: 'Cairo', sans-serif; 
+                margin: 0; padding: 12mm; 
+                width: 148mm; height: 210mm; 
+                box-sizing: border-box;
+                background-color: #fff;
+                color: #000;
+            }
+
+            /* الترويسة الهندسية المخططة */
+            .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 3px double #000;
+                padding-bottom: 12px;
+                margin-bottom: 15px;
+            }
+            .shop-info h1 { font-size: 32px; font-weight: 900; margin: 0; letter-spacing: -1px; }
+            .shop-info p { font-size: 12px; font-weight: 700; margin: 2px 0 0 0; color: #333; }
+            
+            .invoice-badge {
+                border: 3px solid #000;
+                border-radius: 8px;
+                padding: 5px 15px;
+                font-size: 24px;
+                font-weight: 900;
+                text-align: center;
+            }
+
+            /* مربعات المعلومات (الزبون والتفاصيل) */
+            .info-grid {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 15px;
+            }
+            .info-box {
+                flex: 1;
+                border: 2px solid #000;
+                border-radius: 8px;
+                padding: 10px;
+            }
+            .info-box h3 { 
+                margin: 0 0 8px 0; 
+                font-size: 12px; 
+                border-bottom: 1px dashed #000; 
+                padding-bottom: 5px; 
+            }
+            .info-line {
+                display: flex;
+                justify-content: space-between;
+                font-size: 13px;
+                font-weight: 700;
+                margin-bottom: 4px;
+            }
+
+            /* الجدول بخطوط واضحة */
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                border: 2px solid #000;
+                margin-bottom: 15px;
+            }
+            th {
+                background-color: #f5f5f5; /* لون رصاصي فاتح جداً للتمييز فقط */
+                border: 1px solid #000;
+                border-bottom: 2px solid #000;
+                padding: 8px 5px;
+                font-size: 12px;
+                font-weight: 900;
+            }
+            td {
+                border: 1px solid #000;
+                padding: 8px 5px;
+                font-size: 13px;
+                font-weight: 700;
+            }
+            .text-right { text-align: right; padding-right: 10px; }
+
+            /* المجاميع والملاحظات */
+            .bottom-grid {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-end;
+            }
+            .notes-box {
+                width: 45%;
+                border: 1px solid #000;
+                border-radius: 8px;
+                padding: 10px;
+                font-size: 11px;
+                font-weight: 700;
+                color: #222;
+                line-height: 1.6;
+            }
+            .totals-box {
+                width: 48%;
+                border: 2px solid #000;
+                border-radius: 8px;
+                padding: 10px;
+            }
+            .total-line {
+                display: flex;
+                justify-content: space-between;
+                font-size: 13px;
+                font-weight: 900;
+                margin-bottom: 6px;
+            }
+            .total-line.deposit { color: #555; }
+            .total-line.final {
+                border-top: 2px dashed #000;
+                padding-top: 8px;
+                font-size: 18px;
+                margin-top: 4px;
+                margin-bottom: 0;
+            }
+
+            /* تذييل الفاتورة */
+            .footer {
+                margin-top: 20px;
+                text-align: center;
+                border-top: 2px solid #000;
+                padding-top: 8px;
+                font-size: 12px;
+                font-weight: 900;
+            }
+        </style>
+    </head>
+    <body>
+
+        <div class="header">
+            <div class="shop-info">
+                <h1>${shopName}</h1>
+                <p>عناية فائقة وتفاصيل ملكية لملابسك</p>
+            </div>
+            <div class="invoice-badge">
+                فاتورة طلب
+            </div>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-box">
+                <h3>معلومات الزبون</h3>
+                <div class="info-line"><span>الاسم:</span> <span>${custName}</span></div>
+                <div class="info-line"><span>الهاتف:</span> <span dir="ltr">${custPhone}</span></div>
+            </div>
+            <div class="info-box">
+                <h3>تفاصيل الطلب</h3>
+                <div class="info-line"><span>رقم الطلب:</span> <span>${dailyNum}</span></div>
+                <div class="info-line"><span>التاريخ:</span> <span>${invoice.date}</span></div>
+                <div class="info-line"><span>الوقت:</span> <span dir="ltr">${formattedTime}</span></div>
+            </div>
+        </div>
+
+        <table>
             <thead>
-                <tr style="background-color: #f5f5f5; border-bottom: 2px solid #000;">
-                    <th style="padding: 8px;">ت.</th>
-                    <th style="padding: 8px; text-align:right;">القطعة والتفاصيل</th>
-                    <th style="padding: 8px;">العدد</th>
-                    <th style="padding: 8px;">السعر</th>
-                    <th style="padding: 8px;">المجموع</th>
+                <tr>
+                    <th style="width: 8%;">ت.</th>
+                    <th class="text-right" style="width: 42%;">القطعة والتفاصيل</th>
+                    <th style="width: 15%;">العدد</th>
+                    <th style="width: 15%;">السعر</th>
+                    <th style="width: 20%;">المجموع</th>
                 </tr>
             </thead>
-            <tbody>${itemsRows}</tbody>
+            <tbody>
+                ${itemsRows}
+            </tbody>
         </table>
+
+        <div class="bottom-grid">
+            <div class="notes-box">
+                <strong>ملاحظات:</strong><br>
+                ${notes}
+            </div>
+            <div class="totals-box">
+                <div class="total-line">
+                    <span>المجموع الكلي:</span>
+                    <span>${invoice.total.toLocaleString()} د.ع</span>
+                </div>
+                <div class="total-line deposit">
+                    <span>العربون المدفوع:</span>
+                    <span>${deposit} د.ع</span>
+                </div>
+                <div class="total-line final">
+                    <span>المطلوب:</span>
+                    <span>${remaining} د.ع</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            العنوان: ${shopAddress} &nbsp; | &nbsp; هاتف: ${shopPhone}
+        </div>
+
+    </body>
+    </html>
     `;
 
-    // 3. جلب القالب الخارجي (الذي ستصممه أنت بيدك)
-    try {
-        const response = await fetch('invoice_template.html');
-        if (!response.ok) throw new Error('Template file not found');
-        let templateHTML = await response.text();
+    // 5. نافذة الطباعة المخفية
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'absolute';
+    printFrame.style.top = '-9999px';
+    printFrame.style.left = '-9999px';
+    document.body.appendChild(printFrame);
 
-        // 4. عملية الزرع (استبدال المتغيرات)
-        let finalPrint = templateHTML
-            .replace(/\[رقم_الطلب\]/g, dailyNum)
-            .replace(/\[التاريخ\]/g, invoice.date)
-            .replace(/\[الوقت\]/g, invoice.time)
-            .replace(/\[اسم_الزبون\]/g, custName)
-            .replace(/\[رقم_الهاتف\]/g, custPhone)
-            .replace(/\[جدول_المبيعات\]/g, itemsTable)
-            .replace(/\[المجموع\]/g, totalAmt)
-            .replace(/\[العربون\]/g, deposit)
-            .replace(/\[المتبقي\]/g, remaining)
-            .replace(/\[الملاحظات\]/g, notes);
+    printFrame.contentWindow.document.open();
+    printFrame.contentWindow.document.write(printHTML);
+    printFrame.contentWindow.document.close();
 
-        // 5. الطباعة المعزولة
-        const printFrame = document.createElement('iframe');
-        printFrame.style.position = 'absolute';
-        printFrame.style.top = '-9999px';
-        printFrame.style.left = '-9999px';
-        document.body.appendChild(printFrame);
-
-        printFrame.contentWindow.document.open();
-        printFrame.contentWindow.document.write(finalPrint);
-        printFrame.contentWindow.document.close();
-
-        // انتظار بسيط لتحميل الخطوط والصور الخاصة بك، ثم الطباعة
-        setTimeout(() => {
-            printFrame.contentWindow.focus();
-            printFrame.contentWindow.print();
-            setTimeout(() => { document.body.removeChild(printFrame); }, 1000);
-        }, 800);
-
-    } catch (error) {
-        window.showAlert('لم يتم العثور على ملف القالب! تأكد من وجود ملف اسمه (invoice_template.html) بجانب الأكواد.', 'error');
-    }
+    // انتظار تحميل الخطوط ثم الطباعة
+    setTimeout(() => {
+        printFrame.contentWindow.focus();
+        printFrame.contentWindow.print();
+        setTimeout(() => { document.body.removeChild(printFrame); }, 1000);
+    }, 500);
 };
 
 // ==========================================
