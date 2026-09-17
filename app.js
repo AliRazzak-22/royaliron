@@ -281,10 +281,12 @@ window.recalculateDailySales = () => {
         }
     });
     
-   // 3. إضافة الديون المسددة اليوم (تم النقل إلى المسار المالي payments)
+   // 3. إضافة مبالغ الديون واشتراكات الـ VIP للصندوق اليومي
     (localData.payments || []).forEach(pay => {
-        if(pay.type === 'تسديد دين' && pay.timestamp && pay.timestamp >= todayStart.getTime()) { 
-            realCash += pay.amount; 
+        if((pay.type === 'تسديد دين' || pay.type.includes('VIP')) && pay.timestamp && pay.timestamp >= todayStart.getTime()) { 
+            // إذا كانت العملية "إلغاء اشتراك"، سيتم خصم المبلغ من الصندوق
+            if(pay.type === 'إلغاء اشتراك VIP') realCash -= pay.amount;
+            else realCash += pay.amount; 
         }
     });
     
@@ -1501,9 +1503,9 @@ window.updateAdminDashboard = () => {
         }
     });
 
-    // --- إصلاح: إدخال الدفعات المسددة من الديون في تقارير وملخص الآدمن (من المسار المالي) ---
+    // --- إصلاح: إدخال الدفعات واشتراكات الـ VIP في تقارير الآدمن ---
     (localData.payments || []).forEach(pay => {
-        if(pay.type === 'تسديد دين') {
+        if(pay.type === 'تسديد دين' || pay.type.includes('VIP')) {
             let payDate = new Date(pay.timestamp || Date.now());
             let monthStr = `${payDate.getFullYear()}-${String(payDate.getMonth() + 1).padStart(2, '0')}`;
             let dayStr = window.formatRoyalDate(payDate);
@@ -2003,7 +2005,7 @@ window.openBuySubModal = (pkgId) => {
     document.getElementById('modal-buy-sub').style.display = 'flex';
 };
 
-// محرك البحث الذكي (Autocomplete)
+// التدخل الجراحي: فصل زبائن الـ VIP في البحث
 window.filterCustomerNames = (val) => {
     const list = document.getElementById('sub-autocomplete-list');
     list.innerHTML = '';
@@ -2012,11 +2014,6 @@ window.filterCustomerNames = (val) => {
     let uniqueCustomers = [];
     (localData.subscriptions || []).forEach(s => {
         if(!uniqueCustomers.find(c => c.name === s.customerName)) uniqueCustomers.push({name: s.customerName, phone: s.customerPhone});
-    });
-    (localData.invoices || []).forEach(inv => {
-        if(inv.customer && inv.customer.name && !uniqueCustomers.find(c => c.name === inv.customer.name)) {
-            uniqueCustomers.push({name: inv.customer.name, phone: inv.customer.phone || ''});
-        }
     });
 
     let matches = uniqueCustomers.filter(c => c.name.includes(val));
@@ -2027,54 +2024,87 @@ window.filterCustomerNames = (val) => {
             div.innerText = c.name;
             div.onclick = () => {
                 document.getElementById('sub-customer-name').value = c.name;
-                document.getElementById('sub-customer-phone').value = c.phone;
+                document.getElementById('sub-customer-phone').value = c.phone || '';
                 list.style.display = 'none';
             };
             list.appendChild(div);
         });
         list.style.display = 'block';
     } else {
-        list.style.display = 'none';
+        list.style.display = 'none'; // السماح بإدخال اسم جديد بحرية
     }
 };
 
-document.addEventListener('click', (e) => {
-    if(e.target.id !== 'sub-customer-name') {
-        const list = document.getElementById('sub-autocomplete-list');
-        if(list) list.style.display = 'none';
-    }
-});
-
+// التدخل الجراحي: نظام الشراء والترقية الذكي مع إضافة المبلغ للصندوق
 window.confirmBuySub = () => {
     const pkgId = document.getElementById('sub-package-id').value;
     const name = window.escapeHTML(document.getElementById('sub-customer-name').value.trim());
     const phone = window.escapeHTML(document.getElementById('sub-customer-phone').value.trim());
-    const date = new Date().toLocaleDateString();
     
     if(!name) return window.showAlert('يرجى إدخال اسم الزبون لتفعيل الباقة', 'warning');
     
     const pkg = VIP_PACKAGES.find(p => p.id === pkgId);
-    const subId = 'SUB-' + Date.now();
-    const sub = {
-        id: subId, timestamp: Date.now(), date: date, time: new Date().toLocaleTimeString(),
-        customerName: name, customerPhone: phone, packageId: pkg.id, packageName: pkg.name,
-        paidAmount: pkg.pay, totalValue: pkg.value, consumedAmount: 0, invoices: []
+    const realT = getRealTime();
+    
+    const existingSubIndex = localData.subscriptions.findIndex(s => s.customerName === name);
+    let subId, actionType, payAmount, logMsg;
+    
+    if (existingSubIndex > -1) {
+        const existingSub = localData.subscriptions[existingSubIndex];
+        subId = existingSub.id;
+        
+        if (existingSub.packageId === pkg.id) {
+            actionType = 'تجديد VIP';
+            payAmount = pkg.pay;
+            logMsg = `تجديد باقة ${pkg.name} للزبون ${name}`;
+        } else {
+            actionType = 'ترقية VIP';
+            // يدفع الفرق فقط (أو يدفع الجديد إذا كان أرخص كعقوبة)
+            payAmount = (pkg.pay > existingSub.paidAmount) ? (pkg.pay - existingSub.paidAmount) : pkg.pay;
+            logMsg = `ترقية باقة الزبون ${name} إلى ${pkg.name} (دفع الفرق: ${payAmount})`;
+        }
+        
+        existingSub.packageId = pkg.id;
+        existingSub.packageName = pkg.name;
+        existingSub.paidAmount = pkg.pay; 
+        existingSub.totalValue = pkg.value; 
+        existingSub.consumedAmount = 0; // تصفير العداد
+        existingSub.timestamp = realT.timestamp;
+        existingSub.date = realT.date;
+        existingSub.time = realT.time;
+    } else {
+        actionType = 'اشتراك VIP';
+        payAmount = pkg.pay;
+        subId = 'SUB-' + realT.timestamp;
+        const sub = {
+            id: subId, timestamp: realT.timestamp, date: realT.date, time: realT.time,
+            customerName: name, customerPhone: phone, packageId: pkg.id, packageName: pkg.name,
+            paidAmount: pkg.pay, totalValue: pkg.value, consumedAmount: 0, invoices: []
+        };
+        if(!localData.subscriptions) localData.subscriptions = [];
+        localData.subscriptions.push(sub);
+        logMsg = `تفعيل الفئة ${pkg.name} للزبون ${name}`;
+    }
+    
+    // تسجيل الأموال فوراً في المسار المالي (payments)
+    const paymentId = 'PAY-' + realT.timestamp;
+    const newPayment = {
+        id: paymentId, timestamp: realT.timestamp, date: realT.date,
+        type: actionType, amount: payAmount, details: logMsg
     };
+    if(!localData.payments) localData.payments = [];
+    localData.payments.push(newPayment);
     
-    if(!localData.subscriptions) localData.subscriptions = [];
-    localData.subscriptions.push(sub);
-    
-    localData.dailySalesCash += pkg.pay;
-    window.logAction('اشتراك VIP', `تفعيل الفئة ${pkg.name} للزبون ${name}`, pkg.pay, sub);
-    
-    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set, ref }) => {
-        set(ref(window.db || database, 'royal_data/subscriptions/' + subId), sub);
+    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set, ref, update }) => {
+        set(ref(window.db || database, 'royal_data/payments/' + paymentId), newPayment);
+        if (existingSubIndex > -1) update(ref(window.db || database, 'royal_data/subscriptions/' + subId), localData.subscriptions[existingSubIndex]);
+        else set(ref(window.db || database, 'royal_data/subscriptions/' + subId), localData.subscriptions[localData.subscriptions.length - 1]);
     });
     
-    window.recalculateDailySales();
-    updateUI();
+    window.logAction(actionType, logMsg, payAmount, { customerName: name, pkgName: pkg.name });
+    saveDataToCloud(); // يقوم بحساب الأرقام الجديدة للصندوق
     window.closeModals();
-    window.showAlert(`تم تفعيل الفئة ${pkg.name} للزبون ${name} بنجاح!`, 'success');
+    window.showAlert(logMsg, 'success');
 };
 
 // إدارة الاشتراكات للكاشير
@@ -2118,33 +2148,33 @@ window.renderCashierSubs = () => {
 window.renewSub = (subId) => {
     const sub = localData.subscriptions.find(s => s.id === subId);
     if(!sub) return;
-    window.showConfirm(`هل تريد تجديد اشتراك ${sub.customerName} بنفس الفئة (${sub.packageName})؟ سيتم إضافة ${sub.paidAmount.toLocaleString()} د.ع للصندوق اليوم.`, () => {
-        sub.timestamp = Date.now();
-        sub.date = getRealTime().date;
-        sub.consumedAmount = 0; 
-        sub.invoices = [];
+    window.showConfirm(`هل تريد تجديد اشتراك ${sub.customerName} بنفس الفئة (${sub.packageName})؟ سيتم إضافة ${sub.paidAmount.toLocaleString()} د.ع للصندوق.`, () => {
+        const realT = getRealTime();
+        sub.timestamp = realT.timestamp; sub.date = realT.date; sub.time = realT.time;
+        sub.consumedAmount = 0; sub.invoices = [];
         
-        localData.dailySalesCash += sub.paidAmount;
-        window.logAction('تجديد VIP', `تجديد باقة ${sub.packageName} للزبون ${sub.customerName}`, sub.paidAmount, sub);
-        saveDataToCloud();
-        window.renderCashierSubs();
-        window.showAlert('تم تجديد الباقة وتصفير الاستهلاك بنجاح!', 'success');
+        const paymentId = 'PAY-' + realT.timestamp;
+        const newPayment = { id: paymentId, timestamp: realT.timestamp, date: realT.date, type: 'تجديد VIP', amount: sub.paidAmount, details: `تجديد باقة ${sub.packageName} للزبون ${sub.customerName}` };
+        if(!localData.payments) localData.payments = []; localData.payments.push(newPayment);
+        
+        import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set, ref, update }) => {
+            set(ref(window.db || database, 'royal_data/payments/' + paymentId), newPayment);
+            update(ref(window.db || database, 'royal_data/subscriptions/' + subId), sub);
+        });
+        
+        window.logAction('تجديد VIP', newPayment.details, sub.paidAmount, sub);
+        saveDataToCloud(); window.renderCashierSubs(); window.showAlert('تم التجديد!', 'success');
     });
 };
 
+// زر التعديل (يفتح نافذة الباقات لعملية الترقية التي صممناها)
 window.upgradeSub = (subId) => {
     const sub = localData.subscriptions.find(s => s.id === subId);
-    if(!sub || sub.consumedAmount > 0) return;
-    
-    window.showConfirm(`سيتم إلغاء فئة (${sub.packageName}) للزبون واسترجاع مبلغه برمجياً. يرجى اختيار الفئة الجديدة بعد الإغلاق. موافق؟`, () => {
-         if(sub.date === getRealTime().date) localData.dailySalesCash -= sub.paidAmount;
-         localData.subscriptions = localData.subscriptions.filter(s => s.id !== subId);
-         saveDataToCloud();
-         window.closeModals();
-         document.getElementById('sub-customer-name').value = sub.customerName;
-         document.getElementById('sub-customer-phone').value = sub.customerPhone;
-         window.showAlert('اختر الفئة الجديدة الآن من الواجهة الرئيسية.', 'success');
-    });
+    if(!sub) return;
+    document.getElementById('sub-customer-name').value = sub.customerName;
+    document.getElementById('sub-customer-phone').value = sub.customerPhone || '';
+    window.closeModals();
+    window.showAlert('انقر على الفئة الجديدة التي يريد الترقية إليها لسحب الفرق المالي.', 'success');
 };
 
 window.confirmDeleteSubWarning = (subId) => {
@@ -2175,6 +2205,7 @@ window.confirmDeleteSubWarning = (subId) => {
     document.getElementById('modal-delete-sub-warning').style.display = 'flex';
 };
 
+// الحذف مع استرجاع المبالغ
 window.executeSubDelete = () => {
     const subId = document.getElementById('delete-sub-id').value;
     const subIndex = localData.subscriptions.findIndex(s => s.id === subId);
@@ -2184,22 +2215,21 @@ window.executeSubDelete = () => {
     let refundable = sub.paidAmount - sub.consumedAmount;
     if(refundable < 0) refundable = 0;
     
-    if(refundable > 0 && sub.date === getRealTime().date) {
-        localData.dailySalesCash -= refundable;
+    const realT = getRealTime();
+    if(refundable > 0) {
+        const paymentId = 'PAY-' + realT.timestamp;
+        const newPayment = { id: paymentId, timestamp: realT.timestamp, date: realT.date, type: 'إلغاء اشتراك VIP', amount: refundable, details: `إرجاع مبلغ اشتراك ${sub.customerName}` };
+        if(!localData.payments) localData.payments = []; localData.payments.push(newPayment);
+        import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set, ref }) => set(ref(window.db || database, 'royal_data/payments/' + paymentId), newPayment));
     }
     
     window.logAction('إلغاء اشتراك VIP', `حذف اشتراك ${sub.customerName} (المبلغ المُرجع: ${refundable})`, refundable, sub);
     localData.subscriptions.splice(subIndex, 1);
     
-    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ remove, ref }) => {
-        remove(ref(window.db || database, 'royal_data/subscriptions/' + subId));
-    });
+    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ remove, ref }) => remove(ref(window.db || database, 'royal_data/subscriptions/' + subId)));
     
-    saveDataToCloud();
-    document.getElementById('modal-delete-sub-warning').style.display = 'none';
-    window.openCashierSubs();
+    saveDataToCloud(); document.getElementById('modal-delete-sub-warning').style.display = 'none'; window.openCashierSubs();
 };
-
 // الدفع المختلط (اشتراك + كاش)
 window.openPickupSubscription = () => {
     const select = document.getElementById('pay-sub-select');
@@ -2268,7 +2298,27 @@ window.confirmSubPayment = () => {
         inv.notes = (inv.notes ? inv.notes + ' | ' : '') + `💳 دُفعت عبر فئة VIP (خُصم ${deductAmount.toLocaleString()} د.ع). المتبقي من الباقة: ${remainingBalText} د.ع.` + (cashAmount > 0 ? ` (المتبقي دُفع كاش: ${cashAmount.toLocaleString()} د.ع)` : '');
     }
     
-    if(cashAmount > 0) localData.dailySalesCash += cashAmount;
+    // التحديث السحابي للفاتورة لحذفها من المستودع وأرشفتها
+    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ update, ref, set }) => {
+        update(ref(window.db || database, 'royal_data/invoices/' + inv.id), {
+            type: inv.type, paymentType: inv.paymentType, customer: inv.customer, notes: inv.notes
+        });
+        update(ref(window.db || database, 'royal_data/subscriptions/' + subId), sub);
+        
+        // إذا خلص رصيده ودفع فرق كاش، نرفع الفرق للمسار المالي ليزداد صندوق المبيعات
+        if(cashAmount > 0) {
+            const realT = getRealTime();
+            const paymentId = 'PAY-' + realT.timestamp;
+            const newPayment = {
+                id: paymentId, timestamp: realT.timestamp, date: realT.date,
+                type: 'دفع مختلط (VIP + كاش)', amount: cashAmount, details: `متبقي فاتورة ${inv.dailyNumber||inv.id} للزبون ${sub.customerName}`
+            };
+            if(!localData.payments) localData.payments = [];
+            localData.payments.push(newPayment);
+            set(ref(window.db || database, 'royal_data/payments/' + paymentId), newPayment);
+            localData.dailySalesCash += cashAmount;
+        }
+    });
     
     window.logAction('تسليم طلب (VIP)', `خصم ${deductAmount} من باقة ${sub.customerName}` + (cashAmount > 0 ? ` ودفع ${cashAmount} كاش` : ''), cashAmount, inv);
     saveDataToCloud();
