@@ -2135,83 +2135,74 @@ window.confirmBuySub = () => {
     const pkgId = document.getElementById('sub-package-id').value;
     const name = window.escapeHTML(document.getElementById('sub-customer-name').value.trim());
     const phone = window.escapeHTML(document.getElementById('sub-customer-phone').value.trim());
-    
-    if(!name) return window.showAlert('يرجى إدخال اسم الزبون لتفعيل الباقة', 'warning');
-    
+    // سحب التاريخ من الواجهة (إذا لم يقم بتعديله سياخذ تاريخ اليوم تلقائياً)
+    const customDate = document.getElementById('sub-date')?.value || getRealTime().date; 
+
+    if(!name) return window.showAlert('يرجى إدخال اسم الزبون', 'warning');
+
     const pkg = VIP_PACKAGES.find(p => p.id === pkgId);
     const realT = getRealTime();
-    
-    const existingSubIndex = localData.subscriptions.findIndex(s => s.customerName === name);
+
+    const existingSubIndex = (localData.subscriptions || []).findIndex(s => s.customerName === name);
     let subId, actionType, payAmount, logMsg;
-    
+
     if (existingSubIndex > -1) {
         const existingSub = localData.subscriptions[existingSubIndex];
         subId = existingSub.id;
-        
+
         if (existingSub.packageId === pkg.id) {
-            actionType = 'تجديد VIP';
-            payAmount = pkg.pay;
-            logMsg = `تجديد باقة ${pkg.name} للزبون ${name}`;
+            return window.showAlert('الزبون مشترك في هذه الفئة بالفعل! يرجى استخدام زر التجديد من إدارة الزبائن.', 'warning');
+        } else if (pkg.pay <= existingSub.paidAmount) {
+            return window.showAlert('لا يمكن الترقية لفئة أقل أو مساوية للفئة الحالية!', 'error');
         } else {
+            // منطق الترقية: يدفع الفرق المالي فقط، ونضيفه لمبيعات اليوم
             actionType = 'ترقية VIP';
-            payAmount = (pkg.pay > existingSub.paidAmount) ? (pkg.pay - existingSub.paidAmount) : pkg.pay;
-            logMsg = `ترقية باقة الزبون ${name} إلى ${pkg.name} (دفع الفرق: ${payAmount})`;
+            payAmount = pkg.pay - existingSub.paidAmount; 
+            logMsg = `ترقية باقة الزبون ${name} إلى ${pkg.name} (دفع الفرق: ${payAmount.toLocaleString()})`;
+
+            existingSub.packageId = pkg.id;
+            existingSub.packageName = pkg.name;
+            existingSub.paidAmount = pkg.pay; // رأس المال الجديد
+            existingSub.totalValue = pkg.value; // الرصيد الكلي الجديد للبطاقة (المستهلك القديم لا يُصفر لكي يُطرح من هذا الرصيد)
+            existingSub.customerPhone = phone; 
         }
-        
-        existingSub.packageId = pkg.id;
-        existingSub.packageName = pkg.name;
-        existingSub.paidAmount = pkg.pay; 
-        existingSub.totalValue = pkg.value; 
-        existingSub.consumedAmount = 0; 
-        existingSub.timestamp = realT.timestamp;
-        existingSub.date = realT.date;
-        existingSub.time = realT.time;
     } else {
+        // اشتراك زبون جديد
         actionType = 'اشتراك VIP';
         payAmount = pkg.pay;
         subId = 'SUB-' + realT.timestamp;
         const sub = {
-            id: subId, timestamp: realT.timestamp, date: realT.date, time: realT.time,
+            id: subId, timestamp: realT.timestamp, date: customDate, time: realT.time, // استخدام التاريخ المخصص
             customerName: name, customerPhone: phone, packageId: pkg.id, packageName: pkg.name,
             paidAmount: pkg.pay, totalValue: pkg.value, consumedAmount: 0, invoices: []
         };
-        // التدخل الجراحي: إضافة الاشتراك للمصفوفة المحلية
         if(!localData.subscriptions) localData.subscriptions = [];
         localData.subscriptions.push(sub);
         logMsg = `تفعيل الفئة ${pkg.name} للزبون ${name}`;
     }
-    
-    // التدخل الجراحي: تسجيل الحركة المالية في المصفوفة المحلية
+
     const paymentId = 'PAY-' + realT.timestamp;
     const newPayment = {
-        id: paymentId, timestamp: realT.timestamp, date: realT.date,
+        id: paymentId, timestamp: realT.timestamp, date: customDate, // ربط الدفعة بنفس تاريخ الاشتراك
         type: actionType, amount: payAmount, details: logMsg
     };
     if(!localData.payments) localData.payments = [];
     localData.payments.push(newPayment);
-    
-    // التدخل الجراحي: حقن البيانات في السحابة فوراً وبدون استدعاء saveDataToCloud 
-    // لمنع التكرار (Race Condition)
+
     import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set, ref, update }) => {
         set(ref(window.db || database, 'royal_data/payments/' + paymentId), newPayment);
-        
         if (existingSubIndex > -1) {
              update(ref(window.db || database, 'royal_data/subscriptions/' + subId), localData.subscriptions[existingSubIndex]);
         } else {
-             // نأخذ آخر عنصر أضفناه للتو
              set(ref(window.db || database, 'royal_data/subscriptions/' + subId), localData.subscriptions[localData.subscriptions.length - 1]);
         }
         
-        // إعادة الحساب وتحديث الواجهة *فقط* بعد إرسال البيانات
         window.recalculateDailySales();
         updateUI();
-        if(window.renderCashierSubs) window.renderCashierSubs(); // 👈 إضافة هذا السطر لرسم الزبون
+        if(window.renderCashierSubs) window.renderCashierSubs(); 
     });
-    
+
     window.logAction(actionType, logMsg, payAmount, { customerName: name, pkgName: pkg.name });
-    
-    // 🚨 تم حذف saveDataToCloud() من هنا لأنها كانت تسبب الحفظ المضاعف
-    
     window.closeModals();
     window.showAlert(logMsg, 'success');
 };
@@ -2228,29 +2219,53 @@ window.renderCashierSubs = () => {
     tbody.innerHTML = '';
     
     let filterText = document.getElementById('cashier-sub-search')?.value.toLowerCase() || '';
-    let sorted = [...(localData.subscriptions || [])].sort((a,b) => b.timestamp - a.timestamp);
+    // الترتيب: من الأقدم إلى الأحدث (حسب طلبك)
+    let sorted = [...(localData.subscriptions || [])].sort((a,b) => a.timestamp - b.timestamp);
     
-    sorted.forEach(sub => {
+    sorted.forEach((sub, index) => {
         if(filterText && !sub.customerName.toLowerCase().includes(filterText) && !(sub.customerPhone || '').includes(filterText)) return;
         
         let remaining = sub.totalValue - sub.consumedAmount;
         let actions = '';
         
-        if(sub.consumedAmount === 0) {
-            actions += `<button class="top-bar-btn" style="padding:4px 8px; font-size:12px; color:#4a90e2; border-color:#4a90e2; margin-left:5px;" onclick="window.upgradeSub('${sub.id}')">تعديل (ترقية)</button>`;
-        }
+        // 1. زر التعديل (يغير الاسم أو الرقم)
+        actions += `<button class="top-bar-btn" style="padding:4px 8px; font-size:12px; color:#f39c12; border-color:#f39c12; margin-left:5px;" onclick="window.editCustomerInfo('${sub.id}')">تعديل معلومات</button>`;
+        // 2. زر الترقية (متصل بالنافذة العلوية للفئات)
+        actions += `<button class="top-bar-btn" style="padding:4px 8px; font-size:12px; color:#4a90e2; border-color:#4a90e2; margin-left:5px;" onclick="window.upgradeSub('${sub.id}')">ترقية الفئة</button>`;
+        // 3. زر التجديد
         actions += `<button class="top-bar-btn" style="padding:4px 8px; font-size:12px; color:var(--green-success); border-color:var(--green-success); margin-left:5px;" onclick="window.renewSub('${sub.id}')">تجديد</button>`;
+        // 4. زر الحذف
         actions += `<button class="top-bar-btn" style="padding:4px 8px; font-size:12px; color:var(--red-danger); border-color:var(--red-danger);" onclick="window.confirmDeleteSubWarning('${sub.id}')">حذف</button>`;
         
         tbody.innerHTML += `<tr>
-            <td style="font-size:12px;">${sub.date}</td>
+            <td style="font-weight:900;">${index + 1}</td>
             <td style="font-weight:bold;">${sub.customerName}</td>
-            <td style="font-size:12px;">${sub.customerPhone || '-'}</td>
+            <td>${sub.customerPhone || '-'}</td>
             <td><span style="background:var(--dark-gray); padding:3px 6px; border-radius:4px; border:1px solid var(--gold);">${sub.packageName}</span></td>
             <td style="color:var(--green-success); font-weight:bold;">${sub.paidAmount.toLocaleString()}</td>
             <td style="color:var(--gold); font-weight:bold; font-size:16px;">${remaining.toLocaleString()}</td>
             <td>${actions}</td>
         </tr>`;
+    });
+};
+
+window.editCustomerInfo = (subId) => {
+    const sub = localData.subscriptions.find(s => s.id === subId);
+    if(!sub) return;
+    let newName = prompt('تعديل اسم الزبون:', sub.customerName);
+    if(newName === null || newName.trim() === '') return;
+    let newPhone = prompt('تعديل رقم الهاتف:', sub.customerPhone || '');
+
+    sub.customerName = newName.trim();
+    sub.customerPhone = newPhone ? newPhone.trim() : '';
+
+    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ update, ref }) => {
+        update(ref(window.db || database, 'royal_data/subscriptions/' + subId), {
+            customerName: sub.customerName,
+            customerPhone: sub.customerPhone
+        });
+        window.renderCashierSubs();
+        window.showAlert('تم تعديل معلومات الزبون بنجاح', 'success');
     });
 };
 
@@ -2276,14 +2291,15 @@ window.renewSub = (subId) => {
     });
 };
 
-// زر التعديل (يفتح نافذة الباقات لعملية الترقية التي صممناها)
 window.upgradeSub = (subId) => {
     const sub = localData.subscriptions.find(s => s.id === subId);
     if(!sub) return;
+    // تجهيز حقل الاسم تلقائياً ليقوم بالترقية بشكل سليم في دالة الاشتراك
     document.getElementById('sub-customer-name').value = sub.customerName;
     document.getElementById('sub-customer-phone').value = sub.customerPhone || '';
     window.closeModals();
-    window.showAlert('انقر على الفئة الجديدة التي يريد الترقية إليها لسحب الفرق المالي.', 'success');
+    // تنبيه يوجه الكاشير لاختيار الفئة من الأعلى
+    window.showAlert('انقر الآن على الفئة (الذهبية، الماسية...) من الأعلى لترقية هذا الزبون وسحب الفرق المالي.', 'success');
 };
 
 // التدخل الجراحي: حساب وإظهار البونص مقابل رأس المال بوضوح للكاشير
@@ -2411,9 +2427,22 @@ window.confirmSubPayment = () => {
     
     let invRemainingToPay = inv.customer ? inv.customer.remaining : inv.total;
     let subBalance = sub.totalValue - sub.consumedAmount;
+    
     let deductAmount = Math.min(invRemainingToPay, subBalance);
     let cashAmount = invRemainingToPay - deductAmount;
     
+    // التنبيه الشديد في حالة نفاذ بطاقة الزبون وحاجته لدفع كاش متبقي
+    if (cashAmount > 0) {
+        window.showConfirm(`تنبيه شديد للكاشير ⚠️\n\nرصيد الباقة لا يكفي لتسديد كامل الفاتورة.\nتم خصم (${deductAmount.toLocaleString()} د.ع) من رصيد الباقة.\n\nيجب عليك استلام مبلغ (${cashAmount.toLocaleString()} د.ع) نقداً من الزبون الآن!\n\nهل استلمت المبلغ الكاش؟`, () => {
+            window.executeSubPaymentFinal(subId, sub, inv, deductAmount, cashAmount);
+        });
+    } else {
+        // الرصيد كافٍ ولا يوجد دفع كاش
+        window.executeSubPaymentFinal(subId, sub, inv, deductAmount, cashAmount);
+    }
+};
+
+window.executeSubPaymentFinal = (subId, sub, inv, deductAmount, cashAmount) => {
     sub.consumedAmount += deductAmount;
     if(!sub.invoices) sub.invoices = [];
     sub.invoices.push({ id: inv.id, date: inv.date, deducted: deductAmount, cash: cashAmount });
@@ -2428,9 +2457,10 @@ window.confirmSubPayment = () => {
         inv.notes = (inv.notes ? inv.notes + ' | ' : '') + `💳 دُفعت عبر فئة VIP (خُصم ${deductAmount.toLocaleString()} د.ع). المتبقي من الباقة: ${remainingBalText} د.ع.` + (cashAmount > 0 ? ` (المتبقي دُفع كاش: ${cashAmount.toLocaleString()} د.ع)` : '');
     }
 
-    // تسجيل الدفعة النقدية (إن وجدت) فوراً
     const realT = getRealTime();
     let paymentId = null, newPayment = null;
+    
+    // المبالغ التي ستضاف لمبيعات اليوم هي الـ cashAmount حصراً! الدالة recalculateDailySales ستلتقطه.
     if(cashAmount > 0) {
         paymentId = 'PAY-' + realT.timestamp;
         newPayment = {
@@ -2441,7 +2471,6 @@ window.confirmSubPayment = () => {
         localData.payments.push(newPayment);
     }
     
-    // حفظ كل شيء في السحابة معاً
     import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ update, ref, set }) => {
         update(ref(window.db || database, 'royal_data/invoices/' + inv.id), {
             type: inv.type, paymentType: inv.paymentType, customer: inv.customer, notes: inv.notes
@@ -2450,15 +2479,17 @@ window.confirmSubPayment = () => {
         if(paymentId && newPayment) {
             set(ref(window.db || database, 'royal_data/payments/' + paymentId), newPayment);
         }
+        
+        window.recalculateDailySales(); // إعادة الحساب وضبط كاصة اليوم بالكاش الجديد فقط
+        updateUI();
     });
     
     window.logAction('تسليم طلب (VIP)', `خصم ${deductAmount} من باقة ${sub.customerName}` + (cashAmount > 0 ? ` ودفع ${cashAmount} كاش` : ''), cashAmount, inv);
-    saveDataToCloud(); // يحدث الواجهة وصندوق المبيعات فوراً
     
     document.getElementById('modal-pay-via-sub').style.display = 'none';
     window.openActiveOrders();
     window.printInvoice(inv); 
-    window.showAlert('تم الخصم من الباقة وطباعة الفاتورة بنجاح!', 'success');
+    window.showAlert('تم الخصم من الباقة بنجاح!', 'success');
 };
 
 // شاشة إدارة الاشتراكات للآدمن
