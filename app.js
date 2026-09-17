@@ -2157,15 +2157,15 @@ window.confirmBuySub = () => {
     const realT = getRealTime();
     const existingSubIndex = (localData.subscriptions || []).findIndex(s => s.customerName === name);
     
-    let subId, actionType, payAmount, logMsg;
+    let subId, actionType, payAmount, logMsg, sub;
 
     if (existingSubIndex > -1) {
-        return window.showAlert('الزبون مشترك بالفعل! يرجى استخدام زر التعديل من إدارة الزبائن لترقية فئته.', 'warning');
+        return window.showAlert('الزبون مشترك بالفعل! يرجى استخدام زر التعديل لترقية فئته.', 'warning');
     } else {
         actionType = 'اشتراك VIP';
         payAmount = pkg.pay;
         subId = 'SUB-' + realT.timestamp;
-        const sub = {
+        sub = {
             id: subId, timestamp: realT.timestamp, date: customDate, time: realT.time,
             customerName: name, customerPhone: phone, packageId: pkg.id, packageName: pkg.name,
             paidAmount: pkg.pay, totalValue: pkg.value, consumedAmount: 0, invoices: []
@@ -2183,15 +2183,13 @@ window.confirmBuySub = () => {
     if(!localData.payments) localData.payments = [];
     localData.payments.push(newPayment);
 
-    // رفع دقيق وحصري بدون تدخل saveDataToCloud لتجنب التكرار
-    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set, ref }) => {
-        set(ref(window.db || database, 'royal_data/payments/' + paymentId), newPayment);
-        set(ref(window.db || database, 'royal_data/subscriptions/' + subId), localData.subscriptions[localData.subscriptions.length - 1]);
-        
-        window.recalculateDailySales();
-        updateUI();
-        if(window.renderCashierSubs) window.renderCashierSubs(); 
-    });
+    // الرفع الجراحي الفوري (بدون تأخير أو استيراد بطيء)
+    set(ref(database, 'royal_data/payments/' + paymentId), newPayment);
+    set(ref(database, 'royal_data/subscriptions/' + subId), sub);
+    
+    window.recalculateDailySales();
+    updateUI();
+    if(window.renderCashierSubs) window.renderCashierSubs(); 
 
     window.logAction(actionType, logMsg, payAmount, { customerName: name, pkgName: pkg.name });
     window.closeModals();
@@ -2294,15 +2292,14 @@ window.saveEditedSub = () => {
     let paymentId = null;
     let newPayment = null;
 
-    // في حال قرر الكاشير ترقية الفئة، سنقوم بالتعديل المالي الدقيق
     if (diff > 0) {
         actionType = 'ترقية VIP';
         logMsg = `ترقية باقة الزبون ${newName} إلى ${newPkg.name} (دفع الفرق كاش: ${diff.toLocaleString()})`;
         
         sub.packageId = newPkg.id;
         sub.packageName = newPkg.name;
-        sub.paidAmount = newPkg.pay; // رأس المال الجديد للمكوى
-        sub.totalValue = newPkg.value; // الرصيد الكلي الجديد (بدون تصفير المستهلك القديم)
+        sub.paidAmount = newPkg.pay;
+        sub.totalValue = newPkg.value; 
         
         const realT = getRealTime();
         paymentId = 'PAY-' + realT.timestamp;
@@ -2313,28 +2310,27 @@ window.saveEditedSub = () => {
         if(!localData.payments) localData.payments = [];
         localData.payments.push(newPayment);
         
-        // إضافة الفرق إلى كاصة المبيعات اليومية
         localData.dailySalesCash += diff; 
     }
 
     sub.customerName = newName;
     sub.customerPhone = newPhone;
 
-    // مزامنة البيانات مع السحابة
-    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ update, set, ref }) => {
-        update(ref(window.db || database, 'royal_data/subscriptions/' + subId), sub);
-        if(paymentId && newPayment) {
-            set(ref(window.db || database, 'royal_data/payments/' + paymentId), newPayment);
-        }
-        
-        if (diff > 0) {
-            window.recalculateDailySales();
-            updateUI();
-        }
-        window.renderCashierSubs();
-        document.getElementById('modal-edit-sub').style.display = 'none';
-        window.showAlert('تم حفظ التعديلات بنجاح!', 'success');
-    });
+    // تحديث وتعديل مباشر في السحابة
+    update(ref(database, 'royal_data/subscriptions/' + subId), sub);
+    if(paymentId && newPayment) {
+        set(ref(database, 'royal_data/payments/' + paymentId), newPayment);
+    }
+    
+    if (diff > 0) {
+        window.recalculateDailySales();
+        updateUI();
+    }
+    window.renderCashierSubs();
+    document.getElementById('modal-edit-sub').style.display = 'none';
+    window.showAlert('تم حفظ التعديلات بنجاح!', 'success');
+    window.logAction(actionType, logMsg, diff > 0 ? diff : 0, { sub: sub });
+};
 
     window.logAction(actionType, logMsg, diff > 0 ? diff : 0, { sub: sub });
 };
@@ -2414,18 +2410,17 @@ window.executeSubDelete = () => {
     window.logAction('إلغاء اشتراك VIP', `حذف اشتراك ${sub.customerName} (المبلغ المُرجع: ${refundable})`, refundable, sub);
     localData.subscriptions.splice(subIndex, 1);
     
-    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ remove, set, ref }) => {
-        remove(ref(window.db || database, 'royal_data/subscriptions/' + subId)); // طعنة قاتلة للشبح!
-        
-        if (refundable > 0 && paymentId && newPayment) {
-             set(ref(window.db || database, 'royal_data/payments/' + paymentId), newPayment);
-        }
-        
-        window.recalculateDailySales();
-        updateUI();
-        if(window.renderCashierSubs) window.renderCashierSubs();
-        if(document.getElementById('admin-screen').classList.contains('active-screen')) window.updateAdminDashboard();
-    });
+    // إعدام فوري من قاعدة البيانات بدون تأخير
+    remove(ref(database, 'royal_data/subscriptions/' + subId)); 
+    
+    if (refundable > 0 && paymentId && newPayment) {
+        set(ref(database, 'royal_data/payments/' + paymentId), newPayment);
+    }
+    
+    window.recalculateDailySales();
+    updateUI();
+    if(window.renderCashierSubs) window.renderCashierSubs();
+    if(document.getElementById('admin-screen').classList.contains('active-screen')) window.updateAdminDashboard();
     
     document.getElementById('modal-delete-sub-warning').style.display = 'none'; 
     window.openCashierSubs();
