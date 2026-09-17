@@ -147,16 +147,24 @@ async function initializeDB() {
             if (snapshot.exists()) {
                 let incomingData = snapshot.val();
                 
-                // مزامنة فورية للذاكرة المحلية
-                localData.invoices = Object.values(incomingData.invoices || {});
-                localData.catalog = Object.values(incomingData.catalog || {});
-                localData.expenses = Object.values(incomingData.expenses || {});
-                localData.operatingCosts = Object.values(incomingData.operatingCosts || {});
-                localData.debts = Object.values(incomingData.debts || {});
-                localData.logs = Object.values(incomingData.logs || {});
-                localData.partnerTx = Object.values(incomingData.partnerTx || {});
-                localData.subscriptions = Object.values(incomingData.subscriptions || {});
-                localData.payments = Object.values(incomingData.payments || {});
+                // فلتر أمان جراحي: يمسح أي بيانات مكررة أو أشباح قادمة من فايربيس بناءً على الـ ID
+                const cleanData = (data) => {
+                    let arr = Object.values(data || {});
+                    let unique = {};
+                    arr.forEach(item => { if (item && item.id) unique[item.id] = item; });
+                    return Object.values(unique);
+                };
+
+                // مزامنة فورية ونقية للذاكرة المحلية
+                localData.invoices = cleanData(incomingData.invoices);
+                localData.catalog = cleanData(incomingData.catalog);
+                localData.expenses = cleanData(incomingData.expenses);
+                localData.operatingCosts = Object.values(incomingData.operatingCosts || {}); // ليس لها ID
+                localData.debts = cleanData(incomingData.debts);
+                localData.logs = cleanData(incomingData.logs);
+                localData.partnerTx = cleanData(incomingData.partnerTx);
+                localData.subscriptions = cleanData(incomingData.subscriptions);
+                localData.payments = cleanData(incomingData.payments);
                 
                 let fetchedSettings = incomingData.settings || { name: "مكوى رويال ", phone: "07800000000", address: "الكوفة، النجف الأشرف" };
                 if(fetchedSettings.password) delete fetchedSettings.password;
@@ -320,13 +328,19 @@ function saveDataToCloud() {
     window.recalculateDailySales(); // فلتر الأمان: إعادة حساب الصندوق قبل الحفظ
     
     // التدخل الجراحي: رفع المسارات الفرعية فقط لمنع التدمير اللحظي (Race Condition) للفواتير والصرفيات
+    // التدخل الجراحي: تحويل المصفوفات إلى كائنات مفهرسة بالـ ID لمنع ظاهرة التكرار في فايربيس
+    const toObj = (arr) => arr.reduce((acc, item) => { 
+        if(item && item.id) acc[item.id] = item; 
+        return acc; 
+    }, {});
+
     const updates = {};
-    if(localData.catalog) updates['royal_data/catalog'] = localData.catalog;
+    if(localData.catalog) updates['royal_data/catalog'] = toObj(localData.catalog);
     if(localData.operatingCosts) updates['royal_data/operatingCosts'] = localData.operatingCosts;
-    if(localData.debts) updates['royal_data/debts'] = localData.debts;
-    if(localData.partnerTx) updates['royal_data/partnerTx'] = localData.partnerTx; // حفظ المحفظة
-    if(localData.subscriptions) updates['royal_data/subscriptions'] = localData.subscriptions; // حفظ الاشتراكات
-    if(localData.payments) updates['royal_data/payments'] = localData.payments;
+    if(localData.debts) updates['royal_data/debts'] = toObj(localData.debts);
+    if(localData.partnerTx) updates['royal_data/partnerTx'] = toObj(localData.partnerTx);
+    if(localData.subscriptions) updates['royal_data/subscriptions'] = toObj(localData.subscriptions);
+    if(localData.payments) updates['royal_data/payments'] = toObj(localData.payments);
     if(localData.settings) {
         updates['royal_data/settings/name'] = localData.settings.name;
         updates['royal_data/settings/phone'] = localData.settings.phone;
