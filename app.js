@@ -241,38 +241,78 @@ async function initializeDB() {
     }
 }
 
-// --- التدخل الجراحي: نظام إعادة الحساب الديناميكي لحماية صندوق الكاشير من التجمد ---
+// --- التدخل الجراحي المطور: إعادة حساب المبيعات اليومية بدقة رياضية صارمة ---
 window.recalculateDailySales = () => {
-    let todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0); 
+    // الحصول على تاريخ اليوم الآمن من السيرفر العالمي
+    const todayStr = getRealTime().date;
     
     let realCash = 0; 
     let realElectronic = 0;
     
-    // 1. حساب الفواتير (كاش، إلكتروني، عربون الطلب النشط، وتسليم الطلب المؤرشف)
+    // 1. حساب الفواتير المباشرة والعربون (المرتبطة بتاريخ إنشاء الفاتورة لليوم الحالي)
     (localData.invoices || []).forEach(inv => {
-        if(inv.timestamp && inv.timestamp >= todayStart.getTime()) {
-            // النظام القديم
-            if (inv.type === 'cash') realCash += inv.total;
-            else if (inv.type === 'electronic') realElectronic += inv.total;
-            else if (inv.type === 'credit' && inv.customer) realCash += (inv.customer.paid || 0);
+        // فحص الفواتير التي تم إنشاؤها "اليوم" فقط
+        if (inv.date === todayStr) {
             
-            // النظام الجديد: حساب العربون عند تسجيل الطلب
+            // طلب قيد العمل: نحسب العربون المدفوع الآن (كاش)
             if (inv.type === 'active' && inv.customer && inv.customer.paid > 0) {
-                realCash += inv.customer.paid; // نفترض العربون دائماً كاش مبدئياً
+                realCash += inv.customer.paid;
             }
-            // النظام الجديد: حساب الاستلام النهائي بناءً على نوع الدفع الذي سنضيفه
+            // البيع المباشر السريع (كاش أو إلكتروني)
+            else if (inv.type === 'cash') {
+                realCash += inv.total;
+            } else if (inv.type === 'electronic') {
+                realElectronic += inv.total;
+            }
+            // طلب تم استلامه وتسليمه في نفس اليوم! (عربون + متبقي)
             else if (inv.type === 'archived' && inv.customer) {
-                // نجمع العربون (نفترض كاش) + المبلغ المتبقي حسب نوع الدفع
+                // نضيف العربون
                 realCash += (inv.customer.paid || 0); 
-                
-                let remainingPaid = (inv.customer.remainingPaid || 0);
-                if(inv.paymentType === 'cash' || !inv.paymentType) realCash += remainingPaid;
-                else if(inv.paymentType === 'electronic') realElectronic += remainingPaid;
-                // إذا كان آجل (credit)، المتبقي لا يدخل الصندوق اليوم.
+                // المتبقي تمت معالجته كدفعة منفصلة في مسار payments لتجنب التكرار
+                // لذلك لا نجمعه من هنا!
             }
         }
     });
+    
+    // 2. خصم المصروفات لليوم الحالي
+    (localData.expenses || []).forEach(exp => {
+        if (exp.date === todayStr) { 
+            realCash -= exp.amount; 
+        }
+    });
+    
+    // 3. حساب الحركات المالية المستقلة والمتبقي من الطلبات القديمة (من مسار payments)
+    (localData.payments || []).forEach(pay => {
+        if (pay.date === todayStr) { 
+            
+            // المبالغ الموجبة (كاش داخل للصندوق)
+            if (
+                pay.type === 'تسديد دين' || 
+                pay.type === 'اشتراك VIP' || 
+                pay.type === 'تجديد VIP' || 
+                pay.type === 'ترقية VIP' ||
+                pay.type === 'دفع مختلط (VIP + كاش)' ||
+                pay.type === 'دفع كاش (متبقي طلب)' ||
+                pay.type === 'دفع إلكتروني (متبقي طلب)'
+            ) {
+                // دفعات الكاش تذهب لـ realCash
+                if(pay.type !== 'دفع إلكتروني (متبقي طلب)') {
+                    realCash += pay.amount;
+                } else {
+                    realElectronic += pay.amount; // الدفع الإلكتروني
+                }
+            }
+            // المبالغ السالبة (كاش خارج من الصندوق)
+            else if (pay.type === 'إلغاء اشتراك VIP') {
+                realCash -= pay.amount;
+            }
+        }
+    });
+    
+    // تحديث الأرقام النهائية المعصومة من الخطأ
+    localData.dailySalesCash = realCash;
+    localData.dailySalesElectronic = realElectronic;
+};
     
     // 2. خصم المصروفات لليوم الحالي
     (localData.expenses || []).forEach(exp => {
@@ -1186,7 +1226,7 @@ window.confirmPickupCredit = () => {
     window.showAlert('تم تسجيل الذمة وتسليم الطلب بنجاح!', 'success');
 };
 
-// التنفيذ الطبيعي للكاش والإلكتروني
+// التدخل الجراحي: التنفيذ الطبيعي للكاش والإلكتروني مع تسجيل الدفعة المستقلة
 window.executeNormalPickup = (paymentType) => {
     const inv = localData.invoices.find(i => i.id === pendingPickupId);
     if(!inv) return;
@@ -1197,10 +1237,29 @@ window.executeNormalPickup = (paymentType) => {
         inv.customer.remainingPaid = remainingToPay;
         inv.customer.remaining = 0;
     }
-    update(ref(database, 'royal_data/invoices/' + inv.id), { type: 'archived', paymentType: paymentType, customer: inv.customer });
+    
+    // إنشاء الدفعة المالية للمبلغ المتبقي لتسجيلها في اليوم الحالي (منع السفر عبر الزمن)
+    const realT = getRealTime();
+    if(remainingToPay > 0) {
+        const paymentTypeStr = paymentType === 'cash' ? 'دفع كاش (متبقي طلب)' : 'دفع إلكتروني (متبقي طلب)';
+        const paymentId = 'PAY-' + realT.timestamp;
+        const newPayment = {
+            id: paymentId, timestamp: realT.timestamp, date: realT.date,
+            type: paymentTypeStr, amount: remainingToPay, details: `استلام متبقي طلب ${inv.dailyNumber || inv.id}`
+        };
+        if(!localData.payments) localData.payments = [];
+        localData.payments.push(newPayment);
+        import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set }) => {
+            set(ref(window.db || database, 'royal_data/payments/' + paymentId), newPayment);
+        });
+    }
+
+    import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ update }) => {
+        update(ref(window.db || database, 'royal_data/invoices/' + inv.id), { type: 'archived', paymentType: paymentType, customer: inv.customer });
+    });
     
     window.logAction('تسليم طلب', `الدفع: ${paymentType==='cash'?'كاش':'إلكتروني'}`, remainingToPay, inv);
-    window.recalculateDailySales(); updateUI();
+    saveDataToCloud(); // إعادة الحساب ورفع التحديثات
     document.getElementById('modal-pickup-payment').style.display = 'none';
     window.openActiveOrders(); 
     window.showAlert('تم تسليم الطلب بنجاح!', 'success');
@@ -1441,12 +1500,14 @@ window.switchAdminTab = (tab) => {
     }
 };
 
+// --- التدخل الجراحي الشامل: محرك تقارير الآدمن والمحفظة المعصوم من الخطأ ---
 window.updateAdminDashboard = () => {
     if (!secureAdminToken) { window.exitToMain(); return window.showAlert('تم إحباط محاولة اختراق للوحة البيانات!', 'error'); }
-    // جلب فلتر الشهر
+    
+    // جلب فلتر الشهر باستخدام الوقت العالمي المحمي
     let monthInput = document.getElementById('admin-month-filter');
     if (!monthInput.value) {
-        let now = new Date();
+        let now = getRealTime().obj;
         monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     }
     const selectedMonth = monthInput.value;
@@ -1454,40 +1515,222 @@ window.updateAdminDashboard = () => {
 
     let totalSalesCash = 0; let totalSalesElectronic = 0;
     let totalExpenses = 0; let totalCosts = 0;
-    let dailyReports = {}; // كائن لتجميع بيانات الأيام
+    let dailyReports = {}; 
 
-    // حساب الفواتير
+    // 1. حساب الفواتير المباشرة والعربون
     (localData.invoices || []).forEach(inv => {
-        let invDate = new Date(inv.timestamp || Date.now());
-        let monthStr = inv.monthStr || `${invDate.getFullYear()}-${String(invDate.getMonth() + 1).padStart(2, '0')}`;
-        let dayStr = inv.date || window.formatRoyalDate(invDate);
+        let invDate = new Date(inv.timestamp);
+        let monthStr = `${invDate.getFullYear()}-${String(invDate.getMonth() + 1).padStart(2, '0')}`;
+        let dayStr = inv.date;
 
         if (isAllTime || monthStr === selectedMonth) {
             let amountCash = 0;
             let amountElectronic = 0;
             
-            // النظام القديم
-            if(inv.type === 'cash') amountCash = inv.total;
-            else if(inv.type === 'electronic') amountElectronic = inv.total;
-            else if(inv.type === 'credit' && inv.customer) amountCash = inv.customer.paid;
-            
-            // النظام الجديد
-            if (inv.type === 'active' && inv.customer) amountCash = inv.customer.paid; // العربون
-            else if (inv.type === 'archived' && inv.customer) {
-                amountCash = inv.customer.paid; // العربون
-                let remainingPaid = inv.customer.remainingPaid || 0;
-                if(inv.paymentType === 'cash' || !inv.paymentType) amountCash += remainingPaid;
-                else if(inv.paymentType === 'electronic') amountElectronic += remainingPaid;
-                // الآجل لا نضيف المتبقي للصندوق
-            }
+            if (inv.type === 'active' && inv.customer) amountCash = inv.customer.paid; // العربون المدفوع لحظة الطلب
+            else if (inv.type === 'cash') amountCash = inv.total;
+            else if (inv.type === 'electronic') amountElectronic = inv.total;
+            else if (inv.type === 'archived' && inv.customer) amountCash = inv.customer.paid; // العربون فقط (المتبقي في Payments)
 
             totalSalesCash += amountCash;
             totalSalesElectronic += amountElectronic;
 
-            if(!dailyReports[dayStr]) dailyReports[dayStr] = { sales: 0, expenses: 0, details: [], timestamp: invDate.getTime() };
-            dailyReports[dayStr].sales += (amountCash + amountElectronic);
+            if (amountCash > 0 || amountElectronic > 0) {
+                if(!dailyReports[dayStr]) dailyReports[dayStr] = { sales: 0, expenses: 0, details: [], timestamp: invDate.getTime() };
+                dailyReports[dayStr].sales += (amountCash + amountElectronic);
+            }
         }
     });
+
+    // 2. حساب المصروفات
+    (localData.expenses || []).forEach(exp => {
+        let expDate = new Date(exp.timestamp);
+        let monthStr = `${expDate.getFullYear()}-${String(expDate.getMonth() + 1).padStart(2, '0')}`;
+        let dayStr = exp.date;
+
+        if (isAllTime || monthStr === selectedMonth) {
+            totalExpenses += exp.amount;
+            if(!dailyReports[dayStr]) dailyReports[dayStr] = { sales: 0, expenses: 0, details: [], timestamp: expDate.getTime() };
+            dailyReports[dayStr].expenses += exp.amount;
+            dailyReports[dayStr].details.push(window.escapeHTML(exp.detail));
+        }
+    });
+
+    // 3. حساب الدفعات المستقلة (مسار payments) - المنقذ للرصيد
+    (localData.payments || []).forEach(pay => {
+        let payDate = new Date(pay.timestamp);
+        let monthStr = `${payDate.getFullYear()}-${String(payDate.getMonth() + 1).padStart(2, '0')}`;
+        let dayStr = pay.date;
+
+        if (isAllTime || monthStr === selectedMonth) {
+            if(!dailyReports[dayStr]) dailyReports[dayStr] = { sales: 0, expenses: 0, details: [], timestamp: payDate.getTime() };
+            
+            // الدفعات الإلكترونية
+            if (pay.type === 'دفع إلكتروني (متبقي طلب)') {
+                totalSalesElectronic += pay.amount;
+                dailyReports[dayStr].sales += pay.amount;
+            }
+            // خصم الأموال المسترجعة
+            else if (pay.type === 'إلغاء اشتراك VIP') {
+                totalSalesCash -= pay.amount; 
+                dailyReports[dayStr].sales -= pay.amount; 
+                dailyReports[dayStr].details.push(`استرجاع: -${pay.amount}`);
+            } 
+            // الكاش الداخل (تسديد ذمم، اشتراكات VIP، ومتبقي الطلبات)
+            else {
+                totalSalesCash += pay.amount; 
+                dailyReports[dayStr].sales += pay.amount; 
+                if (pay.type.includes('VIP')) dailyReports[dayStr].details.push(`VIP: +${pay.amount}`);
+            }
+        }
+    });
+
+    // 4. التكاليف التشغيلية
+    (localData.operatingCosts || []).forEach(c => { totalCosts += c.amount; });
+    let netProfit = (totalSalesCash + totalSalesElectronic) - totalExpenses - totalCosts;
+
+    // تحديث الأرقام العلوية للآدمن
+    document.getElementById('admin-month-sales-cash').innerText = totalSalesCash.toLocaleString() + ' د.ع';
+    document.getElementById('admin-month-sales-electronic').innerText = totalSalesElectronic.toLocaleString() + ' د.ع';
+    document.getElementById('admin-month-expenses').innerText = totalExpenses.toLocaleString() + ' د.ع';
+    document.getElementById('admin-month-costs').innerText = totalCosts.toLocaleString() + ' د.ع';
+    document.getElementById('admin-net-profit').innerText = netProfit.toLocaleString() + ' د.ع';
+
+    // توليد جدول التقارير اليومية
+    const dailyTbody = document.getElementById('admin-daily-reports-body');
+    dailyTbody.innerHTML = '';
+    const sortedDays = Object.keys(dailyReports).sort((a, b) => dailyReports[b].timestamp - dailyReports[a].timestamp);
+
+    sortedDays.forEach(day => {
+        let data = dailyReports[day];
+        let dayName = new Intl.DateTimeFormat('ar-IQ', { weekday: 'long' }).format(new Date(data.timestamp));
+        let net = data.sales - data.expenses;
+        
+        dailyTbody.innerHTML += `
+            <tr>
+                <td>${day}</td>
+                <td style="color:var(--gold);">${dayName}</td>
+                <td style="color:var(--green-success); font-weight:bold;">${data.sales.toLocaleString()}</td>
+                <td style="color:var(--red-danger); font-weight:bold;">${data.expenses.toLocaleString()}</td>
+                <td style="font-size:12px;">${data.details.join('، ') || '-'}</td>
+                <td style="font-weight:bold; color:${net >= 0 ? 'var(--green-success)' : 'var(--red-danger)'};">${net.toLocaleString()}</td>
+            </tr>
+        `;
+    });
+
+    // قسم الديون
+    const debtsTbody = document.getElementById('debts-table-body');
+    debtsTbody.innerHTML = '';
+    let groupedDebts = {};
+    (localData.debts || []).forEach(d => {
+        if(d.remaining > 0) {
+            if(!groupedDebts[d.name]) groupedDebts[d.name] = { phone: d.phone, totalRemaining: 0, invoices: [] };
+            groupedDebts[d.name].totalRemaining += d.remaining;
+            groupedDebts[d.name].invoices.push(d.invoiceId);
+        }
+    });
+
+    for (let customerName in groupedDebts) {
+        let data = groupedDebts[customerName];
+        let invList = data.invoices.join(' ، '); 
+        debtsTbody.innerHTML += `<tr>
+            <td style="font-weight:bold; font-size:16px;">${customerName}</td>
+            <td>${data.phone || '-'}</td>
+            <td style="font-size:12px; color:var(--text-gray);">${invList}</td>
+            <td style="color:var(--red-danger); font-weight:bold; font-size:18px;">${data.totalRemaining.toLocaleString()}</td>
+            <td><button class="top-bar-btn" style="background:#4a90e2; color:white; border-color:#4a90e2;" onclick="window.payDebtByName('${customerName}')">تسديد دفعة</button></td>
+        </tr>`;
+    }
+
+    // ==========================================
+    // --- الحسابات التراكمية للمحفظة (الشركاء) ---
+    // ==========================================
+    let lifetimeSales = 0, lifetimeExpenses = 0, lifetimeCosts = 0;
+
+    // 1. حساب المبيعات من الفواتير
+    (localData.invoices || []).forEach(inv => {
+        if (inv.type === 'active' || inv.type === 'archived') lifetimeSales += (inv.customer ? inv.customer.paid : 0);
+        else if (inv.type === 'cash' || inv.type === 'electronic') lifetimeSales += inv.total;
+    });
+
+    // 2. حساب المبيعات من مسار الدفعات المستقلة (هذا كان الثقب الأسود)
+    (localData.payments || []).forEach(pay => {
+        if (pay.type === 'إلغاء اشتراك VIP') lifetimeSales -= pay.amount;
+        else lifetimeSales += pay.amount;
+    });
+    
+    // 3. المصروفات والتكاليف
+    (localData.expenses || []).forEach(e => lifetimeExpenses += e.amount);
+    (localData.operatingCosts || []).forEach(c => lifetimeCosts += c.amount);
+
+    let lifetimeNetProfit = lifetimeSales - lifetimeExpenses - lifetimeCosts;
+    let baseShare = lifetimeNetProfit / 2;
+    let razaqBal = baseShare, shabaBal = baseShare;
+
+    (localData.partnerTx || []).forEach(tx => {
+        if(tx.account === 'أحمد رزاق العامري') {
+            if(tx.type === 'إيداع') razaqBal += tx.amount; else razaqBal -= tx.amount;
+        } else if(tx.account === 'أحمد شاكر شبع') {
+            if(tx.type === 'إيداع') shabaBal += tx.amount; else shabaBal -= tx.amount;
+        }
+    });
+
+    if(document.getElementById('wallet-ahmed-razaq')) {
+        document.getElementById('wallet-ahmed-razaq').innerText = razaqBal.toLocaleString() + ' د.ع';
+        document.getElementById('wallet-ahmed-razaq').style.color = razaqBal >= 0 ? '#4a90e2' : 'var(--red-danger)';
+        document.getElementById('wallet-ahmed-shaba').innerText = shabaBal.toLocaleString() + ' د.ع';
+        document.getElementById('wallet-ahmed-shaba').style.color = shabaBal >= 0 ? 'var(--green-success)' : 'var(--red-danger)';
+    }
+
+    const walletTbody = document.getElementById('wallet-transactions-body');
+    if(walletTbody) {
+        walletTbody.innerHTML = '';
+        const sortedTx = [...(localData.partnerTx || [])].sort((a,b) => b.timestamp - a.timestamp);
+        
+        const getHistoricalBal = (acc, ts) => {
+            let tS = 0, tE = 0, tC = 0;
+            (localData.invoices || []).forEach(i => {
+                if(i.timestamp <= ts) {
+                    if (i.type === 'active' || i.type === 'archived') tS += (i.customer ? i.customer.paid : 0);
+                    else if (i.type === 'cash' || i.type === 'electronic') tS += i.total;
+                }
+            });
+            (localData.payments || []).forEach(p => { 
+                if(p.timestamp <= ts) {
+                    if (p.type === 'إلغاء اشتراك VIP') tS -= p.amount;
+                    else tS += p.amount;
+                }
+            });
+            (localData.expenses || []).forEach(e => { if(e.timestamp <= ts) tE += e.amount; });
+            (localData.operatingCosts || []).forEach(c => { 
+                if(new Date(c.date).getTime() <= ts) tC += c.amount; 
+            });
+            
+            let histBal = (tS - tE - tC) / 2;
+            (localData.partnerTx || []).forEach(t => {
+                if(t.account === acc && t.timestamp <= ts) {
+                    if(t.type === 'إيداع') histBal += t.amount; else histBal -= t.amount;
+                }
+            });
+            return histBal;
+        };
+
+        sortedTx.forEach(tx => {
+            let typeColor = tx.type === 'إيداع' ? 'var(--green-success)' : 'var(--red-danger)';
+            let icon = tx.type === 'إيداع' ? 'fa-arrow-down' : 'fa-arrow-up';
+            let histBal = getHistoricalBal(tx.account, tx.timestamp);
+            
+            walletTbody.innerHTML += `<tr>
+                <td style="font-size:13px; color:var(--text-gray);">${tx.date} <br> ${tx.time}</td>
+                <td style="font-weight:bold;">${tx.account}</td>
+                <td><span style="color:${typeColor}; font-weight:bold; background:rgba(0,0,0,0.3); padding:4px 8px; border-radius:5px;"><i class="fa-solid ${icon}"></i> ${tx.type}</span></td>
+                <td style="color:var(--gold); font-weight:bold; font-size:16px;">${tx.amount.toLocaleString()}</td>
+                <td>${tx.reason || '-'}</td>
+                <td style="font-weight:900; color:${histBal >= 0 ? 'var(--green-success)' : 'var(--red-danger)'};" dir="ltr">${histBal.toLocaleString()}</td>
+            </tr>`;
+        });
+    }
+};
 
     // حساب الصرفيات
     (localData.expenses || []).forEach(exp => {
@@ -1886,12 +2129,32 @@ window.viewLogDetails = (id) => {
                             </div>`;
         }
     } else if (log.type === 'تسديد دين') {
+        // ... الكود القديم لتسديد الدين (لا تغيره) ...
         contentHTML += `<div style="background:rgba(74, 144, 226, 0.1); padding:15px; border-radius:8px; border:1px solid #4a90e2;">
-                            <p><strong>اسم الزبون:</strong> <span style="color:var(--text-white);">${snap.debtName}</span></p>
-                            <p><strong>المبلغ المسدد الآن:</strong> <span style="color:var(--green-success); font-weight:bold;">${snap.amountPaid.toLocaleString()} د.ع</span></p>
-                            <p><strong>المتبقي بذمته:</strong> <span style="color:var(--red-danger); font-weight:bold;">${snap.remainingNow.toLocaleString()} د.ع</span></p>
+                            <p><strong>اسم الزبون:</strong> <span style="color:var(--text-white);">${snap.debtName || '-'}</span></p>
+                            <p><strong>المبلغ المسدد الآن:</strong> <span style="color:var(--green-success); font-weight:bold;">${(snap.amountPaid || log.amount).toLocaleString()} د.ع</span></p>
+                        </div>`;
+    } else if (log.type.includes('VIP')) {
+        // --- التدخل الجراحي: عرض أنيق لحركات الاشتراكات ---
+        let badgeColor = log.type.includes('إلغاء') ? 'var(--red-danger)' : 'var(--gold)';
+        contentHTML += `<div style="background:rgba(212, 175, 55, 0.05); padding:15px; border-radius:8px; border:1px solid ${badgeColor};">
+                            <p><strong>اسم المشترك:</strong> <span style="color:var(--text-white);">${snap.customerName || (snap.customer ? snap.customer.name : '-')}</span></p>
+                            <p><strong>الفئة / الباقة:</strong> <span style="color:var(--gold); font-weight:bold;">${snap.pkgName || snap.packageName || '-'}</span></p>
+                            <p><strong>المبلغ المرتبط بالعملية:</strong> <span style="color:${badgeColor}; font-weight:bold;">${log.amount.toLocaleString()} د.ع</span></p>
+                            <hr style="border:1px dashed #333; margin:10px 0;">
+                            <p><strong>التفاصيل:</strong> <span style="color:var(--text-gray); font-size:13px;">${log.details}</span></p>
                         </div>`;
     } else {
+        // حالة افتراضية للعمليات الأخرى (مثل المحفظة)
+        contentHTML += `<div style="background:#111; padding:15px; border-radius:8px; border:1px solid #444;">
+                            <p><strong>التفاصيل:</strong> <span style="color:var(--text-gray);">${log.details}</span></p>
+                            <p><strong>القيمة المرتبطة:</strong> <span style="color:var(--gold);">${log.amount.toLocaleString()} د.ع</span></p>
+                        </div>`;
+    }
+
+    document.getElementById('log-deep-view-content').innerHTML = contentHTML;
+    document.getElementById('modal-log-details').style.display = 'flex';
+};
         // حالة افتراضية للعمليات الأخرى
         contentHTML += `<div style="background:#111; padding:15px; border-radius:8px; border:1px solid #444;">
                             <p><strong>التفاصيل:</strong> <span style="color:var(--text-gray);">${log.details}</span></p>
@@ -2305,35 +2568,36 @@ window.confirmSubPayment = () => {
         inv.customer.remainingPaid = cashAmount; 
         inv.customer.subDeducted = deductAmount;
         inv.customer.remaining = 0;
-        // وسم الفاتورة الذكي للطباعة
         let remainingBalText = (sub.totalValue - sub.consumedAmount).toLocaleString();
         inv.notes = (inv.notes ? inv.notes + ' | ' : '') + `💳 دُفعت عبر فئة VIP (خُصم ${deductAmount.toLocaleString()} د.ع). المتبقي من الباقة: ${remainingBalText} د.ع.` + (cashAmount > 0 ? ` (المتبقي دُفع كاش: ${cashAmount.toLocaleString()} د.ع)` : '');
     }
+
+    // تسجيل الدفعة النقدية (إن وجدت) فوراً
+    const realT = getRealTime();
+    let paymentId = null, newPayment = null;
+    if(cashAmount > 0) {
+        paymentId = 'PAY-' + realT.timestamp;
+        newPayment = {
+            id: paymentId, timestamp: realT.timestamp, date: realT.date,
+            type: 'دفع مختلط (VIP + كاش)', amount: cashAmount, details: `متبقي فاتورة ${inv.dailyNumber||inv.id} للزبون ${sub.customerName}`
+        };
+        if(!localData.payments) localData.payments = [];
+        localData.payments.push(newPayment);
+    }
     
-    // التحديث السحابي للفاتورة لحذفها من المستودع وأرشفتها
+    // حفظ كل شيء في السحابة معاً
     import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ update, ref, set }) => {
         update(ref(window.db || database, 'royal_data/invoices/' + inv.id), {
             type: inv.type, paymentType: inv.paymentType, customer: inv.customer, notes: inv.notes
         });
         update(ref(window.db || database, 'royal_data/subscriptions/' + subId), sub);
-        
-        // إذا خلص رصيده ودفع فرق كاش، نرفع الفرق للمسار المالي ليزداد صندوق المبيعات
-        if(cashAmount > 0) {
-            const realT = getRealTime();
-            const paymentId = 'PAY-' + realT.timestamp;
-            const newPayment = {
-                id: paymentId, timestamp: realT.timestamp, date: realT.date,
-                type: 'دفع مختلط (VIP + كاش)', amount: cashAmount, details: `متبقي فاتورة ${inv.dailyNumber||inv.id} للزبون ${sub.customerName}`
-            };
-            if(!localData.payments) localData.payments = [];
-            localData.payments.push(newPayment);
+        if(paymentId && newPayment) {
             set(ref(window.db || database, 'royal_data/payments/' + paymentId), newPayment);
-            localData.dailySalesCash += cashAmount;
         }
     });
     
     window.logAction('تسليم طلب (VIP)', `خصم ${deductAmount} من باقة ${sub.customerName}` + (cashAmount > 0 ? ` ودفع ${cashAmount} كاش` : ''), cashAmount, inv);
-    saveDataToCloud();
+    saveDataToCloud(); // يحدث الواجهة وصندوق المبيعات فوراً
     
     document.getElementById('modal-pay-via-sub').style.display = 'none';
     window.openActiveOrders();
