@@ -1956,17 +1956,7 @@ window.viewLogDetails = (id) => {
     document.getElementById('log-deep-view-content').innerHTML = contentHTML;
     document.getElementById('modal-log-details').style.display = 'flex';
 };
-        // حالة افتراضية للعمليات الأخرى
-        contentHTML += `<div style="background:#111; padding:15px; border-radius:8px; border:1px solid #444;">
-                            <p><strong>التفاصيل:</strong> <span style="color:var(--text-gray);">${log.details}</span></p>
-                            <p><strong>القيمة المرتبطة:</strong> <span style="color:var(--gold);">${log.amount.toLocaleString()} د.ع</span></p>
-                        </div>`;
-    }
-
-    document.getElementById('log-deep-view-content').innerHTML = contentHTML;
-    document.getElementById('modal-log-details').style.display = 'flex';
-};
-
+        
 // ==========================================
 // --- دوال المحرر المرئي للفاتورة (A5) ---
 // ==========================================
