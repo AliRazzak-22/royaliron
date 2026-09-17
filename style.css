@@ -286,8 +286,8 @@ input, select { font-family: 'Cairo', sans-serif; outline: none; }
 /* ========================================================= */
 .package-card {
     position: relative;
-    border-radius: 15px;
-    padding: 20px;
+    border-radius: 12px;
+    padding: 10px;
     text-align: center;
     cursor: pointer;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -298,16 +298,16 @@ input, select { font-family: 'Cairo', sans-serif; outline: none; }
     justify-content: center;
     align-items: center;
     color: #fff;
-    min-height: 130px;
+    min-height: 105px;
 }
 .package-card:hover {
-    transform: translateY(-8px) scale(1.02);
-    box-shadow: 0 15px 30px rgba(0,0,0,0.6);
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.6);
     z-index: 10;
 }
-.package-card i { font-size: 35px; margin-bottom: 10px; text-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-.package-title { font-size: 20px; font-weight: 900; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); margin-bottom: 8px; }
-.package-details { font-size: 14px; font-weight: bold; background: rgba(0,0,0,0.3); padding: 5px 10px; border-radius: 8px; width: 100%; line-height: 1.6; }
+.package-card i { font-size: 24px; margin-bottom: 6px; text-shadow: 0 3px 6px rgba(0,0,0,0.3); }
+.package-title { font-size: 14px; font-weight: 900; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); margin-bottom: 4px; }
+.package-details { font-size: 11px; font-weight: bold; background: rgba(0,0,0,0.3); padding: 4px 6px; border-radius: 6px; width: 100%; line-height: 1.4; }
 
 /* ألوان معدنية فخمة (Gradients) */
 .pkg-bronze { background: linear-gradient(135deg, #cd7f32 0%, #8b4513 100%); box-shadow: 0 5px 15px rgba(205, 127, 50, 0.3); border-color: #e69647; }
