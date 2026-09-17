@@ -2131,7 +2131,6 @@ window.filterCustomerNames = (val) => {
     }
 };
 
-// التدخل الجراحي: نظام الشراء والترقية الذكي مع إضافة المبلغ للصندوق
 window.confirmBuySub = () => {
     const pkgId = document.getElementById('sub-package-id').value;
     const name = window.escapeHTML(document.getElementById('sub-customer-name').value.trim());
@@ -2155,7 +2154,6 @@ window.confirmBuySub = () => {
             logMsg = `تجديد باقة ${pkg.name} للزبون ${name}`;
         } else {
             actionType = 'ترقية VIP';
-            // يدفع الفرق فقط (أو يدفع الجديد إذا كان أرخص كعقوبة)
             payAmount = (pkg.pay > existingSub.paidAmount) ? (pkg.pay - existingSub.paidAmount) : pkg.pay;
             logMsg = `ترقية باقة الزبون ${name} إلى ${pkg.name} (دفع الفرق: ${payAmount})`;
         }
@@ -2164,7 +2162,7 @@ window.confirmBuySub = () => {
         existingSub.packageName = pkg.name;
         existingSub.paidAmount = pkg.pay; 
         existingSub.totalValue = pkg.value; 
-        existingSub.consumedAmount = 0; // تصفير العداد
+        existingSub.consumedAmount = 0; 
         existingSub.timestamp = realT.timestamp;
         existingSub.date = realT.date;
         existingSub.time = realT.time;
@@ -2177,12 +2175,13 @@ window.confirmBuySub = () => {
             customerName: name, customerPhone: phone, packageId: pkg.id, packageName: pkg.name,
             paidAmount: pkg.pay, totalValue: pkg.value, consumedAmount: 0, invoices: []
         };
+        // التدخل الجراحي: إضافة الاشتراك للمصفوفة المحلية
         if(!localData.subscriptions) localData.subscriptions = [];
         localData.subscriptions.push(sub);
         logMsg = `تفعيل الفئة ${pkg.name} للزبون ${name}`;
     }
     
-    // تسجيل الأموال فوراً في المسار المالي (payments)
+    // التدخل الجراحي: تسجيل الحركة المالية في المصفوفة المحلية
     const paymentId = 'PAY-' + realT.timestamp;
     const newPayment = {
         id: paymentId, timestamp: realT.timestamp, date: realT.date,
@@ -2191,14 +2190,27 @@ window.confirmBuySub = () => {
     if(!localData.payments) localData.payments = [];
     localData.payments.push(newPayment);
     
+    // التدخل الجراحي: حقن البيانات في السحابة فوراً وبدون استدعاء saveDataToCloud 
+    // لمنع التكرار (Race Condition)
     import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set, ref, update }) => {
         set(ref(window.db || database, 'royal_data/payments/' + paymentId), newPayment);
-        if (existingSubIndex > -1) update(ref(window.db || database, 'royal_data/subscriptions/' + subId), localData.subscriptions[existingSubIndex]);
-        else set(ref(window.db || database, 'royal_data/subscriptions/' + subId), localData.subscriptions[localData.subscriptions.length - 1]);
+        
+        if (existingSubIndex > -1) {
+             update(ref(window.db || database, 'royal_data/subscriptions/' + subId), localData.subscriptions[existingSubIndex]);
+        } else {
+             // نأخذ آخر عنصر أضفناه للتو
+             set(ref(window.db || database, 'royal_data/subscriptions/' + subId), localData.subscriptions[localData.subscriptions.length - 1]);
+        }
+        
+        // إعادة الحساب وتحديث الواجهة *فقط* بعد إرسال البيانات
+        window.recalculateDailySales();
+        updateUI();
     });
     
     window.logAction(actionType, logMsg, payAmount, { customerName: name, pkgName: pkg.name });
-    saveDataToCloud(); // يقوم بحساب الأرقام الجديدة للصندوق
+    
+    // 🚨 تم حذف saveDataToCloud() من هنا لأنها كانت تسبب الحفظ المضاعف
+    
     window.closeModals();
     window.showAlert(logMsg, 'success');
 };
