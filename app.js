@@ -329,11 +329,6 @@ window.recalculateDailySales = () => {
             else realCash += pay.amount; 
         }
     });
-    
-    // تحديث الأرقام بناءً على الحساب الواقعي 100%
-    localData.dailySalesCash = realCash;
-    localData.dailySalesElectronic = realElectronic;
-};
 
 function saveDataToCloud() {
     window.recalculateDailySales(); // فلتر الأمان: إعادة حساب الصندوق قبل الحفظ
