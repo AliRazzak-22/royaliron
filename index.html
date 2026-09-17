@@ -920,7 +920,32 @@
             </div>
         </div>
     </div>
-    
+    <!-- نافذة تعديل الاشتراك الشاملة (تعديل معلومات + ترقية) -->
+    <div id="modal-edit-sub" class="modal-overlay" style="z-index: 4000;">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-title" style="color: #f39c12;"><i class="fa-solid fa-user-pen"></i> تعديل اشتراك الزبون</div>
+            <input type="hidden" id="edit-sub-id">
+            <div class="input-group">
+                <label>اسم الزبون</label>
+                <input type="text" id="edit-sub-name">
+            </div>
+            <div class="input-group">
+                <label>رقم الهاتف</label>
+                <input type="tel" id="edit-sub-phone">
+            </div>
+            <div class="input-group">
+                <label>نوع الفئة (الباقة)</label>
+                <select id="edit-sub-package" style="font-weight: bold; padding: 12px;"></select>
+            </div>
+            <div id="edit-sub-upgrade-warning" style="display:none; color:var(--green-success); margin-bottom:15px; text-align:center; font-weight:bold; background:rgba(46, 213, 115, 0.1); padding:10px; border-radius:8px; border:1px solid var(--green-success);">
+                سيتم سحب مبلغ كاش: <span id="edit-sub-diff" style="font-size:20px;">0</span> د.ع كفرق للترقية.
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background:#f39c12; color:#fff;" onclick="window.saveEditedSub()">حفظ التعديلات</button>
+                <button class="btn btn-cancel" onclick="document.getElementById('modal-edit-sub').style.display='none'">إلغاء</button>
+            </div>
+        </div>
+    </div>
     <!-- 5. نافذة الآدمن لمشاهدة فواتير الزبون المشترك -->
     <div id="modal-admin-sub-invoices" class="modal-overlay" style="z-index: 4000;">
         <div class="modal-content invoices-list-modal" style="max-width: 800px;">
