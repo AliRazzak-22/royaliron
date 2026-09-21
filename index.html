@@ -32,6 +32,11 @@
     <div id="loading-screen">
         <i class="fa-solid fa-crown loading-icon"></i>
         <h2>جاري الاتصال بقاعدة بيانات رويال...</h2>
+        
+        <!-- زر الإنعاش للطوارئ في حالة تعليق الشاشة بسبب كاش المتصفح -->
+        <button class="top-bar-btn" style="margin-top: 20px; font-size: 16px; padding: 10px 20px; background: rgba(255,255,255,0.05); border-color: var(--text-gray); color: var(--gold); border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);" onclick="window.location.href = window.location.pathname + '?reload=' + Date.now()">
+            <i class="fa-solid fa-rotate-right"></i> إنعاش النظام (في حال التعليق)
+        </button>
     </div>
 
     <!-- الشاشة الرئيسية (اختيار الحساب) -->
@@ -547,9 +552,13 @@
                             <i class="fa-solid fa-palette stat-icon" style="color:var(--gold); font-size:32px;"></i>
                             <div class="stat-title" style="color:var(--text-white);">الاستوديو</div>
                         </button>
-                        <button class="stat-card" style="padding:20px; border-color:var(--red-danger); grid-column: span 2;" onclick="window.exitToMain()">
+                        <button class="stat-card" style="padding:20px; border-color:var(--green-success);" onclick="window.location.href = window.location.pathname + '?reload=' + Date.now()">
+                            <i class="fa-solid fa-rotate-right stat-icon" style="color:var(--green-success); font-size:32px;"></i>
+                            <div class="stat-title" style="color:var(--text-white);">تحديث النظام (إصلاح)</div>
+                        </button>
+                        <button class="stat-card" style="padding:20px; border-color:var(--red-danger);" onclick="window.exitToMain()">
                             <i class="fa-solid fa-right-from-bracket stat-icon" style="color:var(--red-danger); font-size:32px;"></i>
-                            <div class="stat-title" style="color:var(--red-danger); font-size:16px;">تسجيل خروج (قفل النظام)</div>
+                            <div class="stat-title" style="color:var(--red-danger);">قفل النظام</div>
                         </button>
                     </div>
                 </div>
