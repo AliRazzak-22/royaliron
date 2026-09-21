@@ -1956,36 +1956,20 @@ window.switchAdminTab = (tab, animationType = 'fade-in') => {
     if (!secureAdminToken) { window.exitToMain(); return window.showAlert('محاولة وصول غير مصرح بها!', 'error'); }
     sessionStorage.setItem('admin_tab', tab); 
     
-    // تنظيف الشاشات والأزرار من التفعيلات السابقة
     document.querySelectorAll('.admin-section').forEach(s => {
         s.classList.remove('active', 'slide-from-left', 'slide-from-right', 'fade-in');
     });
     document.querySelectorAll('.admin-nav-btn, .bottom-nav-btn').forEach(b => b.classList.remove('active')); 
     
-    // تفعيل الشاشة الجديدة مع حركة الانزلاق المناسبة
     const targetSection = document.getElementById(`admin-${tab}`);
     if (targetSection) {
-        targetSection.classList.add('active', animationType);
+        targetSection.classList.add('active');
+        if (animationType !== 'none') targetSection.classList.add(animationType);
     }
     
-    // تفعيل الزر برمجياً ليتلون بالذهبي (حتى لو تم التبديل بالسحب بدون لمس الزر)
     document.querySelectorAll(`.admin-nav-btn[onclick*="'${tab}'"], .bottom-nav-btn[onclick*="'${tab}'"]`).forEach(btn => {
         btn.classList.add('active');
     });
-    
-    if(tab === 'dashboard') window.updateAdminDashboard();
-    if(tab === 'logs') window.renderLogs();
-    if(tab === 'subscriptions' && window.renderAdminSubs) window.renderAdminSubs();
-    if(tab === 'settings') {
-        document.getElementById('set-name').value = localData.settings.name;
-        document.getElementById('set-phone').value = localData.settings.phone;
-        document.getElementById('set-address').value = localData.settings.address;
-    }
-    // إيقاظ محرك الاستوديو عند فتح تبويبه
-    if(tab === 'invoice-designer') {
-        window.initFabricStudio();
-    }
-};
 
 // --- التدخل الجراحي الشامل: محرك تقارير الآدمن والمحفظة المعصوم من الخطأ ---
 window.updateAdminDashboard = () => {
@@ -3942,148 +3926,132 @@ document.addEventListener('mouseover', (e) => {
 // --- محرك السحب الحي (Real-Time Swipe Engine) للآيفون ---
 // =========================================================
 let touchStartX = 0;
+let touchStartY = 0;
 let touchCurrentX = 0;
 let isSwiping = false;
-let activeSection = null;
+let swipeDirectionLocked = false;
+let activeSec = null;
+let nextSec = null;
+let prevSec = null;
+const tabsOrder = ['dashboard', 'debts', 'wallet', 'subscriptions', 'more-menu'];
 
 const adminScreenEl = document.getElementById('admin-screen');
 
 if (adminScreenEl) {
     adminScreenEl.addEventListener('touchstart', (e) => {
-        // حماية: عدم تفعيل السحب إذا كنا نسحب داخل جدول أو بطاقة أو نافذة منبثقة
-        if (e.target.closest('table, .invoices-table, .cart-table, [style*="overflow-x"], .modal-content, .discount-wrapper')) return;
+        // منع السحب إذا كان الإصبع على جداول، بطاقات، القوائم المنبثقة، أو شريط التنقل لتجنب الأخطاء
+        if (e.target.closest('table, .invoices-table, .cart-table, [style*="overflow-x"], .modal-content, .discount-wrapper, .mobile-bottom-nav')) return;
         
         touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
         isSwiping = true;
-        activeSection = document.querySelector('.admin-section.active');
+        swipeDirectionLocked = false;
         
-        // إيقاف الأنيميشن لكي تتحرك الشاشة مع الإصبع لحظياً
-        if (activeSection) {
-            activeSection.style.transition = 'none'; 
-        }
+        let currentTab = sessionStorage.getItem('admin_tab') || 'dashboard';
+        let currentIndex = tabsOrder.indexOf(currentTab);
+        
+        activeSec = document.getElementById('admin-' + currentTab);
+        // بناءً على طلبك: السحب لليسار يفتح التبويب التالي
+        nextSec = currentIndex < tabsOrder.length - 1 ? document.getElementById('admin-' + tabsOrder[currentIndex + 1]) : null; 
+        prevSec = currentIndex > 0 ? document.getElementById('admin-' + tabsOrder[currentIndex - 1]) : null; 
+        
+        [activeSec, nextSec, prevSec].forEach(sec => {
+            if(sec) {
+                sec.style.transition = 'none'; // إلغاء الأنيميشن لكي يتبع الإصبع لحظياً
+                sec.style.position = 'absolute';
+                sec.style.width = 'calc(100% - 30px)'; 
+                sec.style.top = '15px';
+                sec.style.opacity = '1';
+            }
+        });
     }, { passive: true });
 
     adminScreenEl.addEventListener('touchmove', (e) => {
-        if (!isSwiping || !activeSection) return;
+        if (!isSwiping) return;
         touchCurrentX = e.touches[0].clientX;
-        let diffX = touchCurrentX - touchStartX;
+        let touchCurrentY = e.touches[0].clientY;
         
-        // تحريك الشاشة الحالية مع الإصبع + إضافة شفافية تدريجية (Fade Out)
-        activeSection.style.transform = `translateX(${diffX}px)`;
-        activeSection.style.opacity = 1 - (Math.abs(diffX) / (window.innerWidth * 1.5));
+        let diffX = touchCurrentX - touchStartX;
+        let diffY = touchCurrentY - touchStartY;
+        
+        // قفل اتجاه السحب (يمنع السحب إذا كان الآدمن يتصفح للأعلى/الأسفل)
+        if (!swipeDirectionLocked) {
+            if (Math.abs(diffY) > Math.abs(diffX)) {
+                isSwiping = false; cleanupSwipe(); return;
+            }
+            if (Math.abs(diffX) > 10) swipeDirectionLocked = true;
+        }
+        if (!swipeDirectionLocked) return;
+
+        let screenW = window.innerWidth;
+        
+        // تحريك الشاشة الحالية وإعطائها شفافية كلما ابتعدت
+        if(activeSec) {
+            activeSec.style.transform = `translateX(${diffX}px)`;
+            activeSec.style.opacity = 1 - (Math.abs(diffX) / (screenW * 1.2));
+        }
+        
+        // حركة مرافقة للإصبع (Parallax Effect) للصفحة القادمة
+        if (diffX < 0 && nextSec) { // السحب لليسار (يُظهر الصفحة التالية)
+            nextSec.style.display = 'block';
+            nextSec.style.transform = `translateX(${diffX + screenW}px)`;
+            if(prevSec) prevSec.style.display = 'none';
+        } else if (diffX > 0 && prevSec) { // السحب لليمين (يُظهر الصفحة السابقة)
+            prevSec.style.display = 'block';
+            prevSec.style.transform = `translateX(${diffX - screenW}px)`;
+            if(nextSec) nextSec.style.display = 'none';
+        }
     }, { passive: true });
 
     adminScreenEl.addEventListener('touchend', (e) => {
-        if (!isSwiping || !activeSection) return;
+        if (!isSwiping || !swipeDirectionLocked) { cleanupSwipe(); return; }
         isSwiping = false;
         
         let diffX = touchCurrentX - touchStartX;
+        let screenW = window.innerWidth;
         
-        // إعادة تفعيل الأنيميشن الناعم للارتداد أو الانتقال
-        activeSection.style.transition = 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s';
+        let currentTab = sessionStorage.getItem('admin_tab') || 'dashboard';
+        let currentIndex = tabsOrder.indexOf(currentTab);
+        let targetTab = currentTab;
         
-        if (Math.abs(diffX) > 70) { // مسافة السحب المطلوبة لتغيير الشاشة (70 بكسل)
-            const tabsOrder = ['dashboard', 'debts', 'wallet', 'subscriptions', 'more-menu'];
-            let currentTab = sessionStorage.getItem('admin_tab') || 'dashboard';
-            let currentIndex = tabsOrder.indexOf(currentTab);
-            
-            // في اللغة العربية (RTL): السحب لليسار يفتح التبويب التالي، واليمين يفتح السابق
-            if (diffX < 0 && currentIndex < tabsOrder.length - 1) {
-                window.switchAdminTab(tabsOrder[currentIndex + 1], 'slide-from-left');
-            } else if (diffX > 0 && currentIndex > 0) {
-                window.switchAdminTab(tabsOrder[currentIndex - 1], 'slide-from-right');
-            } else {
-                // ارتداد مطاطي إذا كنا في أول أو آخر شاشة
-                activeSection.style.transform = 'translateX(0)';
-                activeSection.style.opacity = 1;
-            }
-        } else {
-            // ارتداد إذا كانت السحبة قصيرة ولم تكتمل
-            activeSection.style.transform = 'translateX(0)';
-            activeSection.style.opacity = 1;
+        // تفعيل النعومة للارتداد أو إكمال السحب
+        [activeSec, nextSec, prevSec].forEach(sec => {
+            if(sec) sec.style.transition = 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s';
+        });
+
+        // إذا كان السحب أكثر من 60 بكسل، نكمل الانتقال
+        if (diffX < -60 && nextSec) { 
+            activeSec.style.transform = `translateX(-${screenW}px)`;
+            activeSec.style.opacity = '0';
+            nextSec.style.transform = `translateX(0px)`;
+            targetTab = tabsOrder[currentIndex + 1];
+        } else if (diffX > 60 && prevSec) { 
+            activeSec.style.transform = `translateX(${screenW}px)`;
+            activeSec.style.opacity = '0';
+            prevSec.style.transform = `translateX(0px)`;
+            targetTab = tabsOrder[currentIndex - 1];
+        } else { // ارتداد مطاطي (لم يكمل السحب بشكل كافي)
+            if(activeSec) { activeSec.style.transform = `translateX(0px)`; activeSec.style.opacity = '1'; }
+            if(diffX < 0 && nextSec) nextSec.style.transform = `translateX(${screenW}px)`;
+            if(diffX > 0 && prevSec) prevSec.style.transform = `translateX(-${screenW}px)`;
         }
         
-        // تنظيف التحويلات بعد انتهاء الحركة
         setTimeout(() => {
-            if (activeSection) {
-                activeSection.style.transform = 'none';
-                activeSection.style.opacity = 1;
+            cleanupSwipe();
+            if (targetTab !== currentTab) {
+                window.switchAdminTab(targetTab, 'none'); // انتقال صامت لأننا قمنا بالحركة يدوياً
             }
         }, 300);
+        
     }, { passive: true });
-}
-// =========================================================
-// --- محرك النقر المطول (Long Press) والبطاقات الذكية للجوال ---
-// =========================================================
-let pressTimer;
-let isPressDragging = false;
-
-if (adminScreenEl) {
-    adminScreenEl.addEventListener('touchstart', (e) => {
-        isPressDragging = false;
-        // التقاط الصف (البطاقة) الملموسة
-        const tr = e.target.closest('tr');
-        // الفلتر: يعمل فقط في الجوال وفقط داخل جداول الآدمن
-        if (!tr || window.innerWidth > 768) return;
-
-        // بدء العداد للنقر المطول
-        pressTimer = setTimeout(() => {
-            if (isPressDragging) return;
-            
-            // استخراج خلية الإجراءات (الأخيرة) التي أخفيناها في CSS
-            const actionsTd = tr.querySelector('td:last-child');
-            if (actionsTd && actionsTd.innerHTML.trim() !== '') {
-                // تفعيل الاهتزاز الآيفوني (Haptic) لتنبيه الآدمن
-                if (navigator.vibrate) navigator.vibrate([50]);
-                
-                // إرسال محتوى الخلية للـ Bottom Sheet
-                window.openMobileActionSheet(actionsTd.innerHTML);
-                
-                // تأثير بصري للبطاقة ليعرف الآدمن أنه أمسكها بنجاح
-                tr.style.transform = 'scale(0.96)';
-                setTimeout(() => tr.style.transform = 'none', 200);
+    
+    function cleanupSwipe() {
+        [activeSec, nextSec, prevSec].forEach(sec => {
+            if(sec) {
+                sec.style.position = ''; sec.style.width = ''; sec.style.top = '';
+                sec.style.transform = ''; sec.style.transition = ''; sec.style.opacity = '';
+                sec.style.display = ''; // سيتم التحكم به عبر switchAdminTab
             }
-        }, 500); // 500 ملي ثانية ليعتبر نقراً مطولاً (Long Press)
-    }, { passive: true });
-
-    // إذا تحرك الإصبع (عملية سحب وتصفح عادية) نلغي النقر المطول
-    adminScreenEl.addEventListener('touchmove', () => {
-        isPressDragging = true;
-        clearTimeout(pressTimer);
-    }, { passive: true });
-
-    adminScreenEl.addEventListener('touchend', () => {
-        clearTimeout(pressTimer);
-    }, { passive: true });
+        });
+    }
 }
-
-// دوال التحكم بشاشة الإجراءات المنبثقة
-window.openMobileActionSheet = (htmlContent) => {
-    const sheet = document.getElementById('mobile-action-sheet');
-    const overlay = document.getElementById('mobile-action-sheet-overlay');
-    const container = document.getElementById('sheet-actions-container');
-    
-    // حقن الأزرار داخل الشاشة
-    container.innerHTML = htmlContent;
-    
-    // سحر هندسي: نأمر الأزرار والأيقونات بإغلاق النافذة تلقائياً بعد تنفيذ أوامرها!
-    container.querySelectorAll('i.action-icon, button').forEach(el => {
-        let oldClick = el.getAttribute('onclick') || '';
-        if(!oldClick.includes('closeActionSheet')) {
-            el.setAttribute('onclick', oldClick + '; window.closeActionSheet();');
-        }
-    });
-
-    overlay.style.display = 'flex';
-    // تفعيل موشن الصعود من الأسفل
-    setTimeout(() => sheet.style.transform = 'translateY(0)', 10);
-};
-
-window.closeActionSheet = () => {
-    const sheet = document.getElementById('mobile-action-sheet');
-    const overlay = document.getElementById('mobile-action-sheet-overlay');
-    
-    // حركة النزول للأسفل
-    sheet.style.transform = 'translateY(100%)';
-    setTimeout(() => overlay.style.display = 'none', 300); // انتظار انتهاء الموشن
-};
