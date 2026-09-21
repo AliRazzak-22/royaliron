@@ -857,8 +857,19 @@
         </div>
     </div>
 
-    <!-- حاوية الإشعارات المنزلقة (Toast Notifications) -->
+   <!-- حاوية الإشعارات المنزلقة (Toast Notifications) -->
     <div id="toast-container"></div>
+
+    <!-- نافذة الإجراءات المنبثقة للجوال (Bottom Sheet Context Menu) -->
+    <div id="mobile-action-sheet-overlay" class="modal-overlay" style="z-index: 9999; align-items: flex-end;" onclick="if(event.target === this) window.closeActionSheet()">
+        <div id="mobile-action-sheet" style="background: rgba(15, 15, 15, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--gold); border-radius: 30px 30px 0 0; padding: 15px 25px 40px; width: 100vw; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 -10px 40px rgba(0,0,0,0.8);">
+            <div style="width: 40px; height: 5px; background: #555; border-radius: 10px; margin: 0 auto 20px;"></div>
+            <h3 style="color:var(--text-gray); text-align:center; margin-bottom:20px; font-size:14px;">إجراءات القيد المحدد</h3>
+            <div id="sheet-actions-container" style="display: flex; flex-direction: column; gap: 15px;">
+                <!-- سيتم حقن الأزرار المخفية هنا برمجياً عند النقر المطول -->
+            </div>
+        </div>
+    </div>
 
     <!-- 6. إضافة خدمة جديدة (الكتالوج) -->
     <div id="modal-add-service" class="modal-overlay">
