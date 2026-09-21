@@ -315,13 +315,27 @@ async function initializeDB() {
         
         // --- استرجاع حالة الشاشة والتبويب بعد التحديث (الرفرش) ---
         const savedScreen = sessionStorage.getItem('active_screen');
+        const isMobileDevice = (window.innerWidth <= 768 || /iPhone|Android|iPad|webOS/i.test(navigator.userAgent));
+
         if (savedScreen === 'pos') {
             window.showPOS();
         } else if (savedScreen === 'admin') {
             // التدخل الجراحي: منع الدخول التلقائي للآدمن لحماية البيانات
             sessionStorage.removeItem('active_screen'); 
-            document.getElementById('main-screen').style.display = 'flex';
+            
+            if (isMobileDevice) {
+                document.getElementById('main-screen').style.display = 'none';
+                window.openAdminLogin();
+            } else {
+                document.getElementById('main-screen').style.display = 'flex';
+            }
             window.showAlert('تم إنهاء جلسة الآدمن لدواعي أمنية. يرجى تسجيل الدخول مجدداً.', 'warning');
+        } else {
+            // التوجيه الذكي الفوري: إذا فتح الرابط من الجوال لأول مرة
+            if (isMobileDevice) {
+                document.getElementById('main-screen').style.display = 'none';
+                window.openAdminLogin();
+            }
         }
     } catch (error) {
         console.error("Firebase Error:", error);
@@ -506,13 +520,7 @@ window.showPOS = () => {
     }
 };
 
-window.exitToMain = () => { 
-    sessionStorage.removeItem('active_screen'); // تفريغ الذاكرة
-    sessionStorage.removeItem('admin_tab');
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen')); 
-    document.getElementById('main-screen').style.display = 'flex'; 
-    
-    // --- إلغاء ملء الشاشة وتحرير الشاشة عند الخروج للرئيسية ---
+window.exitToMain
     if(document.fullscreenElement && document.exitFullscreen) {
         document.exitFullscreen().catch(e => console.log(e));
     }
@@ -1934,10 +1942,16 @@ function animateValue(obj, start, end, duration) {
 window.switchAdminTab = (tab) => {
     if (!secureAdminToken) { window.exitToMain(); return window.showAlert('محاولة وصول غير مصرح بها!', 'error'); }
     sessionStorage.setItem('admin_tab', tab); // حفظ التبويب المحدد
+    
     document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.admin-nav-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(`admin-${tab}`).classList.add('active');
-    event.target.classList.add('active');
+    document.querySelectorAll('.bottom-nav-btn').forEach(b => b.classList.remove('active')); // للآيفون
+    
+    const targetSection = document.getElementById(`admin-${tab}`);
+    if (targetSection) targetSection.classList.add('active');
+    
+    // تفعيل الزر الملموس (سواء كان في الكمبيوتر أو الجوال)
+    if (event && event.currentTarget) event.currentTarget.classList.add('active');
     
     if(tab === 'dashboard') window.updateAdminDashboard();
     if(tab === 'logs') window.renderLogs();
