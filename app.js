@@ -520,7 +520,20 @@ window.showPOS = () => {
     }
 };
 
-window.exitToMain
+window.exitToMain = () => { 
+    sessionStorage.removeItem('active_screen'); // تفريغ الذاكرة
+    sessionStorage.removeItem('admin_tab');
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen')); 
+    
+    // التوجيه الذكي: عند الخروج من الجوال لا ترجع لشاشة البداية أبداً!
+    if (window.innerWidth <= 768 || /iPhone|Android|webOS/i.test(navigator.userAgent)) {
+        document.getElementById('main-screen').style.display = 'none';
+        window.openAdminLogin();
+    } else {
+        document.getElementById('main-screen').style.display = 'flex'; 
+    }
+    
+    // --- إلغاء ملء الشاشة وتحرير الشاشة عند الخروج للرئيسية ---
     if(document.fullscreenElement && document.exitFullscreen) {
         document.exitFullscreen().catch(e => console.log(e));
     }
