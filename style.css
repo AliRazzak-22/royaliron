@@ -598,17 +598,10 @@ input, select { outline: none; }
     .items-section-container { order: 1; min-width: 100%; max-width: 100%; flex: none; height: 45vh; }
     .items-section { padding: 10px; gap: 10px; }
     
-    /* 3. شاشة الآدمن (إزالة الفراغ الأسود الشبح وتصحيح المسافات) */
-    .admin-layout { flex-direction: column; display: flex; }
-    .admin-sidebar { 
-        width: 100%; flex-direction: row; flex-wrap: wrap; justify-content: center; 
-        padding: 10px; border-left: none; border-bottom: 2px solid var(--gold); gap: 5px;
-        background: var(--dark-gray);
-    }
-    .admin-sidebar-logo { display: none !important; } /* إخفاء الشبح الأسود نهائياً */
-    .admin-nav-btn { flex: 1 1 calc(33% - 10px); font-size: 13px; padding: 8px; text-align: center; border-right: none !important; border-radius: 5px; margin: 0; }
-    .admin-nav-btn.active { background: rgba(212, 175, 55, 0.2); border-bottom: 2px solid var(--gold); }
-    .admin-content { padding: 15px !important; padding-bottom: 150px !important; min-height: 100vh; }
+   /* 3. شاشة الآدمن (إخفاء القائمة الجانبية القديمة وتجهيز الشاشة للشريط السفلي) */
+    .admin-layout { flex-direction: column; display: block; }
+    .admin-sidebar { display: none !important; } /* إخفاء القائمة العلوية/الجانبية تماماً في الجوال */
+    .admin-content { padding: 15px !important; padding-bottom: 90px !important; min-height: 100vh; }
     .admin-section h2 { margin-bottom: 15px !important; font-size: 18px !important; text-align: center; }
     
     /* 4. الحل القطعي لمشكلة حشر الجداول (مخصص للآدمن فقط لحماية الكاشير) */
@@ -952,3 +945,40 @@ input, select { outline: none; }
 .hamburger-item i { font-size: 18px; width: 20px; text-align: center; }
 .hamburger-item:hover { background: rgba(212, 175, 55, 0.15); color: var(--gold); padding-right: 18px; }
 @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+/* ========================================================= */
+/* --- شريط التنقل السفلي الخاص بالجوال (Bottom Navigation) --- */
+/* ========================================================= */
+.mobile-bottom-nav { display: none; }
+
+@media (max-width: 768px) {
+    .mobile-bottom-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0; left: 0;
+        width: 100vw; height: 75px;
+        background: rgba(10, 10, 10, 0.92);
+        backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+        border-top: 1px solid rgba(212, 175, 55, 0.2);
+        z-index: 9000;
+        justify-content: space-around; align-items: center;
+        padding-bottom: env(safe-area-inset-bottom); /* دعم هواتف الآيفون بدون حواف أسفل الشاشة */
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.6);
+    }
+    
+    .bottom-nav-btn {
+        background: transparent; color: var(--text-gray); border: none;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+        flex: 1; height: 100%; transition: var(--transition);
+    }
+    
+    .bottom-nav-btn i { font-size: 22px; transition: var(--transition); }
+    .bottom-nav-btn span { font-size: 11px; font-weight: 700; font-family: var(--main-font); }
+    
+    .bottom-nav-btn.active { color: var(--gold); }
+    .bottom-nav-btn.active i {
+        transform: translateY(-4px) scale(1.1);
+        color: var(--gold);
+        text-shadow: 0 5px 12px rgba(212, 175, 55, 0.6);
+    }
+}
+
