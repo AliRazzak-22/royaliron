@@ -3939,51 +3939,77 @@ document.addEventListener('mouseover', (e) => {
     }
 });
 // =========================================================
-// --- محرك السحب الذكي (Swipe Engine) للآيفون والجوال ---
+// --- محرك السحب الحي (Real-Time Swipe Engine) للآيفون ---
 // =========================================================
 let touchStartX = 0;
-let touchStartY = 0;
+let touchCurrentX = 0;
+let isSwiping = false;
+let activeSection = null;
 
 const adminScreenEl = document.getElementById('admin-screen');
 
 if (adminScreenEl) {
     adminScreenEl.addEventListener('touchstart', (e) => {
-        touchStartX = e.changedTouches[0].screenX;
-        touchStartY = e.changedTouches[0].screenY;
+        // حماية: عدم تفعيل السحب إذا كنا نسحب داخل جدول أو بطاقة أو نافذة منبثقة
+        if (e.target.closest('table, .invoices-table, .cart-table, [style*="overflow-x"], .modal-content, .discount-wrapper')) return;
+        
+        touchStartX = e.touches[0].clientX;
+        isSwiping = true;
+        activeSection = document.querySelector('.admin-section.active');
+        
+        // إيقاف الأنيميشن لكي تتحرك الشاشة مع الإصبع لحظياً
+        if (activeSection) {
+            activeSection.style.transition = 'none'; 
+        }
+    }, { passive: true });
+
+    adminScreenEl.addEventListener('touchmove', (e) => {
+        if (!isSwiping || !activeSection) return;
+        touchCurrentX = e.touches[0].clientX;
+        let diffX = touchCurrentX - touchStartX;
+        
+        // تحريك الشاشة الحالية مع الإصبع + إضافة شفافية تدريجية (Fade Out)
+        activeSection.style.transform = `translateX(${diffX}px)`;
+        activeSection.style.opacity = 1 - (Math.abs(diffX) / (window.innerWidth * 1.5));
     }, { passive: true });
 
     adminScreenEl.addEventListener('touchend', (e) => {
-        // حماية هندسية: إذا كان الإصبع يقلب داخل جدول أو مربع قابل للسحب، نلغي تبديل الشاشات!
-        if (e.target.closest('table, .invoices-table, .cart-table, [style*="overflow-x"]')) return;
-
-        let touchEndX = e.changedTouches[0].screenX;
-        let touchEndY = e.changedTouches[0].screenY;
-
-        let diffX = touchEndX - touchStartX;
-        let diffY = touchEndY - touchStartY;
-
-        // التأكد أن السحب أفقي صريح (وليس نزولاً للأسفل) وأن المسافة كافية لعدم التبديل بالخطأ
-        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 60) {
-            
-            // ترتيب التبويبات الفعلي في الشريط السفلي (من اليمين لليسار)
+        if (!isSwiping || !activeSection) return;
+        isSwiping = false;
+        
+        let diffX = touchCurrentX - touchStartX;
+        
+        // إعادة تفعيل الأنيميشن الناعم للارتداد أو الانتقال
+        activeSection.style.transition = 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s';
+        
+        if (Math.abs(diffX) > 70) { // مسافة السحب المطلوبة لتغيير الشاشة (70 بكسل)
             const tabsOrder = ['dashboard', 'debts', 'wallet', 'subscriptions', 'more-menu'];
             let currentTab = sessionStorage.getItem('admin_tab') || 'dashboard';
             let currentIndex = tabsOrder.indexOf(currentTab);
             
-            if (currentIndex === -1) return; // إذا كنا داخل شاشة غير مدعومة
-
-            if (diffX > 0) {
-                // سحب الشاشة لليمين (لإظهار ما هو على اليسار) -> التبويب التالي
-                if (currentIndex < tabsOrder.length - 1) {
-                    window.switchAdminTab(tabsOrder[currentIndex + 1], 'slide-from-left');
-                }
+            // في اللغة العربية (RTL): السحب لليسار يفتح التبويب التالي، واليمين يفتح السابق
+            if (diffX < 0 && currentIndex < tabsOrder.length - 1) {
+                window.switchAdminTab(tabsOrder[currentIndex + 1], 'slide-from-left');
+            } else if (diffX > 0 && currentIndex > 0) {
+                window.switchAdminTab(tabsOrder[currentIndex - 1], 'slide-from-right');
             } else {
-                // سحب الشاشة لليسار (لإظهار ما هو على اليمين) -> التبويب السابق
-                if (currentIndex > 0) {
-                    window.switchAdminTab(tabsOrder[currentIndex - 1], 'slide-from-right');
-                }
+                // ارتداد مطاطي إذا كنا في أول أو آخر شاشة
+                activeSection.style.transform = 'translateX(0)';
+                activeSection.style.opacity = 1;
             }
+        } else {
+            // ارتداد إذا كانت السحبة قصيرة ولم تكتمل
+            activeSection.style.transform = 'translateX(0)';
+            activeSection.style.opacity = 1;
         }
+        
+        // تنظيف التحويلات بعد انتهاء الحركة
+        setTimeout(() => {
+            if (activeSection) {
+                activeSection.style.transform = 'none';
+                activeSection.style.opacity = 1;
+            }
+        }, 300);
     }, { passive: true });
 }
 // =========================================================
