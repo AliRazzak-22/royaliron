@@ -618,13 +618,53 @@ input, select { outline: none; }
     .admin-content { padding: 15px !important; padding-bottom: 90px !important; min-height: 100vh; }
     .admin-section h2 { margin-bottom: 15px !important; font-size: 18px !important; text-align: center; }
     
-    /* 4. الحل القطعي لمشكلة حشر الجداول (مخصص للآدمن فقط لحماية الكاشير) */
+    /* 4. تدمير الجداول في الجوال وتحويلها إلى (البطاقات الذكية) - لا يؤثر على الكمبيوتر */
     .admin-section { overflow-x: hidden !important; }
+    
     #admin-screen .cart-table, #admin-screen .invoices-table { 
-        display: block !important; width: 100% !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important;
+        display: block !important; width: 100% !important; border: none !important; background: transparent !important;
     }
-    #admin-screen .cart-table th, #admin-screen .cart-table td, #admin-screen .invoices-table th, #admin-screen .invoices-table td {
-        white-space: nowrap !important; min-width: 150px !important; text-align: center !important;
+    #admin-screen .cart-table thead, #admin-screen .invoices-table thead { 
+        display: none !important; /* إخفاء عناوين الجدول المزعجة */
+    }
+    #admin-screen .cart-table tbody, #admin-screen .invoices-table tbody { 
+        display: block !important; width: 100% !important;
+    }
+    
+    /* تصميم البطاقة الذكية */
+    #admin-screen .cart-table tr, #admin-screen .invoices-table tr {
+        display: flex !important; flex-wrap: wrap !important; align-items: center !important; justify-content: space-between !important;
+        background: rgba(26, 26, 26, 0.9) !important; border-radius: 16px !important; margin-bottom: 15px !important;
+        padding: 15px !important; border: 1px solid rgba(212, 175, 55, 0.15) !important; position: relative !important;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.4) !important;
+        transition: transform 0.2s; /* لحركة النقر المطول */
+    }
+    
+    /* علامة (ثلاث نقاط) تلميحية في زاوية البطاقة للإشارة لوجود إجراءات بالنقر المطول */
+    #admin-screen .cart-table tr::after, #admin-screen .invoices-table tr::after {
+        content: "\f142"; font-family: "Font Awesome 6 Free"; font-weight: 900;
+        position: absolute; left: 20px; top: 20px; color: var(--text-gray); font-size: 16px; opacity: 0.4;
+    }
+
+    #admin-screen .cart-table td, #admin-screen .invoices-table td {
+        display: block !important; border: none !important; padding: 5px 0 !important; 
+        text-align: right !important; white-space: normal !important; min-width: unset !important;
+    }
+    
+    /* إخفاء الخلية الأخيرة (الإجراءات) ليتم سحبها برمجياً عبر النقر المطول */
+    #admin-screen .cart-table td:last-child, #admin-screen .invoices-table td:last-child {
+        display: none !important;
+    }
+
+    /* توزيع داخلي ذكي لمحتوى البطاقة (الاسم والمبلغ يأخذان الصدارة) */
+    #admin-screen .cart-table td:nth-child(1), #admin-screen .invoices-table td:nth-child(1) {
+        flex: 1 1 100% !important; font-size: 12px !important; color: var(--text-gray) !important; margin-bottom: 5px !important;
+    }
+    #admin-screen .cart-table td:nth-child(2), #admin-screen .invoices-table td:nth-child(2) {
+        flex: 1 1 100% !important; font-size: 18px !important; font-weight: 900 !important; color: var(--gold) !important; margin-bottom: 8px !important;
+    }
+    #admin-screen .cart-table td:nth-child(n+3), #admin-screen .invoices-table td:nth-child(n+3) {
+        flex: 1 1 45% !important; font-size: 14px !important; color: var(--text-white) !important;
     }
     /* 5. ترتيب خلايا الإحصائيات لتكون عمودية وأنيقة 100% */
     #admin-dashboard div[style*="grid-template-columns"] { 
@@ -995,4 +1035,16 @@ input, select { outline: none; }
         text-shadow: 0 5px 12px rgba(212, 175, 55, 0.6);
     }
 }
-
+/* تنسيقات أزرار الـ Bottom Sheet في الجوال */
+#sheet-actions-container i.action-icon {
+    display: flex !important; align-items: center; gap: 15px;
+    background: var(--light-gray); padding: 15px; border-radius: 12px;
+    font-size: 18px; color: var(--text-white) !important; font-family: var(--main-font);
+    font-style: normal; text-decoration: none; width: 100%; margin: 0; cursor: pointer;
+}
+/* سحر CSS: تحويل أيقونات الكمبيوتر الصغيرة إلى أزرار نصية عريضة في الجوال */
+#sheet-actions-container i.fa-eye::after { content: " عرض التفاصيل"; font-family: var(--main-font); font-weight: bold; }
+#sheet-actions-container i.fa-pen::after { content: " تعديل البيانات"; font-family: var(--main-font); font-weight: bold; }
+#sheet-actions-container i.fa-trash::after { content: " حذف القيد نهائياً"; font-family: var(--main-font); color: var(--red-danger); font-weight: bold; }
+#sheet-actions-container i.fa-trash { border: 1px solid rgba(255, 71, 87, 0.3); background: rgba(255, 71, 87, 0.05); }
+#sheet-actions-container button { width: 100% !important; padding: 15px !important; font-size: 16px !important; border-radius: 12px !important; margin: 0 !important; }
