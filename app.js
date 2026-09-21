@@ -1970,6 +1970,7 @@ window.switchAdminTab = (tab, animationType = 'fade-in') => {
     document.querySelectorAll(`.admin-nav-btn[onclick*="'${tab}'"], .bottom-nav-btn[onclick*="'${tab}'"]`).forEach(btn => {
         btn.classList.add('active');
     });
+}; // <--- هذا هو القوس المفقود الذي أصلحنا به الخلل
 
 // --- التدخل الجراحي الشامل: محرك تقارير الآدمن والمحفظة المعصوم من الخطأ ---
 window.updateAdminDashboard = () => {
