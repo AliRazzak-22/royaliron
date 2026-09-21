@@ -432,7 +432,21 @@ input, select { outline: none; }
 .stat-value { font-size: 28px; font-weight: 900; color: var(--text-white); }
 .stat-value.profit { color: var(--green-success); font-size: 32px; }
 .admin-section { display: none; }
-.admin-section.active { display: block; animation: fadeIn 0.4s; }
+.admin-section.active { display: block; } /* تم نقل الأنيميشن للتحكم به عبر الجافاسكريبت */
+
+/* حركات التمرير (Swipe Animations) للسلاسة */
+.fade-in { animation: fadeIn 0.3s ease-out; }
+.slide-from-left { animation: slideFromLeft 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
+.slide-from-right { animation: slideFromRight 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
+
+@keyframes slideFromLeft {
+    from { transform: translateX(-40px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+@keyframes slideFromRight {
+    from { transform: translateX(40px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
 
 /* تنسيق طباعة الفاتورة (A5 - Xerox) */
 #print-area { display: none; }
