@@ -1939,19 +1939,26 @@ function animateValue(obj, start, end, duration) {
 }
 
 // ---------------- وظائف الآدمن ----------------
-window.switchAdminTab = (tab) => {
+window.switchAdminTab = (tab, animationType = 'fade-in') => {
     if (!secureAdminToken) { window.exitToMain(); return window.showAlert('محاولة وصول غير مصرح بها!', 'error'); }
-    sessionStorage.setItem('admin_tab', tab); // حفظ التبويب المحدد
+    sessionStorage.setItem('admin_tab', tab); 
     
-    document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
-    document.querySelectorAll('.admin-nav-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.bottom-nav-btn').forEach(b => b.classList.remove('active')); // للآيفون
+    // تنظيف الشاشات والأزرار من التفعيلات السابقة
+    document.querySelectorAll('.admin-section').forEach(s => {
+        s.classList.remove('active', 'slide-from-left', 'slide-from-right', 'fade-in');
+    });
+    document.querySelectorAll('.admin-nav-btn, .bottom-nav-btn').forEach(b => b.classList.remove('active')); 
     
+    // تفعيل الشاشة الجديدة مع حركة الانزلاق المناسبة
     const targetSection = document.getElementById(`admin-${tab}`);
-    if (targetSection) targetSection.classList.add('active');
+    if (targetSection) {
+        targetSection.classList.add('active', animationType);
+    }
     
-    // تفعيل الزر الملموس (سواء كان في الكمبيوتر أو الجوال)
-    if (event && event.currentTarget) event.currentTarget.classList.add('active');
+    // تفعيل الزر برمجياً ليتلون بالذهبي (حتى لو تم التبديل بالسحب بدون لمس الزر)
+    document.querySelectorAll(`.admin-nav-btn[onclick*="'${tab}'"], .bottom-nav-btn[onclick*="'${tab}'"]`).forEach(btn => {
+        btn.classList.add('active');
+    });
     
     if(tab === 'dashboard') window.updateAdminDashboard();
     if(tab === 'logs') window.renderLogs();
@@ -3918,3 +3925,51 @@ document.addEventListener('mouseover', (e) => {
         target.removeAttribute('title'); 
     }
 });
+// =========================================================
+// --- محرك السحب الذكي (Swipe Engine) للآيفون والجوال ---
+// =========================================================
+let touchStartX = 0;
+let touchStartY = 0;
+
+const adminScreenEl = document.getElementById('admin-screen');
+
+if (adminScreenEl) {
+    adminScreenEl.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    adminScreenEl.addEventListener('touchend', (e) => {
+        // حماية هندسية: إذا كان الإصبع يقلب داخل جدول أو مربع قابل للسحب، نلغي تبديل الشاشات!
+        if (e.target.closest('table, .invoices-table, .cart-table, [style*="overflow-x"]')) return;
+
+        let touchEndX = e.changedTouches[0].screenX;
+        let touchEndY = e.changedTouches[0].screenY;
+
+        let diffX = touchEndX - touchStartX;
+        let diffY = touchEndY - touchStartY;
+
+        // التأكد أن السحب أفقي صريح (وليس نزولاً للأسفل) وأن المسافة كافية لعدم التبديل بالخطأ
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 60) {
+            
+            // ترتيب التبويبات الفعلي في الشريط السفلي (من اليمين لليسار)
+            const tabsOrder = ['dashboard', 'debts', 'wallet', 'subscriptions', 'more-menu'];
+            let currentTab = sessionStorage.getItem('admin_tab') || 'dashboard';
+            let currentIndex = tabsOrder.indexOf(currentTab);
+            
+            if (currentIndex === -1) return; // إذا كنا داخل شاشة غير مدعومة
+
+            if (diffX > 0) {
+                // سحب الشاشة لليمين (لإظهار ما هو على اليسار) -> التبويب التالي
+                if (currentIndex < tabsOrder.length - 1) {
+                    window.switchAdminTab(tabsOrder[currentIndex + 1], 'slide-from-left');
+                }
+            } else {
+                // سحب الشاشة لليسار (لإظهار ما هو على اليمين) -> التبويب السابق
+                if (currentIndex > 0) {
+                    window.switchAdminTab(tabsOrder[currentIndex - 1], 'slide-from-right');
+                }
+            }
+        }
+    }, { passive: true });
+}
