@@ -3973,3 +3973,78 @@ if (adminScreenEl) {
         }
     }, { passive: true });
 }
+// =========================================================
+// --- محرك النقر المطول (Long Press) والبطاقات الذكية للجوال ---
+// =========================================================
+let pressTimer;
+let isPressDragging = false;
+
+if (adminScreenEl) {
+    adminScreenEl.addEventListener('touchstart', (e) => {
+        isPressDragging = false;
+        // التقاط الصف (البطاقة) الملموسة
+        const tr = e.target.closest('tr');
+        // الفلتر: يعمل فقط في الجوال وفقط داخل جداول الآدمن
+        if (!tr || window.innerWidth > 768) return;
+
+        // بدء العداد للنقر المطول
+        pressTimer = setTimeout(() => {
+            if (isPressDragging) return;
+            
+            // استخراج خلية الإجراءات (الأخيرة) التي أخفيناها في CSS
+            const actionsTd = tr.querySelector('td:last-child');
+            if (actionsTd && actionsTd.innerHTML.trim() !== '') {
+                // تفعيل الاهتزاز الآيفوني (Haptic) لتنبيه الآدمن
+                if (navigator.vibrate) navigator.vibrate([50]);
+                
+                // إرسال محتوى الخلية للـ Bottom Sheet
+                window.openMobileActionSheet(actionsTd.innerHTML);
+                
+                // تأثير بصري للبطاقة ليعرف الآدمن أنه أمسكها بنجاح
+                tr.style.transform = 'scale(0.96)';
+                setTimeout(() => tr.style.transform = 'none', 200);
+            }
+        }, 500); // 500 ملي ثانية ليعتبر نقراً مطولاً (Long Press)
+    }, { passive: true });
+
+    // إذا تحرك الإصبع (عملية سحب وتصفح عادية) نلغي النقر المطول
+    adminScreenEl.addEventListener('touchmove', () => {
+        isPressDragging = true;
+        clearTimeout(pressTimer);
+    }, { passive: true });
+
+    adminScreenEl.addEventListener('touchend', () => {
+        clearTimeout(pressTimer);
+    }, { passive: true });
+}
+
+// دوال التحكم بشاشة الإجراءات المنبثقة
+window.openMobileActionSheet = (htmlContent) => {
+    const sheet = document.getElementById('mobile-action-sheet');
+    const overlay = document.getElementById('mobile-action-sheet-overlay');
+    const container = document.getElementById('sheet-actions-container');
+    
+    // حقن الأزرار داخل الشاشة
+    container.innerHTML = htmlContent;
+    
+    // سحر هندسي: نأمر الأزرار والأيقونات بإغلاق النافذة تلقائياً بعد تنفيذ أوامرها!
+    container.querySelectorAll('i.action-icon, button').forEach(el => {
+        let oldClick = el.getAttribute('onclick') || '';
+        if(!oldClick.includes('closeActionSheet')) {
+            el.setAttribute('onclick', oldClick + '; window.closeActionSheet();');
+        }
+    });
+
+    overlay.style.display = 'flex';
+    // تفعيل موشن الصعود من الأسفل
+    setTimeout(() => sheet.style.transform = 'translateY(0)', 10);
+};
+
+window.closeActionSheet = () => {
+    const sheet = document.getElementById('mobile-action-sheet');
+    const overlay = document.getElementById('mobile-action-sheet-overlay');
+    
+    // حركة النزول للأسفل
+    sheet.style.transform = 'translateY(100%)';
+    setTimeout(() => overlay.style.display = 'none', 300); // انتظار انتهاء الموشن
+};
