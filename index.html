@@ -526,10 +526,58 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- قسم "المزيد" المخصص للجوال (يحتوي باقي الأزرار) -->
+                <div id="admin-more-menu" class="admin-section" style="padding-top: 20px;">
+                    <h2 style="color:var(--gold); margin-bottom: 25px; text-align:center;">المزيد من الخيارات</h2>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <button class="stat-card" style="padding:20px; border-color:#4a90e2;" onclick="window.switchAdminTab('logs')">
+                            <i class="fa-solid fa-clock-rotate-left stat-icon" style="color:#4a90e2; font-size:32px;"></i>
+                            <div class="stat-title" style="color:var(--text-white);">سجل الحركات</div>
+                        </button>
+                        <button class="stat-card" style="padding:20px; border-color:var(--red-danger);" onclick="window.switchAdminTab('costs')">
+                            <i class="fa-solid fa-building-columns stat-icon" style="color:var(--red-danger); font-size:32px;"></i>
+                            <div class="stat-title" style="color:var(--text-white);">التكاليف الثابتة</div>
+                        </button>
+                        <button class="stat-card" style="padding:20px; border-color:var(--text-gray);" onclick="window.switchAdminTab('settings')">
+                            <i class="fa-solid fa-gears stat-icon" style="color:var(--text-gray); font-size:32px;"></i>
+                            <div class="stat-title" style="color:var(--text-white);">التخصيصات</div>
+                        </button>
+                        <button class="stat-card" style="padding:20px; border-color:var(--gold);" onclick="window.switchAdminTab('invoice-designer')">
+                            <i class="fa-solid fa-palette stat-icon" style="color:var(--gold); font-size:32px;"></i>
+                            <div class="stat-title" style="color:var(--text-white);">الاستوديو</div>
+                        </button>
+                        <button class="stat-card" style="padding:20px; border-color:var(--red-danger); grid-column: span 2;" onclick="window.exitToMain()">
+                            <i class="fa-solid fa-right-from-bracket stat-icon" style="color:var(--red-danger); font-size:32px;"></i>
+                            <div class="stat-title" style="color:var(--red-danger); font-size:16px;">تسجيل خروج (قفل النظام)</div>
+                        </button>
+                    </div>
+                </div>
 
             </div> <!-- إغلاق admin-content -->
         </div>
+
+        <!-- شريط التنقل السفلي الخاص بالجوال (مخفي في الكمبيوتر) -->
+        <div id="mobile-bottom-nav" class="mobile-bottom-nav">
+            <button class="bottom-nav-btn active" onclick="window.switchAdminTab('dashboard')">
+                <i class="fa-solid fa-chart-pie"></i><span>الملخص</span>
+            </button>
+            <button class="bottom-nav-btn" onclick="window.switchAdminTab('debts')">
+                <i class="fa-solid fa-address-book"></i><span>الديون</span>
+            </button>
+            <button class="bottom-nav-btn" onclick="window.switchAdminTab('wallet')">
+                <i class="fa-solid fa-wallet"></i><span>المحفظة</span>
+            </button>
+            <button class="bottom-nav-btn" onclick="window.switchAdminTab('subscriptions')">
+                <i class="fa-solid fa-id-card-clip"></i><span>الاشتراكات</span>
+            </button>
+            <button class="bottom-nav-btn" onclick="window.switchAdminTab('more-menu')">
+                <i class="fa-solid fa-bars"></i><span>المزيد</span>
+            </button>
+        </div>
     </div>
+           
+  
            
     <!-- نافذة تفاصيل الصرفيات الخاصة بالآدمن -->
     <div id="modal-admin-expenses" class="modal-overlay">
