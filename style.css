@@ -666,11 +666,45 @@ input, select { outline: none; }
     #admin-screen .cart-table td:nth-child(n+3), #admin-screen .invoices-table td:nth-child(n+3) {
         flex: 1 1 45% !important; font-size: 14px !important; color: var(--text-white) !important;
     }
-    /* 5. ترتيب خلايا الإحصائيات لتكون عمودية وأنيقة 100% */
-    #admin-dashboard div[style*="grid-template-columns"] { 
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 15px !important; 
+   /* 5. التصميم المصرفي الذكي لخلايا الملخص المالي (مربعات متجاورة) */
+    #admin-dashboard .stats-grid { 
+        display: grid !important; 
+        grid-template-columns: 1fr 1fr !important; /* عمودين لتقليل المساحة */
+        gap: 10px !important; 
+        flex-direction: row !important;
+    }
+    .stat-card { padding: 12px 8px !important; border-radius: 12px !important; }
+    .stat-icon { font-size: 24px !important; margin-bottom: 8px !important; }
+    .stat-title { font-size: 11px !important; margin-bottom: 5px !important; line-height: 1.2; }
+    .stat-value { font-size: 15px !important; }
+    .stat-value.profit { font-size: 18px !important; }
+    .stat-card[style*="grid-column: span 2"] { grid-column: span 2 !important; }
+
+    /* 6. تدمير جدول الصرفيات وتحويله لبطاقات أنيقة */
+    #modal-admin-expenses .invoices-table { display: block !important; width: 100% !important; border: none !important; }
+    #modal-admin-expenses .invoices-table thead { display: none !important; }
+    #modal-admin-expenses .invoices-table tbody { display: block !important; width: 100% !important; }
+    
+    #modal-admin-expenses .invoices-table tr {
+        display: flex !important; flex-wrap: wrap !important; align-items: center !important; justify-content: space-between !important;
+        background: rgba(26, 26, 26, 0.9) !important; border-radius: 14px !important; margin-bottom: 12px !important;
+        padding: 12px !important; border: 1px solid rgba(255, 71, 87, 0.2) !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+    }
+    
+    #modal-admin-expenses .invoices-table td { 
+        display: block !important; border: none !important; padding: 2px 0 !important; text-align: right !important; 
+    }
+    
+    /* توزيع داخلي لبطاقة الصرفيات */
+    #modal-admin-expenses .invoices-table td:nth-child(1) { flex: 1 1 100% !important; font-size: 11px !important; color: var(--text-gray) !important; }
+    #modal-admin-expenses .invoices-table td:nth-child(2) { flex: 1 1 50% !important; font-size: 12px !important; color: var(--gold) !important; font-weight: bold !important; }
+    #modal-admin-expenses .invoices-table td:nth-child(3) { flex: 1 1 100% !important; font-size: 14px !important; color: var(--text-white) !important; margin: 4px 0 8px !important; }
+    
+    /* المبلغ في الجهة اليسرى العلوية للبطاقة */
+    #modal-admin-expenses .invoices-table td:nth-child(4) { 
+        flex: 1 1 50% !important; font-size: 16px !important; color: var(--red-danger) !important; 
+        font-weight: 900 !important; text-align: left !important; margin-top: -30px !important; 
     }
     .stat-card { padding: 15px !important; width: 100% !important; }
     .stat-icon { font-size: 28px !important; margin-bottom: 5px !important; }
