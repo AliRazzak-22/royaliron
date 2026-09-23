@@ -439,6 +439,8 @@ function saveDataToCloud() {
         updates['royal_data/settings/name'] = localData.settings.name;
         updates['royal_data/settings/phone'] = localData.settings.phone;
         updates['royal_data/settings/address'] = localData.settings.address;
+        if(localData.settings.invoiceTemplate) updates['royal_data/settings/invoiceTemplate'] = localData.settings.invoiceTemplate;
+        if(localData.settings.shiftTemplate) updates['royal_data/settings/shiftTemplate'] = localData.settings.shiftTemplate;
     }
 
     update(ref(database), updates).then(() => {
@@ -2517,9 +2519,9 @@ window.switchDesignerTab = (mode) => {
     let loadedDesign = designCache[mode];
     if(!loadedDesign) {
         if (mode === 'invoice') {
-            loadedDesign = localStorage.getItem('royal_fabric_template') || localData.settings?.invoiceTemplate;
+            loadedDesign = localData.settings?.invoiceTemplate || localStorage.getItem('royal_fabric_template');
         } else {
-            loadedDesign = localStorage.getItem('royal_shift_template') || localData.settings?.shiftTemplate;
+            loadedDesign = localData.settings?.shiftTemplate || localStorage.getItem('royal_shift_template');
         }
     }
 
@@ -2779,28 +2781,6 @@ window.fabricAddImage = (e) => {
     // تفريغ الحقل لتتمكن من إضافة نفس الصورة مرتين إذا أردت
     e.target.value = ''; 
 };
-
-// دالة حفظ التصميم الموحدة والنظيفة
-window.saveFabricDesign = () => {
-    if(!canvasEditor) return;
-    const jsonDesign = JSON.stringify(canvasEditor.toJSON());
-    localStorage.setItem('royal_fabric_template', jsonDesign);
-    if (!localData.settings) localData.settings = {};
-    localData.settings.invoiceTemplate = jsonDesign;
-    saveDataToCloud();
-    window.showAlert('تم حفظ تصميم الفاتورة بنجاح!', 'success');
-};
-
-window.saveFabricDesign = () => {
-    if(!canvasEditor) return;
-    const jsonDesign = JSON.stringify(canvasEditor.toJSON());
-    localStorage.setItem('royal_fabric_template', jsonDesign);
-    if (!localData.settings) localData.settings = {};
-    localData.settings.invoiceTemplate = jsonDesign;
-    saveDataToCloud();
-    window.showAlert('تم حفظ تصميم الفاتورة بنجاح!', 'success');
-};
-
 // ==========================================
 // --- محرك طباعة وحساب تقرير الشفت (Z-Report) ---
 // ==========================================
