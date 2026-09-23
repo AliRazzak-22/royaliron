@@ -278,7 +278,6 @@ async function initializeDB() {
             
             // في أول تشغيل للنظام فقط
             if (isFirstLoad) {
-                if(window.loadInvoiceTemplateToEditor) window.loadInvoiceTemplateToEditor();
                 const loadingScreen = document.getElementById('loading-screen');
                 if (loadingScreen) loadingScreen.style.display = 'none';
                 isFirstLoad = false;
@@ -1972,7 +1971,12 @@ window.switchAdminTab = (tab, animationType = 'fade-in') => {
     document.querySelectorAll(`.admin-nav-btn[onclick*="'${tab}'"], .bottom-nav-btn[onclick*="'${tab}'"]`).forEach(btn => {
         btn.classList.add('active');
     });
-}; // <--- هذا هو القوس المفقود الذي أصلحنا به الخلل
+
+    // تشغيل وإيقاظ محرك الاستوديو فوراً عند دخول الآدمن لتبويب التصميم
+    if (tab === 'invoice-designer') {
+        if (window.initFabricStudio) window.initFabricStudio();
+    }
+};
 
 // --- التدخل الجراحي الشامل: محرك تقارير الآدمن والمحفظة المعصوم من الخطأ ---
 window.updateAdminDashboard = () => {
@@ -2485,7 +2489,7 @@ window.initFabricStudio = () => {
                 currentZoom = Math.max(0.4, Math.min(currentZoom, 2.5));
                 paper.style.transform = `scale(${currentZoom})`;
             }
-        });
+        }, { passive: false }); // إجبار المتصفح على احترام المنع وعدم التكبير العشوائي
         canvasEditor.on('selection:created', updatePropsPanel);
         canvasEditor.on('selection:updated', updatePropsPanel);
         canvasEditor.on('selection:cleared', () => {
@@ -2506,14 +2510,18 @@ window.switchDesignerTab = (mode) => {
     currentDesignerMode = mode;
     
     document.getElementById('tab-design-invoice').style.background = mode === 'invoice' ? 'var(--gold)' : 'transparent';
-    document.getElementById('tab-design-invoice').style.color = mode === 'invoice' ? '#000' : 'var(--text-white)';
-    document.getElementById('tab-design-shift').style.background = mode === 'shift' ? 'var(--gold)' : 'transparent';
-    document.getElementById('tab-design-shift').style.color = mode === 'shift' ? '#000' : 'var(--text-white)';
+        document.getElementById('tab-design-invoice').style.color = mode === 'invoice' ? '#000' : 'var(--text-white)';
+        document.getElementById('tab-design-shift').style.background = mode === 'shift' ? 'var(--gold)' : 'transparent';
+        document.getElementById('tab-design-shift').style.color = mode === 'shift' ? '#000' : 'var(--text-white)';
 
-    document.getElementById('vars-invoice').style.display = mode === 'invoice' ? 'flex' : 'none';
-    document.getElementById('vars-shift').style.display = mode === 'shift' ? 'flex' : 'none';
+        // حماية جراحية: التأكد من وجود حاويات المتغيرات قبل إخفائها لمنع انهيار الجافاسكريبت
+        let varsInvoice = document.getElementById('vars-invoice');
+        let varsShift = document.getElementById('vars-shift');
+        if(varsInvoice) varsInvoice.style.display = mode === 'invoice' ? 'flex' : 'none';
+        if(varsShift) varsShift.style.display = mode === 'shift' ? 'flex' : 'none';
 
-    canvasEditor.clear();
+        // تنظيف الورقة لضمان عدم تداخل تصميم الفاتورة مع تقرير الشفت
+        canvasEditor.clear();
     
     // 2. محاولة استرجاع تصميمك المفقود بأولوية قسوى من الذاكرة
     let loadedDesign = designCache[mode];
