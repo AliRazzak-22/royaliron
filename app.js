@@ -4205,8 +4205,12 @@ if (adminScreenEl) {
             sec.style.position = '';
             sec.style.width = '';
             sec.style.top = '';
-            // التأكد من إخفاء الشاشات غير النشطة
-            if (!sec.classList.contains('active')) sec.style.display = '';
+            // التدخل الجراحي: فرض الإخفاء القاطع بدل تركه فارغاً، ليتم إعادة بناء الـ block بشكل سليم
+            if (!sec.classList.contains('active')) {
+                sec.style.display = 'none';
+            } else {
+                sec.style.display = 'block'; // تأكيد الظهور للعنصر النشط
+            }
         });
     }
 }
