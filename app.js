@@ -1244,10 +1244,9 @@ window.confirmOrder = () => {
         window.logAction('تسجيل طلب جديد', `رقم تسلسلي: ${dailyNum} | للزبون: ${name}`, newDeposit, invoice);
         set(ref(database, 'royal_data/invoices/' + invoice.id), invoice);
         window.showAlert(`تم تسجيل الطلب بنجاح (رقم ${dailyNum})`, 'success');
-        if(document.getElementById('auto-print').checked) window.printInvoice(invoice);
     }
 
-    // تنظيف السلة وتحديث النظام في الحالتين
+    // السحر الجراحي هنا: إجبار واجهة المستخدم على التنظيف والإغلاق فوراً قبل أي عملية ثقيلة (الطباعة)
     window.recalculateDailySales(); 
     updateUI(); 
     currentCart = []; 
@@ -1256,7 +1255,65 @@ window.confirmOrder = () => {
     localStorage.removeItem('cart_draft'); 
     renderCart();
     window.closeModals();
+
+    // نقل الطباعة للخلفية (Asynchronous) لكي لا تجمد الواجهة وتمنع الإغلاق
+    if (!editingInvoiceId && document.getElementById('auto-print') && document.getElementById('auto-print').checked) {
+        // استخدام نسخة الفاتورة الجديدة للطباعة
+        let targetInvoice = invoice || localData.invoices[localData.invoices.length - 1];
+        setTimeout(() => {
+            try { window.printInvoice(targetInvoice); } catch(e) { console.error("خطأ في الطباعة", e); }
+        }, 400); // تأخير بسيط جداً ريثما تنغلق النافذة بانسيابية
+    }
+    
+    editingInvoiceId = null; // تصفير متغير التعديل بأمان
 };
+
+// --- التنبؤ الذكي بأسماء الزبائن في الكاشير ---
+window.filterCheckoutCustomerNames = (val) => {
+    const list = document.getElementById('checkout-autocomplete-list');
+    list.innerHTML = '';
+    if(!val) { list.style.display = 'none'; return; }
+    
+    // جلب جميع الزبائن من الفواتير والديون لاستخراج أحدث رقم هاتف
+    let customerMap = new Map();
+    // جلب من الفواتير (من الأقدم للأحدث ليتم الكتابة فوق الرقم القديم بأحدث رقم)
+    (localData.invoices || []).slice().reverse().forEach(inv => {
+        if(inv.customer && inv.customer.name && inv.customer.name.trim() !== "") {
+            customerMap.set(inv.customer.name, inv.customer.phone || "");
+        }
+    });
+    
+    let uniqueCustomers = Array.from(customerMap, ([name, phone]) => ({ name, phone }));
+    let matches = uniqueCustomers.filter(c => c.name.includes(val));
+    
+    if(matches.length > 0) {
+        // عرض أول 5 مقترحات فقط لتكون القائمة سريعة
+        matches.slice(0, 5).forEach(c => {
+            let div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.innerHTML = `${c.name} <span style="color:#888; font-size:12px;">(${c.phone || 'بدون رقم'})</span>`;
+            div.onclick = () => {
+                document.getElementById('checkout-name').value = c.name;
+                document.getElementById('checkout-phone').value = c.phone || '';
+                list.style.display = 'none';
+            };
+            list.appendChild(div);
+        });
+        list.style.display = 'block';
+    } else {
+        list.style.display = 'none';
+    }
+};
+
+// إخفاء القوائم عند النقر خارجها
+document.addEventListener('click', function (e) {
+    if(document.getElementById('checkout-autocomplete-list') && e.target.id !== 'checkout-name') {
+        document.getElementById('checkout-autocomplete-list').style.display = 'none';
+    }
+    if(document.getElementById('sub-autocomplete-list') && e.target.id !== 'sub-customer-name') {
+        document.getElementById('sub-autocomplete-list').style.display = 'none';
+    }
+});
 
 // ---------------- الفواتير السابقة (عرض، تعديل، حذف) ----------------
 window.openPreviousInvoices = () => {
@@ -1860,17 +1917,52 @@ window.deleteExpense = (index) => {
 // --- دوال المحفظة وحركة الشركاء (الكاشير) ---
 // ==========================================
 window.openPartnerTxModal = () => {
-    document.getElementById('partner-tx-amount').value = '';
-    document.getElementById('partner-tx-reason').value = '';
-    document.getElementById('partner-tx-account').selectedIndex = 0;
+    // إغلاق الواجهة الرئيسية وعرض شاشة القفل حصراً
+    document.getElementById('tx-main-screen').style.display = 'none';
+    document.getElementById('tx-lock-screen').style.display = 'block';
+    document.getElementById('partner-tx-pin').value = '';
     
-    // تصفير الأزرار
-    document.getElementById('lbl-tx-deposit').style.borderColor = 'transparent';
-    document.getElementById('lbl-tx-withdraw').style.borderColor = 'transparent';
-    let radios = document.getElementsByName('partner_tx_type');
-    radios.forEach(r => r.checked = false);
-
     document.getElementById('modal-partner-tx').style.display = 'flex';
+    setTimeout(() => { document.getElementById('partner-tx-pin').focus(); }, 100);
+};
+
+window.unlockPartnerTx = () => {
+    const pin = document.getElementById('partner-tx-pin').value;
+    if (pin === 'ahmed2003') {
+        // الرمز صحيح، نظهر الواجهة المخفية
+        document.getElementById('tx-lock-screen').style.display = 'none';
+        document.getElementById('tx-main-screen').style.display = 'block';
+        
+        // تصفير الواجهة للبدء
+        document.getElementById('partner-tx-amount').value = '';
+        document.getElementById('partner-tx-reason').value = '';
+        document.getElementById('partner-tx-account').selectedIndex = 0;
+        
+        // إلغاء تحديد البطاقات
+        document.querySelectorAll('.tx-card').forEach(c => c.classList.remove('selected'));
+        let radios = document.getElementsByName('partner_tx_type');
+        radios.forEach(r => r.checked = false);
+        
+        // تصفير حقل الإدخال
+        const amtInput = document.getElementById('partner-tx-amount');
+        amtInput.style.color = "var(--gold)";
+    } else {
+        window.showAlert('رمز الدخول غير صحيح! التشفير مفعل.', 'error');
+        document.getElementById('partner-tx-pin').value = '';
+    }
+};
+
+window.selectTxType = (type) => {
+    document.querySelectorAll('.tx-card').forEach(c => c.classList.remove('selected'));
+    const amtInput = document.getElementById('partner-tx-amount');
+    
+    if (type === 'إيداع') {
+        document.getElementById('lbl-tx-deposit').classList.add('selected');
+        amtInput.style.color = "var(--green-success)";
+    } else {
+        document.getElementById('lbl-tx-withdraw').classList.add('selected');
+        amtInput.style.color = "var(--red-danger)";
+    }
 };
 
 window.savePartnerTx = () => {
@@ -2119,6 +2211,77 @@ window.updateAdminDashboard = () => {
             <td><button class="top-bar-btn" style="background:#4a90e2; color:white; border-color:#4a90e2;" onclick="window.payDebtByName('${customerName}')">تسديد دفعة</button></td>
         </tr>`;
     }
+
+    // ==========================================
+    // --- محرك الذكاء المالي: إحصائيات الزبائن ---
+    // ==========================================
+    let customerAnalytics = {};
+
+    // تجميع البيانات من الفواتير لجميع الأوقات
+    (localData.invoices || []).forEach(inv => {
+        if (inv.customer && inv.customer.name && inv.customer.name.trim() !== "" && inv.customer.name !== "عميل نقدي") {
+            let cName = inv.customer.name;
+            if (!customerAnalytics[cName]) {
+                customerAnalytics[cName] = { name: cName, spent: 0, visits: 0, phone: inv.customer.phone || '-' };
+            }
+            customerAnalytics[cName].visits += 1;
+            
+            // حساب المبلغ المدفوع الكلي من هذه الفاتورة
+            if (inv.type === 'active' || inv.type === 'archived') {
+                customerAnalytics[cName].spent += (inv.total || 0); // نجمع القيمة الكلية للفاتورة لتقييم قوة الزبون
+            } else {
+                customerAnalytics[cName].spent += inv.total;
+            }
+        }
+    });
+
+    let customersArray = Object.values(customerAnalytics);
+    
+    // 1. ترتيب وتوليد قائمة "النخبة" (Top Spenders)
+    customersArray.sort((a, b) => b.spent - a.spent);
+    let topSpenders = customersArray.slice(0, 5);
+    let maxSpend = topSpenders.length > 0 ? topSpenders[0].spent : 1; // لتحديد نسبة مئوية صحيحة
+    
+    let spendersHTML = '';
+    topSpenders.forEach(c => {
+        let percent = Math.max(10, Math.floor((c.spent / maxSpend) * 100)); // الحد الأدنى 10% للرؤية
+        spendersHTML += `
+            <div class="customer-stat-item">
+                <div class="customer-stat-header">
+                    <span style="color:var(--text-white);">${c.name}</span>
+                    <span style="color:var(--green-success);">${c.spent.toLocaleString()} د.ع</span>
+                </div>
+                <div class="customer-stat-bar-bg">
+                    <div class="customer-stat-bar-fill fill-green" style="width: ${percent}%;"></div>
+                </div>
+            </div>`;
+    });
+    
+    let elSpenders = document.getElementById('top-spenders-list');
+    if(elSpenders) elSpenders.innerHTML = spendersHTML || '<p style="text-align:center; color:gray;">لا توجد بيانات كافية بعد.</p>';
+
+    // 2. ترتيب وتوليد قائمة "الولاء" (Top Visitors)
+    customersArray.sort((a, b) => b.visits - a.visits);
+    let topVisitors = customersArray.slice(0, 5);
+    let maxVisits = topVisitors.length > 0 ? topVisitors[0].visits : 1;
+    
+    let visitorsHTML = '';
+    topVisitors.forEach(c => {
+        let percent = Math.max(10, Math.floor((c.visits / maxVisits) * 100));
+        visitorsHTML += `
+            <div class="customer-stat-item">
+                <div class="customer-stat-header">
+                    <span style="color:var(--text-white);">${c.name}</span>
+                    <span style="color:#4a90e2;">${c.visits} زيارات</span>
+                </div>
+                <div class="customer-stat-bar-bg">
+                    <div class="customer-stat-bar-fill fill-blue" style="width: ${percent}%;"></div>
+                </div>
+            </div>`;
+    });
+    
+    let elVisitors = document.getElementById('top-visitors-list');
+    if(elVisitors) elVisitors.innerHTML = visitorsHTML || '<p style="text-align:center; color:gray;">لا توجد بيانات كافية بعد.</p>';
 
     // ==========================================
     // --- الحسابات التراكمية للمحفظة (الشركاء) ---
@@ -2919,8 +3082,8 @@ window.printShiftReport = () => {
                 </style>
             </head>
             <body>
-                <div class="designer-bg">
-                    <img src="${backgroundImg}" style="width: 100%; height: 100%; display: block;">
+                <div class="designer-bg" style="display: flex; justify-content: center; align-items: center;">
+                    <img src="${backgroundImg}" style="width: 94%; height: 94%; object-fit: contain;">
                 </div>
             </body>
             </html>`;
@@ -3105,9 +3268,9 @@ window.printInvoice = (invoice) => {
             </style>
         </head>
         <body>
-            <div class="designer-bg">
-                <img src="${backgroundImg}" style="width: 100%; height: 100%; display: block;">
-            </div>
+                <div class="designer-bg" style="display: flex; justify-content: center; align-items: center;">
+                    <img src="${backgroundImg}" style="width: 94%; height: 94%; object-fit: contain;">
+                </div>
             
             <div id="smart-table-wrapper">
                 <table id="smart-table">
