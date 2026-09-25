@@ -559,6 +559,10 @@
                 <div id="admin-more-menu" class="admin-section" style="padding-top: 20px;">
                     <h2 style="color:var(--gold); margin-bottom: 25px; text-align:center;">المزيد من الخيارات</h2>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <button class="stat-card" style="padding:20px; border-color:#f39c12;" onclick="window.switchAdminTab('debts')">
+                            <i class="fa-solid fa-address-book stat-icon" style="color:#f39c12; font-size:32px;"></i>
+                            <div class="stat-title" style="color:var(--text-white);">سجل الديون</div>
+                        </button>
                         <button class="stat-card" style="padding:20px; border-color:#4a90e2;" onclick="window.switchAdminTab('logs')">
                             <i class="fa-solid fa-clock-rotate-left stat-icon" style="color:#4a90e2; font-size:32px;"></i>
                             <div class="stat-title" style="color:var(--text-white);">سجل الحركات</div>
@@ -593,9 +597,6 @@
         <div id="mobile-bottom-nav" class="mobile-bottom-nav">
             <button class="bottom-nav-btn active" onclick="window.switchAdminTab('dashboard')">
                 <i class="fa-solid fa-chart-pie"></i><span>الملخص</span>
-            </button>
-            <button class="bottom-nav-btn" onclick="window.switchAdminTab('debts')">
-                <i class="fa-solid fa-address-book"></i><span>الديون</span>
             </button>
             <button class="bottom-nav-btn" onclick="window.switchAdminTab('customers')">
                 <i class="fa-solid fa-users-rays"></i><span>الزبائن</span>
