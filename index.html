@@ -198,6 +198,7 @@
                 <button class="admin-nav-btn active" onclick="window.switchAdminTab('dashboard')"><i class="fa-solid fa-chart-pie"></i> الإحصائيات الشاملة</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('debts')"><i class="fa-solid fa-address-book"></i> الديون والذمم</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('costs')"><i class="fa-solid fa-building-columns"></i> التكاليف التشغيلية</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('customers')"><i class="fa-solid fa-users-rays"></i> إحصائيات الزبائن</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('logs')"><i class="fa-solid fa-clock-rotate-left"></i> سجل الحركات</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('wallet')"><i class="fa-solid fa-wallet"></i> المحفظة </button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('subscriptions')"><i class="fa-solid fa-id-card-clip"></i> إدارة الاشتراكات</button>
@@ -278,6 +279,28 @@
                         <thead><tr><th>الزبون</th><th>رقم الهاتف</th><th>الفواتير المرتبطة</th><th>إجمالي الدين</th><th>الإجراء</th></tr></thead>
                         <tbody id="debts-table-body"></tbody>
                     </table>
+                </div>
+                <!-- قسم إحصائيات الزبائن (VIP و المتكررين) -->
+                <div id="admin-customers" class="admin-section">
+                    <h2 style="margin-bottom:30px; color:var(--gold);"><i class="fa-solid fa-users-rays"></i> إحصائيات سلوك الزبائن</h2>
+                    <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 20px;">
+                        
+                        <!-- الزبائن الأكثر إنفاقاً -->
+                        <div style="background: var(--dark-gray); border-radius: 12px; padding: 20px; border: 1px solid #444;">
+                            <h3 style="color: var(--green-success); margin-bottom: 20px; font-size: 18px;"><i class="fa-solid fa-sack-dollar"></i> قائمة النخبة (الأكثر إنفاقاً)</h3>
+                            <div id="top-spenders-list" style="display: flex; flex-direction: column; gap: 12px;">
+                                <!-- سيتم التوليد برمجياً -->
+                            </div>
+                        </div>
+
+                        <!-- الزبائن الأكثر زيارة -->
+                        <div style="background: var(--dark-gray); border-radius: 12px; padding: 20px; border: 1px solid #444;">
+                            <h3 style="color: #4a90e2; margin-bottom: 20px; font-size: 18px;"><i class="fa-solid fa-shoe-prints"></i> الزبائن الأكثر ولاءً (الزيارات)</h3>
+                            <div id="top-visitors-list" style="display: flex; flex-direction: column; gap: 12px;">
+                                <!-- سيتم التوليد برمجياً -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- قسم سجل الحركات (Audit Log) -->
@@ -574,6 +597,9 @@
             <button class="bottom-nav-btn" onclick="window.switchAdminTab('debts')">
                 <i class="fa-solid fa-address-book"></i><span>الديون</span>
             </button>
+            <button class="bottom-nav-btn" onclick="window.switchAdminTab('customers')">
+                <i class="fa-solid fa-users-rays"></i><span>الزبائن</span>
+            </button>
             <button class="bottom-nav-btn" onclick="window.switchAdminTab('wallet')">
                 <i class="fa-solid fa-wallet"></i><span>المحفظة</span>
             </button>
@@ -668,22 +694,42 @@
         </div>
     </div>
 
-<!-- نافذة إيداع وسحب الشركاء (للكاشير) -->
-    <div id="modal-partner-tx" class="modal-overlay" style="z-index: 3000;">
-        <div class="modal-content" style="max-width: 450px; border: 2px solid #4a90e2; box-shadow: 0 10px 40px rgba(74, 144, 226, 0.3);">
+<!-- نافذة إيداع وسحب الشركاء (للكاشير) - النسخة المؤمنة والمطورة -->
+<div id="modal-partner-tx" class="modal-overlay" style="z-index: 3000;">
+    <div class="modal-content" style="max-width: 450px; border: 2px solid #4a90e2; box-shadow: 0 10px 40px rgba(74, 144, 226, 0.3); padding: 0; overflow: hidden;">
+        
+        <!-- شاشة القفل الأمني -->
+        <div id="tx-lock-screen" style="padding: 40px 30px; text-align: center; background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%);">
+            <i class="fa-solid fa-lock" style="font-size: 60px; color: var(--gold); margin-bottom: 20px;"></i>
+            <h3 style="color: var(--text-white); margin-bottom: 10px;">الخزنة السرية </h3>
+            <p style="color: var(--text-gray); font-size: 13px; margin-bottom: 25px;">يُرجى إدخال رمز الوصول السري لفتح الخزنة</p>
+            <div class="input-group">
+                <input type="password" id="partner-tx-pin" placeholder="••••••••" style="text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold;" onkeyup="if(event.key === 'Enter') window.unlockPartnerTx()">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background: var(--gold-gradient); color: #000;" onclick="window.unlockPartnerTx()">فتح الخزنة</button>
+                <button class="btn btn-cancel" onclick="window.closeModals(); document.getElementById('partner-tx-pin').value='';">إلغاء</button>
+            </div>
+        </div>
+
+        <!-- الشاشة الرئيسية للعمليات (مخفية افتراضياً) -->
+        <div id="tx-main-screen" style="display: none; padding: 30px;">
             <div class="modal-title" style="color: #4a90e2; margin-bottom: 20px;"><i class="fa-solid fa-vault"></i> تسجيل حركة مالية (شركاء)</div>
             
-            <!-- أزرار اختيار نوع العملية بتصميم تفاعلي -->
             <div class="input-group">
-                <label style="color: var(--gold); font-weight: bold;">نوع العملية</label>
-                <div style="display:flex; gap:10px;">
-                    <label style="flex:1; background:var(--light-gray); padding:15px; border-radius:10px; text-align:center; cursor:pointer; border: 2px solid transparent; transition:0.3s;" id="lbl-tx-deposit" onclick="document.getElementById('lbl-tx-deposit').style.borderColor='var(--green-success)'; document.getElementById('lbl-tx-withdraw').style.borderColor='transparent'; document.getElementById('partner-tx-amount').style.color='var(--green-success)';">
+                <label style="color: var(--gold); font-weight: bold; margin-bottom: 10px; display: block;">حدد نوع العملية البنكية</label>
+                <div style="display:flex; gap:15px;">
+                    <!-- بطاقة الإيداع -->
+                    <label class="tx-card tx-deposit-card" id="lbl-tx-deposit" onclick="window.selectTxType('إيداع')">
                         <input type="radio" name="partner_tx_type" value="إيداع" style="display:none;" required>
-                        <i class="fa-solid fa-arrow-down" style="color:var(--green-success); font-size:20px; display:block; margin-bottom:5px;"></i> إيداع
+                        <i class="fa-solid fa-money-bill-trend-up"></i>
+                        <span>إيداع بالحساب</span>
                     </label>
-                    <label style="flex:1; background:var(--light-gray); padding:15px; border-radius:10px; text-align:center; cursor:pointer; border: 2px solid transparent; transition:0.3s;" id="lbl-tx-withdraw" onclick="document.getElementById('lbl-tx-withdraw').style.borderColor='var(--red-danger)'; document.getElementById('lbl-tx-deposit').style.borderColor='transparent'; document.getElementById('partner-tx-amount').style.color='var(--red-danger)';">
+                    <!-- بطاقة السحب -->
+                    <label class="tx-card tx-withdraw-card" id="lbl-tx-withdraw" onclick="window.selectTxType('سحب')">
                         <input type="radio" name="partner_tx_type" value="سحب" style="display:none;" required>
-                        <i class="fa-solid fa-arrow-up" style="color:var(--red-danger); font-size:20px; display:block; margin-bottom:5px;"></i> سحب
+                        <i class="fa-solid fa-money-bill-transfer"></i>
+                        <span>سحب أرباح</span>
                     </label>
                 </div>
             </div>
@@ -691,15 +737,15 @@
             <div class="input-group">
                 <label>اختر الحساب</label>
                 <select id="partner-tx-account" style="font-size: 16px; font-weight:bold; padding: 15px;">
-    <option value="" disabled selected>-- اختر الحساب --</option>
-    <option value="أحمد رزاق العامري">حساب A</option>
-    <option value="أحمد شاكر شبع">حساب B</option>
-</select>
+                    <option value="" disabled selected>-- اختر الحساب السري --</option>
+                    <option value="أحمد رزاق العامري">أحمد رزاق العامري</option>
+                    <option value="أحمد شاكر شبع">أحمد شاكر شبع</option>
+                </select>
             </div>
 
             <div class="input-group">
                 <label>المبلغ الكامل (د.ع)</label>
-                <input type="number" id="partner-tx-amount" placeholder="أدخل المبلغ..." style="font-size: 22px; font-weight:900; padding: 15px; text-align: center;">
+                <input type="number" id="partner-tx-amount" placeholder="0" style="font-size: 26px; font-weight:900; padding: 15px; text-align: center; color: var(--gold); transition: 0.3s;">
             </div>
 
             <div class="input-group">
@@ -709,10 +755,11 @@
 
             <div class="modal-actions" style="margin-top: 25px;">
                 <button class="btn btn-confirm" style="background: #4a90e2; color: white; font-size: 18px;" onclick="window.savePartnerTx()"><i class="fa-solid fa-floppy-disk"></i> تأكيد وتسجيل</button>
-                <button class="btn btn-cancel" onclick="window.closeModals()">إلغاء</button>
+                <button class="btn btn-cancel" onclick="window.closeModals()">إغلاق</button>
             </div>
         </div>
     </div>
+</div>
     
     <!-- 4. الصرفيات اليومية -->
     <div id="modal-expenses" class="modal-overlay">
@@ -794,9 +841,11 @@
     <div id="modal-checkout" class="modal-overlay">
         <div class="modal-content" style="max-width: 500px;">
             <div class="modal-title"><i class="fa-solid fa-file-signature"></i> تفاصيل الطلب</div>
-            <div class="input-group">
+            <div class="input-group" style="position: relative;">
                 <label>اسم الزبون (مطلوب لفتح الطلب)</label>
-                <input type="text" id="checkout-name" placeholder="مثال: أحمد محمد...">
+                <input type="text" id="checkout-name" placeholder="مثال: أحمد محمد..." oninput="window.filterCheckoutCustomerNames(this.value)" autocomplete="off">
+                <!-- قائمة الاقتراحات المنسدلة الذكية للزبائن -->
+                <div id="checkout-autocomplete-list" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--light-gray); border:1px solid var(--gold); z-index:99; max-height:150px; overflow-y:auto; border-radius:0 0 8px 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.5);"></div>
             </div>
             <div class="input-group">
                 <label>رقم الهاتف (اختياري)</label>
