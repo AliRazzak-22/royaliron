@@ -2045,11 +2045,20 @@ function animateValue(obj, start, end, duration) {
 }
 
 // ---------------- وظائف الآدمن ----------------
+// متغير قفل النظام الذكي لمنع التداخل بين النقر والسحب
+window.isSwipeNavigating = false; 
+
 window.switchAdminTab = (tab, animationType = 'fade-in') => {
     if (!secureAdminToken) { window.exitToMain(); return window.showAlert('محاولة وصول غير مصرح بها!', 'error'); }
+    
+    // 🛡️ جدار الحماية: منع النقر على الأزرار السفلية نهائياً إذا كان النظام مشغولاً بحركة سحب حالية
+    if (window.isSwipeNavigating && animationType !== 'none') return;
+
     sessionStorage.setItem('admin_tab', tab); 
     
     document.querySelectorAll('.admin-section').forEach(s => {
+        // 💥 الضربة القاضية للجليتش: مسح أي إحداثيات أو أبعاد عالقة من عمليات سحب سابقة
+        s.style.cssText = ''; 
         s.classList.remove('active', 'slide-from-left', 'slide-from-right', 'fade-in');
     });
     document.querySelectorAll('.admin-nav-btn, .bottom-nav-btn').forEach(b => b.classList.remove('active')); 
@@ -2064,11 +2073,11 @@ window.switchAdminTab = (tab, animationType = 'fade-in') => {
         btn.classList.add('active');
     });
 
-    // تشغيل وإيقاظ محرك الاستوديو فوراً عند دخول الآدمن لتبويب التصميم
     if (tab === 'invoice-designer') {
         if (window.initFabricStudio) window.initFabricStudio();
     }
 };
+
 
 // --- التدخل الجراحي الشامل: محرك تقارير الآدمن والمحفظة المعصوم من الخطأ ---
 window.updateAdminDashboard = () => {
@@ -4075,7 +4084,7 @@ document.addEventListener('mouseover', (e) => {
     }
 });
 // =========================================================
-// --- محرك السحب الحي (Real-Time Swipe Engine) المطوّر 🚀 ---
+// --- محرك السحب الحي المتطور (Apple iOS Parallax Engine) 🚀 ---
 // =========================================================
 let touchStartX = 0;
 let touchStartY = 0;
@@ -4083,15 +4092,18 @@ let touchCurrentX = 0;
 let isSwiping = false;
 let swipeDirectionLocked = false;
 let activeSec = null, targetSec = null;
+let swipeTargetIndex = -1;
 
-// تم تحديث الترتيب (الديون أصبحت في المزيد، والزبائن هنا)
 const tabsOrder = ['dashboard', 'customers', 'wallet', 'subscriptions', 'more-menu'];
 const adminScreenEl = document.getElementById('admin-screen');
 
 if (adminScreenEl) {
     adminScreenEl.addEventListener('touchstart', (e) => {
-        // حماية العناصر التفاعلية والقوائم من السحب الخاطئ (أضفنا stat-card لمنع اختفائها)
-        if (e.target.closest('table, .invoices-table, .cart-table, .modal-content, .discount-wrapper, .mobile-bottom-nav, button, .stat-card, input')) return;
+        // 1. قفل فوري: إذا كانت هناك أنيميشن شغالة، نمنع أي لمس جديد لتفادي التقطيع
+        if (window.isSwipeNavigating) return;
+        
+        // 2. استثناء العناصر التفاعلية
+        if (e.target.closest('table, .invoices-table, .cart-table, .modal-content, .discount-wrapper, .mobile-bottom-nav, button, .stat-card, input, select')) return;
         
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
@@ -4100,58 +4112,82 @@ if (adminScreenEl) {
         
         let currentTab = sessionStorage.getItem('admin_tab') || 'dashboard';
         activeSec = document.getElementById('admin-' + currentTab);
+        targetSec = null;
+
+        // 3. تجميد أبعاد الشاشة الحالية بدقة لمنع أي اهتزاز عند تحويلها إلى Absolute
+        if (activeSec) {
+            activeSec.style.width = activeSec.offsetWidth + 'px';
+            activeSec.style.minHeight = '100vh';
+        }
     }, { passive: true });
 
     adminScreenEl.addEventListener('touchmove', (e) => {
-        if (!isSwiping || !activeSec) return;
+        if (!isSwiping || !activeSec || window.isSwipeNavigating) return;
         touchCurrentX = e.touches[0].clientX;
         let touchCurrentY = e.touches[0].clientY;
         
         let diffX = touchCurrentX - touchStartX;
         let diffY = touchCurrentY - touchStartY;
         
-        // الذكاء الاصطناعي للسحب: إذا كان المستخدم ينزل للأسفل (Scroll)، نلغي السحب فوراً ليعمل التمرير
         if (!swipeDirectionLocked) {
+            // إذا كان السحب للأسفل (Scroll)، نلغي عملية السحب الأفقي تماماً
             if (Math.abs(diffY) > Math.abs(diffX)) {
                 isSwiping = false; cleanupSwipe(); return;
             }
-            if (Math.abs(diffX) > 10) swipeDirectionLocked = true;
+            // إذا تخطى 10 بكسل، نقفل الشاشة أفقياً ونبدأ السحر
+            if (Math.abs(diffX) > 10) {
+                swipeDirectionLocked = true;
+                
+                let currentTab = sessionStorage.getItem('admin_tab') || 'dashboard';
+                let currentIndex = tabsOrder.indexOf(currentTab);
+                
+                // (RTL Logic): السحب لليمين يعني إظهار التبويب القادم من اليسار
+                swipeTargetIndex = diffX > 0 ? currentIndex + 1 : currentIndex - 1;
+                
+                if (swipeTargetIndex >= 0 && swipeTargetIndex < tabsOrder.length) {
+                    targetSec = document.getElementById('admin-' + tabsOrder[swipeTargetIndex]);
+                    if (targetSec) {
+                        targetSec.style.display = 'block';
+                        targetSec.style.position = 'absolute';
+                        targetSec.style.top = activeSec.offsetTop + 'px';
+                        targetSec.style.width = activeSec.offsetWidth + 'px';
+                        targetSec.style.minHeight = '100vh';
+                    }
+                } else {
+                    targetSec = null; // لا يوجد تبويب قادم
+                }
+            }
         }
         
         if (!swipeDirectionLocked) return;
-        
-        // منع التمرير العمودي أثناء السحب الأفقي فقط
-        if (e.cancelable) e.preventDefault();
+        if (e.cancelable) e.preventDefault(); // منع المتصفح من التدخل بالسحب
 
-        let currentTab = sessionStorage.getItem('admin_tab') || 'dashboard';
-        let currentIndex = tabsOrder.indexOf(currentTab);
         let screenW = window.innerWidth;
+        let progress = Math.abs(diffX) / screenW;
         
-        // تعديل الاتجاه (سحب من اليسار لليمين diffX > 0 يذهب للتبويب الأيسر currentIndex + 1)
-        let targetIndex = diffX > 0 ? currentIndex + 1 : currentIndex - 1;
-        
-        // الحماية من تجاوز الحدود (تأثير المطاط)
-        if (targetIndex < 0 || targetIndex >= tabsOrder.length) {
-            diffX = diffX * 0.15; // مقاومة قوية
-            targetSec = null;
-        } else {
-            targetSec = document.getElementById('admin-' + tabsOrder[targetIndex]);
+        // تأثير المطاط القوي إذا حاول المستخدم سحب الشاشة للخارج (لا يوجد تبويب)
+        if (!targetSec) {
+            diffX = diffX * 0.25; 
+            progress = Math.abs(diffX) / screenW;
         }
+
+        // 🌟 التأثير البصري المطلوب (Z-Depth Parallax) 🌟
+        // الشاشة الحالية تنكمش للوراء قليلاً (0.92) وتتلاشى شفافيتها
+        let activeScale = 1 - (progress * 0.08); 
+        let activeOpacity = Math.max(0, 1 - progress); 
         
-        // تحريك الشاشة الحالية
-        activeSec.style.transform = `translate3d(${diffX}px, 0, 0)`;
-        activeSec.style.opacity = 1 - (Math.abs(diffX) / screenW);
+        activeSec.style.transform = `translate3d(${diffX}px, 0, 0) scale(${activeScale})`;
+        activeSec.style.opacity = activeOpacity;
         
-        // تجهيز الشاشة القادمة
         if (targetSec) {
-            targetSec.style.display = 'block';
-            targetSec.style.position = 'absolute';
-            targetSec.style.top = activeSec.offsetTop + 'px';
-            targetSec.style.width = 'calc(100% - 30px)';
+            let startPosX = diffX > 0 ? -screenW : screenW;
+            let targetX = startPosX + diffX;
+            // الشاشة الجديدة تأتي من الخلفية بحجم أصغر (0.92) وتكبر تدريجياً
+            let targetScale = 0.92 + (progress * 0.08); 
             
-            let startPos = diffX > 0 ? -screenW : screenW;
-            targetSec.style.transform = `translate3d(${startPos + diffX}px, 0, 0)`;
-            targetSec.style.opacity = Math.abs(diffX) / screenW;
+            targetSec.style.transform = `translate3d(${targetX}px, 0, 0) scale(${targetScale})`;
+            targetSec.style.opacity = progress;
+            targetSec.style.zIndex = '5';
         }
     }, { passive: false });
 
@@ -4161,55 +4197,59 @@ if (adminScreenEl) {
         
         let diffX = touchCurrentX - touchStartX;
         let screenW = window.innerWidth;
-        let currentTab = sessionStorage.getItem('admin_tab') || 'dashboard';
-        let currentIndex = tabsOrder.indexOf(currentTab);
-        let targetIndex = diffX > 0 ? currentIndex + 1 : currentIndex - 1;
         
-        let willSwitch = Math.abs(diffX) > 60 && targetSec;
+        // العبور للتبويب القادم فقط إذا تم سحب 25% من الشاشة أو أكثر
+        let willSwitch = Math.abs(diffX) > (screenW * 0.25) && targetSec;
         
-        if (activeSec) activeSec.style.transition = 'all 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
-        if (targetSec) targetSec.style.transition = 'all 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
+        // 🔒 تفعيل القفل لمنع النقر العشوائي أثناء استقرار حركة الشاشات
+        window.isSwipeNavigating = true; 
+        
+        let transitionStyle = 'all 0.35s cubic-bezier(0.25, 1, 0.5, 1)';
+        if (activeSec) activeSec.style.transition = transitionStyle;
+        if (targetSec) targetSec.style.transition = transitionStyle;
         
         if (willSwitch) {
-            let finalActivePos = diffX > 0 ? screenW : -screenW;
+            let finalActiveX = diffX > 0 ? screenW : -screenW;
             if(activeSec) {
-                activeSec.style.transform = `translate3d(${finalActivePos}px, 0, 0)`;
+                activeSec.style.transform = `translate3d(${finalActiveX}px, 0, 0) scale(0.92)`;
                 activeSec.style.opacity = '0';
             }
             if(targetSec) {
-                targetSec.style.transform = `translate3d(0, 0, 0)`;
+                targetSec.style.transform = `translate3d(0, 0, 0) scale(1)`;
                 targetSec.style.opacity = '1';
             }
             
             setTimeout(() => {
                 cleanupSwipe();
-                window.switchAdminTab(tabsOrder[targetIndex], 'none'); // انتقال بدون أنيميشن إضافي
-            }, 300);
+                window.switchAdminTab(tabsOrder[swipeTargetIndex], 'none'); // انتقال صامت
+                window.isSwipeNavigating = false; // 🔓 فتح القفل بأمان
+            }, 350);
         } else {
-            // ارتداد مطاطي للعودة للمكان الأصلي
-            if(activeSec) { activeSec.style.transform = `translate3d(0, 0, 0)`; activeSec.style.opacity = '1'; }
+            // ارتداد مطاطي للعودة إذا لم يكمل السحبة
+            if(activeSec) { 
+                activeSec.style.transform = `translate3d(0, 0, 0) scale(1)`; 
+                activeSec.style.opacity = '1'; 
+            }
             if(targetSec) { 
                 let startPos = diffX > 0 ? -screenW : screenW;
-                targetSec.style.transform = `translate3d(${startPos}px, 0, 0)`; 
+                targetSec.style.transform = `translate3d(${startPos}px, 0, 0) scale(0.92)`; 
                 targetSec.style.opacity = '0';
             }
-            setTimeout(cleanupSwipe, 300);
+            setTimeout(() => {
+                cleanupSwipe();
+                window.isSwipeNavigating = false; // 🔓 فتح القفل
+            }, 350);
         }
     });
     
     function cleanupSwipe() {
         document.querySelectorAll('.admin-section').forEach(sec => {
-            sec.style.transform = '';
-            sec.style.transition = '';
-            sec.style.opacity = '';
-            sec.style.position = '';
-            sec.style.width = '';
-            sec.style.top = '';
-            // التدخل الجراحي: فرض الإخفاء القاطع بدل تركه فارغاً، ليتم إعادة بناء الـ block بشكل سليم
+            // 💥 الكود الأهم: مسح جميع التنسيقات المُركبة فوراً لتفادي تكسر التخطيط
+            sec.style.cssText = ''; 
             if (!sec.classList.contains('active')) {
                 sec.style.display = 'none';
             } else {
-                sec.style.display = 'block'; // تأكيد الظهور للعنصر النشط
+                sec.style.display = 'block';
             }
         });
     }
