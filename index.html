@@ -195,7 +195,8 @@
                     <i class="fa-solid fa-crown" style="color:var(--gold);"></i><br>
                     إدارة رويال
                 </div>
-                <button class="admin-nav-btn active" onclick="window.switchAdminTab('dashboard')"><i class="fa-solid fa-chart-pie"></i> الإحصائيات الشاملة</button>
+                <button class="admin-nav-btn active" onclick="window.switchAdminTab('dashboard')"><i class="fa-solid fa-chart-pie"></i> الإحصائيات<button class="admin-nav-btn active" onclick="window.switchAdminTab('daily-report')"><i class="fa-solid fa-calendar-day"></i> التقرير اليومي الميداني</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('finance')"><i class="fa-solid fa-chart-pie"></i> الملخص المحاسبي (المالية)</button> الشاملة</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('debts')"><i class="fa-solid fa-address-book"></i> الديون والذمم</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('costs')"><i class="fa-solid fa-building-columns"></i> التكاليف التشغيلية</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('customers')"><i class="fa-solid fa-users-rays"></i> إحصائيات الزبائن</button>
@@ -208,9 +209,47 @@
             </div>
             <div class="admin-content">
                 <!-- قسم الإحصائيات -->
-                <div id="admin-dashboard" class="admin-section active">
+                <!-- قسم التقرير اليومي (الجديد والميداني) -->
+                <div id="admin-daily-report" class="admin-section active">
+                    <h2 style="color:var(--gold); margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
+                        <span><i class="fa-solid fa-calendar-day"></i> حركة القطع والعمل الميداني</span>
+                    </h2>
+                    
+                    <!-- تصميم صندوق البينتو (Bento Box) لحركة القطع -->
+                    <div class="bento-box-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px;">
+                        <!-- البطاقة البطلة: القطع الموجودة حالياً بالمكوى -->
+                        <div class="stat-card bento-hero" style="grid-column: span 2; background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(0, 0, 0, 0.8) 100%); border: 2px solid var(--gold); padding: 30px 20px;">
+                            <i class="fa-solid fa-shirt stat-icon" style="font-size: 40px; background: transparent; border: none; box-shadow: none;"></i>
+                            <div class="stat-title" style="font-size: 18px !important; color: var(--gold) !important;">إجمالي القطع الموجودة حالياً في المكوى</div>
+                            <div class="stat-value" id="bento-current-pieces" style="font-size: 55px !important; text-shadow: 0 0 20px rgba(212, 175, 55, 0.5);">0</div>
+                        </div>
+                        
+                        <!-- بطاقة: دخلت اليوم -->
+                        <div class="stat-card" style="border-color: #4a90e2; padding: 20px 10px;">
+                            <i class="fa-solid fa-sign-in-alt stat-icon" style="color: #4a90e2; background: rgba(74, 144, 226, 0.1); border-color: rgba(74, 144, 226, 0.2); font-size:24px !important; width:45px !important; height:45px !important;"></i>
+                            <div class="stat-title">قطع استلمناها اليوم</div>
+                            <div class="stat-value" id="bento-entered-today" style="color: #4a90e2; font-size:26px !important;">0</div>
+                        </div>
+                        
+                        <!-- بطاقة: أنجزت اليوم -->
+                        <div class="stat-card" style="border-color: var(--green-success); padding: 20px 10px;">
+                            <i class="fa-solid fa-check-double stat-icon" style="color: var(--green-success); background: rgba(46, 213, 115, 0.1); border-color: rgba(46, 213, 115, 0.2); font-size:24px !important; width:45px !important; height:45px !important;"></i>
+                            <div class="stat-title">قطع سُلمت اليوم</div>
+                            <div class="stat-value" id="bento-finished-today" style="color: var(--green-success); font-size:26px !important;">0</div>
+                        </div>
+
+                        <!-- الشريط السفلي (التراكمي الشهري) -->
+                        <div style="grid-column: span 2; background: #111; padding: 12px 20px; border-radius: 12px; border: 1px solid #333; display: flex; justify-content: space-between; font-size: 13px; color: var(--text-gray);">
+                            <span><i class="fa-solid fa-chart-line"></i> إجمالي استلام الشهر: <strong id="bento-month-entered" style="color: var(--text-white);">0</strong> قطعة</span>
+                            <span><i class="fa-solid fa-clipboard-check"></i> إجمالي تسليم الشهر: <strong id="bento-month-finished" style="color: var(--text-white);">0</strong> قطعة</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- قسم الملخص المالي المحاسبي (القديم) -->
+                <div id="admin-finance" class="admin-section">
                     <div class="admin-control-panel">
-                        <h2 style="color:var(--gold); margin:0;">الملخص المالي</h2>
+                        <h2 style="color:var(--gold); margin:0;">الملخص المالي المحاسبي</h2>
                         <div class="admin-filters">
                             <input type="month" id="admin-month-filter" class="note-input" style="width:auto;" onchange="window.updateAdminDashboard()">
                             <button class="btn-royal-action" onclick="window.loadAllTimeStats()"><i class="fa-solid fa-globe"></i> عرض الكلي</button>
@@ -567,6 +606,10 @@
                             <i class="fa-solid fa-clock-rotate-left stat-icon" style="color:#4a90e2; font-size:32px;"></i>
                             <div class="stat-title" style="color:var(--text-white);">سجل الحركات</div>
                         </button>
+                        <button class="stat-card" style="padding:20px; border-color:var(--gold);" onclick="window.switchAdminTab('finance')">
+                            <i class="fa-solid fa-chart-pie stat-icon" style="color:var(--gold); font-size:32px;"></i>
+                            <div class="stat-title" style="color:var(--text-white);">الملخص المحاسبي</div>
+                        </button>
                         <button class="stat-card" style="padding:20px; border-color:var(--red-danger);" onclick="window.switchAdminTab('costs')">
                             <i class="fa-solid fa-building-columns stat-icon" style="color:var(--red-danger); font-size:32px;"></i>
                             <div class="stat-title" style="color:var(--text-white);">التكاليف الثابتة</div>
@@ -595,8 +638,8 @@
 
         <!-- شريط التنقل السفلي الخاص بالجوال (مخفي في الكمبيوتر) -->
         <div id="mobile-bottom-nav" class="mobile-bottom-nav">
-            <button class="bottom-nav-btn active" onclick="window.switchAdminTab('dashboard')">
-                <i class="fa-solid fa-chart-pie"></i><span>الملخص</span>
+            <button class="bottom-nav-btn active" onclick="window.switchAdminTab('daily-report')">
+                <i class="fa-solid fa-calendar-day"></i><span>اليومية</span>
             </button>
             <button class="bottom-nav-btn" onclick="window.switchAdminTab('customers')">
                 <i class="fa-solid fa-users-rays"></i><span>الزبائن</span>
@@ -916,7 +959,66 @@
         </div>
     </div>
 
-   <!-- حاوية الإشعارات المنزلقة (Toast Notifications) -->
+   <!-- نافذة الغوص في بيانات اليوم (Drill-down: Daily Transactions) -->
+    <div id="modal-daily-transactions" class="modal-overlay" style="z-index: 5500;">
+        <div class="modal-content mobile-sticky-modal" style="max-width: 1000px;">
+            <div class="modal-header-sticky">
+                <div class="modal-title" style="color: var(--gold); margin-bottom: 5px;"><i class="fa-solid fa-list-check"></i> حركة يوم <span id="drill-day-title">...</span></div>
+                <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; font-size: 13px;">
+                    <span style="background: rgba(46, 213, 115, 0.1); color: var(--green-success); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--green-success);">دخل الصندوق: <span id="drill-day-in">0</span> د.ع</span>
+                    <span style="background: rgba(255, 71, 87, 0.1); color: var(--red-danger); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--red-danger);">خرج منه: <span id="drill-day-out">0</span> د.ع</span>
+                </div>
+            </div>
+            
+            <!-- هذه المنطقة فقط هي القابلة للتمرير (Scroll) -->
+            <div class="modal-body-scrollable" style="overflow-x: auto;">
+                <table class="invoices-table interactive-table">
+                    <thead>
+                        <tr>
+                            <th>نوع العملية</th>
+                            <th>الرقم</th>
+                            <th>الزبون</th>
+                            <th>الوقت</th>
+                            <th>المجموع</th>
+                            <th style="color:var(--gold);">الخصم</th>
+                            <th style="color:var(--green-success);">المقبوض</th>
+                            <th style="color:var(--red-danger);">المتبقي</th>
+                        </tr>
+                    </thead>
+                    <tbody id="drill-transactions-body"></tbody>
+                </table>
+            </div>
+            
+            <div class="modal-actions modal-footer-sticky">
+                <button class="btn btn-cancel" style="width:100%" onclick="document.getElementById('modal-daily-transactions').style.display='none'">إغلاق النافذة</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة تفاصيل القائمة المحددة من داخل اليوم (Drill-down: Cart Details) -->
+    <div id="modal-transaction-details" class="modal-overlay" style="z-index: 6000;">
+        <div class="modal-content mobile-sticky-modal" style="max-width: 500px;">
+            <div class="modal-header-sticky">
+                <div class="modal-title" style="color: #4a90e2; margin-bottom: 10px;"><i class="fa-solid fa-microscope"></i> تفاصيل القائمة</div>
+            </div>
+            
+            <div class="modal-body-scrollable">
+                <div id="drill-cart-info" style="background: #111; padding: 15px; border-radius: 8px; border: 1px solid #444; margin-bottom: 15px; font-size: 14px; line-height: 1.6; text-align: right;">
+                    <!-- التفاصيل العلوية للعملية -->
+                </div>
+                <table class="cart-table">
+                    <thead><tr><th>القطعة</th><th>الخدمة</th><th>العدد</th><th>السعر</th></tr></thead>
+                    <tbody id="drill-cart-items-body"></tbody>
+                </table>
+            </div>
+            
+            <div class="modal-actions modal-footer-sticky">
+                <button class="btn btn-cancel" style="width:100%" onclick="document.getElementById('modal-transaction-details').style.display='none'">رجوع لقائمة الحركات</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- حاوية الإشعارات المنزلقة (Toast Notifications) -->
     <div id="toast-container"></div>
 
     <!-- نافذة الإجراءات المنبثقة للجوال (Bottom Sheet Context Menu) -->
