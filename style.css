@@ -1234,3 +1234,66 @@ input, select { outline: none; }
 .fill-green { background: linear-gradient(90deg, #2ed573, #00b894); }
 .fill-blue { background: linear-gradient(90deg, #4a90e2, #0984e3); }
 
+/* ========================================================= */
+/* --- نظام النوافذ المنبثقة الذكية (Sticky Drill-down Modals) --- */
+/* ========================================================= */
+
+/* التفاعلية لجداول الغوص في البيانات */
+.interactive-table tr { cursor: pointer; transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.interactive-table tr:hover { 
+    transform: scale(1.01) translateY(-2px); 
+    border-color: var(--gold) !important; 
+    box-shadow: 0 8px 20px rgba(212, 175, 55, 0.15) !important; 
+    background: linear-gradient(145deg, rgba(40, 40, 40, 0.95), rgba(20, 20, 20, 0.95)) !important;
+}
+
+/* هندسة صندوق البينتو (Bento Box) */
+#bento-current-pieces { transition: color 0.3s; }
+.bento-hero:hover #bento-current-pieces { color: #fff !important; }
+
+/* 📱 حل مشكلة زر الإغلاق الثابت في الجوال (Sticky Modals) 📱 */
+@media (max-width: 768px) {
+    .mobile-sticky-modal {
+        display: flex !important;
+        flex-direction: column !important;
+        padding: 0 !important; /* إزالة الحواف ليتمدد الرأس والتذييل */
+        max-height: 85dvh !important; /* تحديد أقصى ارتفاع للشاشة */
+        height: 85vh !important;
+        overflow: hidden !important; /* منع النافذة بالكامل من التمرير */
+        border-radius: 20px !important;
+    }
+    
+    .modal-header-sticky {
+        padding: 20px 20px 10px;
+        background: rgba(20, 20, 20, 0.95);
+        backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+        border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+        flex-shrink: 0; /* منع الرأس من الانكماش */
+        z-index: 10;
+    }
+    
+    .modal-body-scrollable {
+        padding: 15px 20px;
+        flex: 1; /* يأخذ كل المساحة المتبقية */
+        overflow-y: auto !important; /* السماح بالتمرير الداخلي فقط هنا */
+        -webkit-overflow-scrolling: touch; /* تمرير ناعم للآيفون */
+        background: rgba(10, 10, 10, 0.5);
+    }
+    
+    .modal-footer-sticky {
+        padding: 15px 20px 20px;
+        margin-top: 0 !important;
+        background: rgba(20, 20, 20, 0.95);
+        backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+        border-top: 1px solid rgba(212, 175, 55, 0.2);
+        flex-shrink: 0; /* منع التذييل من الانكماش */
+        z-index: 10;
+        box-shadow: 0 -10px 20px rgba(0,0,0,0.5); /* ظل علوي يبرز زر الإغلاق */
+    }
+    
+    /* تعديل تصميم الجدول داخل نوافذ الغوص في الجوال */
+    .mobile-sticky-modal .invoices-table tr {
+        grid-template-columns: 1fr 1fr !important;
+        grid-template-rows: auto auto auto auto !important;
+    }
+}
