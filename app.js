@@ -2186,7 +2186,7 @@ window.updateAdminDashboard = () => {
         let net = data.sales - data.expenses;
         
         dailyTbody.innerHTML += `
-            <tr>
+            <tr onclick="window.viewDayTransactions('${day}')" class="interactive-row">
                 <td>${day}</td>
                 <td style="color:var(--gold);">${dayName}</td>
                 <td style="color:var(--green-success); font-weight:bold;">${data.sales.toLocaleString()}</td>
@@ -2195,6 +2195,9 @@ window.updateAdminDashboard = () => {
                 <td style="font-weight:bold; color:${net >= 0 ? 'var(--green-success)' : 'var(--red-danger)'};">${net.toLocaleString()}</td>
             </tr>
         `;
+        // استدعاء محرك البينتو لتحديث أرقام القطع فوراً
+    if(window.updateBentoBox) window.updateBentoBox();
+};
     });
 
     // قسم الديون
@@ -3862,6 +3865,146 @@ window.viewAdminSubInvoices = (subId) => {
         });
     }
     document.getElementById('modal-admin-sub-invoices').style.display = 'flex';
+};
+
+// =========================================================
+// --- محرك صندوق البينتو (Bento Box) لحساب القطع بدقة ---
+// =========================================================
+window.updateBentoBox = () => {
+    let currentPieces = 0; let enteredToday = 0; let finishedToday = 0;
+    let monthEntered = 0; let monthFinished = 0;
+
+    let today = getRealTime().date;
+    let currentMonth = today.substring(0, 7); // استخراج YYYY-MM
+
+    // 1. التنقيب في الفواتير (للقطع الموجودة والمستلمة)
+    (localData.invoices || []).forEach(inv => {
+        // حساب إجمالي القطع في هذه الفاتورة
+        let itemsCount = (inv.items || []).reduce((sum, item) => sum + (item.qty || 1), 0);
+        
+        // أ. القطع الموجودة حالياً بالمكوى (قيد العمل)
+        if (inv.type === 'active') currentPieces += itemsCount;
+
+        // ب. القطع التي دخلت اليوم / هذا الشهر
+        if (inv.date === today) enteredToday += itemsCount;
+        if (inv.date.startsWith(currentMonth)) monthEntered += itemsCount;
+
+        // ج. القطع التي أنجزت فوراً (بيع مباشر كاش/إلكتروني)
+        if (inv.type !== 'active') {
+            if (inv.date === today) finishedToday += itemsCount;
+            if (inv.date.startsWith(currentMonth)) monthFinished += itemsCount;
+        }
+    });
+
+    // 2. التنقيب في سجل الحركات (للقطع التي كانت قيد العمل وسُلمت لاحقاً)
+    (localData.logs || []).forEach(log => {
+        // عملية التسليم الفعلي للطلبات المسبقة تُسجل بهذا الاسم
+        if (log.type.includes('تسليم طلب')) {
+            let itemsCount = (log.snapshot?.items || []).reduce((sum, item) => sum + (item.qty || 1), 0);
+            if (log.date === today) finishedToday += itemsCount;
+            if (log.date.startsWith(currentMonth)) monthFinished += itemsCount;
+        }
+    });
+
+    // ضخ الأرقام في واجهة البينتو مع تأثيرات بصرية
+    const animateEl = (id, val) => {
+        let el = document.getElementById(id);
+        if(el) { el.innerText = val.toLocaleString(); el.style.transform = 'scale(1.1)'; setTimeout(()=> el.style.transform = 'scale(1)', 300); }
+    };
+
+    animateEl('bento-current-pieces', currentPieces);
+    animateEl('bento-entered-today', enteredToday);
+    animateEl('bento-finished-today', finishedToday);
+    if(document.getElementById('bento-month-entered')) document.getElementById('bento-month-entered').innerText = monthEntered.toLocaleString();
+    if(document.getElementById('bento-month-finished')) document.getElementById('bento-month-finished').innerText = monthFinished.toLocaleString();
+};
+
+// =========================================================
+// --- محرك الغوص في البيانات (Drill-down Modals) ---
+// =========================================================
+window.viewDayTransactions = (dateStr) => {
+    document.getElementById('drill-day-title').innerText = dateStr;
+    const tbody = document.getElementById('drill-transactions-body');
+    tbody.innerHTML = '';
+    
+    let totalIn = 0; let totalOut = 0;
+
+    // حساب أموال الكاش الحقيقية لهذا اليوم
+    (localData.payments || []).forEach(p => {
+         if(p.date === dateStr) {
+             if (p.type === 'إلغاء اشتراك VIP') totalOut += p.amount;
+             else totalIn += p.amount;
+         }
+    });
+    (localData.expenses || []).forEach(e => { if(e.date === dateStr) totalOut += e.amount; });
+
+    document.getElementById('drill-day-in').innerText = totalIn.toLocaleString();
+    document.getElementById('drill-day-out').innerText = totalOut.toLocaleString();
+
+    // استخراج فواتير هذا اليوم
+    let dayInvoices = (localData.invoices || []).filter(inv => inv.date === dateStr);
+    
+    dayInvoices.sort((a,b) => b.timestamp - a.timestamp).forEach(inv => {
+        let typeStr = inv.type === 'active' ? 'تسجيل طلب' : (inv.type === 'archived' ? 'تسليم طلب' : 'بيع مباشر');
+        let typeColor = inv.type === 'active' ? 'var(--gold)' : (inv.type === 'archived' ? 'var(--green-success)' : '#4a90e2');
+        
+        let custName = inv.customer ? inv.customer.name : 'عميل نقدي';
+        let deposit = inv.customer ? inv.customer.paid : 0;
+        let discount = inv.discount || 0;
+        
+        let statusBadge = '';
+        if (inv.type === 'active') {
+            statusBadge = `<span style="color:var(--red-danger);">المتبقي: ${(inv.customer?.remaining || 0).toLocaleString()}</span>`;
+        } else {
+            let paid = (inv.type==='cash'||inv.type==='electronic') ? inv.total : (inv.customer?.remainingPaid || inv.total);
+            statusBadge = `<span style="color:var(--green-success);">المقبوض: ${paid.toLocaleString()}</span>`;
+        }
+
+        tbody.innerHTML += `
+            <tr onclick="window.viewTransactionDetails('${inv.id}')" title="انقر لعرض السلة">
+                <td style="color:${typeColor}; font-weight:bold;">${typeStr}</td>
+                <td>${inv.dailyNumber || inv.id.slice(-4)}</td>
+                <td style="font-weight:bold;">${custName}</td>
+                <td dir="ltr" style="color:var(--text-gray); font-size:12px;">${inv.time}</td>
+                <td style="font-weight:900;">${inv.total.toLocaleString()}</td>
+                <td>${discount > 0 ? discount.toLocaleString() : '-'}</td>
+                <td>${deposit > 0 ? deposit.toLocaleString() : '-'}</td>
+                <td style="font-weight:bold;">${statusBadge}</td>
+            </tr>
+        `;
+    });
+
+    document.getElementById('modal-daily-transactions').style.display = 'flex';
+};
+
+window.viewTransactionDetails = (invId) => {
+    const inv = localData.invoices.find(i => i.id === invId);
+    if(!inv) return;
+    
+    let custName = inv.customer ? inv.customer.name : 'عميل نقدي';
+    
+    document.getElementById('drill-cart-info').innerHTML = `
+        <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #444; padding-bottom:10px; margin-bottom:10px;">
+            <span>رقم القائمة: <strong style="color:var(--gold);">${inv.dailyNumber || inv.id.slice(-6)}</strong></span>
+            <span dir="ltr">${inv.time}</span>
+        </div>
+        <p><strong>الزبون:</strong> <span style="color:var(--text-white);">${custName}</span> ${(inv.customer?.phone ? ' - '+inv.customer.phone : '')}</p>
+        <p><strong>إجمالي القائمة:</strong> <span style="color:var(--green-success); font-weight:bold;">${inv.total.toLocaleString()} د.ع</span></p>
+        ${inv.notes ? `<p style="margin-top:8px;"><strong>ملاحظات:</strong> <span style="color:var(--text-gray);">${inv.notes}</span></p>` : ''}
+    `;
+
+    const tbody = document.getElementById('drill-cart-items-body');
+    tbody.innerHTML = '';
+    (inv.items || []).forEach(item => {
+        tbody.innerHTML += `<tr>
+            <td style="font-weight:bold;">${item.name}</td>
+            <td style="color:var(--text-gray); font-size:12px;">${item.serviceName}</td>
+            <td style="color:var(--gold); font-weight:900;">${item.qty}</td>
+            <td style="font-weight:bold;">${(item.price * item.qty).toLocaleString()}</td>
+        </tr>`;
+    });
+
+    document.getElementById('modal-transaction-details').style.display = 'flex';
 };
 
 window.onload = initializeDB;
