@@ -2195,11 +2195,11 @@ window.updateAdminDashboard = () => {
                 <td style="font-weight:bold; color:${net >= 0 ? 'var(--green-success)' : 'var(--red-danger)'};">${net.toLocaleString()}</td>
             </tr>
         `;
-        // استدعاء محرك البينتو لتحديث أرقام القطع فوراً
-    if(window.updateBentoBox) window.updateBentoBox();
-};
-    });
 
+    });
+    // استدعاء محرك البينتو لتحديث أرقام القطع فوراً
+    if(window.updateBentoBox) window.updateBentoBox();
+    };
     // قسم الديون
     const debtsTbody = document.getElementById('debts-table-body');
     debtsTbody.innerHTML = '';
