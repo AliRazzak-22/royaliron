@@ -253,6 +253,11 @@
                         </div>
                     </div>
                 </div>
+                <h3 style="margin: 30px 0 15px; color: var(--gold); border-bottom: 1px solid var(--light-gray); padding-bottom: 10px;">التقارير اليومية المفصلة</h3>
+                    <table class="cart-table">
+                        <thead><tr><th>التاريخ</th><th>اليوم</th><th>المبيعات</th><th>المصروفات</th><th>تفاصيل الصرف</th><th>الصافي</th></tr></thead>
+                        <tbody id="admin-daily-reports-body"></tbody>
+                    </table>
 
                 <!-- قسم الملخص المالي المحاسبي (القديم) -->
                 <div id="admin-finance" class="admin-section">
@@ -291,12 +296,6 @@
                             <div class="stat-value profit" id="admin-net-profit">0 د.ع</div>
                         </div>
                     </div>
-                    
-                    <h3 style="margin: 30px 0 15px; color: var(--gold); border-bottom: 1px solid var(--light-gray); padding-bottom: 10px;">التقارير اليومية المفصلة</h3>
-                    <table class="cart-table">
-                        <thead><tr><th>التاريخ</th><th>اليوم</th><th>المبيعات</th><th>المصروفات</th><th>تفاصيل الصرف</th><th>الصافي</th></tr></thead>
-                        <tbody id="admin-daily-reports-body"></tbody>
-                    </table>
                 </div>
                 
                 <!-- قسم التكاليف التشغيلية -->
@@ -968,9 +967,11 @@
     </div>
 
    <!-- نافذة الغوص في بيانات اليوم (Drill-down: Daily Transactions) -->
+    <!-- نافذة الغوص في بيانات اليوم (Drill-down: Daily Transactions) -->
     <div id="modal-daily-transactions" class="modal-overlay" style="z-index: 5500;">
         <div class="modal-content mobile-sticky-modal" style="max-width: 1000px;">
-            <div class="modal-header-sticky">
+            <div class="modal-header-sticky" style="position: relative;">
+                <i class="fa-solid fa-xmark close-modal-icon" onclick="document.getElementById('modal-daily-transactions').style.display='none'"></i>
                 <div class="modal-title" style="color: var(--gold); margin-bottom: 5px;"><i class="fa-solid fa-list-check"></i> حركة يوم <span id="drill-day-title">...</span></div>
                 <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; font-size: 13px;">
                     <span style="background: rgba(46, 213, 115, 0.1); color: var(--green-success); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--green-success);">دخل الصندوق: <span id="drill-day-in">0</span> د.ع</span>
@@ -996,17 +997,14 @@
                     <tbody id="drill-transactions-body"></tbody>
                 </table>
             </div>
-            
-            <div class="modal-actions modal-footer-sticky">
-                <button class="btn btn-cancel" style="width:100%" onclick="document.getElementById('modal-daily-transactions').style.display='none'">إغلاق النافذة</button>
-            </div>
         </div>
     </div>
 
     <!-- نافذة تفاصيل القائمة المحددة من داخل اليوم (Drill-down: Cart Details) -->
     <div id="modal-transaction-details" class="modal-overlay" style="z-index: 6000;">
         <div class="modal-content mobile-sticky-modal" style="max-width: 500px;">
-            <div class="modal-header-sticky">
+            <div class="modal-header-sticky" style="position: relative;">
+                <i class="fa-solid fa-arrow-right close-modal-icon" onclick="document.getElementById('modal-transaction-details').style.display='none'"></i>
                 <div class="modal-title" style="color: #4a90e2; margin-bottom: 10px;"><i class="fa-solid fa-microscope"></i> تفاصيل القائمة</div>
             </div>
             
@@ -1018,10 +1016,6 @@
                     <thead><tr><th>القطعة</th><th>الخدمة</th><th>العدد</th><th>السعر</th></tr></thead>
                     <tbody id="drill-cart-items-body"></tbody>
                 </table>
-            </div>
-            
-            <div class="modal-actions modal-footer-sticky">
-                <button class="btn btn-cancel" style="width:100%" onclick="document.getElementById('modal-transaction-details').style.display='none'">رجوع لقائمة الحركات</button>
             </div>
         </div>
     </div>
