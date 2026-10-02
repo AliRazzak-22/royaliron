@@ -2495,7 +2495,7 @@ window.viewDayTransactions = (dateStr) => {
         }
 
         tbody.innerHTML += `
-            <tr onclick="window.viewTransactionDetails('${inv.id}')" title="انقر لعرض السلة">
+            <tr onclick="window.viewTransactionDetails('${inv.id}'<tr onclick="window.viewTransactionDetails('${inv.id}')">)" title="انقر لعرض السلة">
                 <td style="color:${typeColor}; font-weight:bold;">${typeStr}</td>
                 <td>${inv.dailyNumber || inv.id.slice(-4)}</td>
                 <td style="font-weight:bold;">${custName}</td>
@@ -4396,7 +4396,7 @@ let swipeDirectionLocked = false;
 let activeSec = null, targetSec = null;
 let swipeTargetIndex = -1;
 
-const tabsOrder = ['dashboard', 'customers', 'wallet', 'subscriptions', 'more-menu'];
+const tabsOrder = ['dashboard', 'custoconst tabsOrder = ['daily-report', 'finance', 'customers', 'wallet', 'more-menu'];mers', 'wallet', 'subscriptions', 'more-menu'];
 const adminScreenEl = document.getElementById('admin-screen');
 
 if (adminScreenEl) {
@@ -4412,7 +4412,7 @@ if (adminScreenEl) {
         isSwiping = true;
         swipeDirectionLocked = false;
         
-        let currentTab = sessionStorage.getItem('admin_tab') || 'dashboard';
+        let currentTab = sessionStorage.getItem('admin_tab') || 'daily-report';
         activeSec = document.getElementById('admin-' + currentTab);
         targetSec = null;
 
@@ -4440,7 +4440,7 @@ if (adminScreenEl) {
             if (Math.abs(diffX) > 10) {
                 swipeDirectionLocked = true;
                 
-                let currentTab = sessionStorage.getItem('admin_tab') || 'dashboard';
+                let currentTab = sessionStorage.getItem('admin_tab') || 'daily-report';
                 let currentIndex = tabsOrder.indexOf(currentTab);
                 
                 // (RTL Logic): السحب لليمين يعني إظهار التبويب القادم من اليسار
