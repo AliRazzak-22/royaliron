@@ -2048,11 +2048,14 @@ function animateValue(obj, start, end, duration) {
 // متغير قفل النظام الذكي لمنع التداخل بين النقر والسحب
 window.isSwipeNavigating = false; 
 
-window.switchAdminTab = (tab, animationType = 'fade-in') => {
+wwindow.switchAdminTab = (tab, animationType = 'fade-in') => {
     if (!secureAdminToken) { window.exitToMain(); return window.showAlert('محاولة وصول غير مصرح بها!', 'error'); }
     
     // 🛡️ جدار الحماية: منع النقر على الأزرار السفلية نهائياً إذا كان النظام مشغولاً بحركة سحب حالية
     if (window.isSwipeNavigating && animationType !== 'none') return;
+
+    // إغلاق أي نافذة منبثقة مفتوحة فوراً عند النقر على تبويب جديد
+    window.closeModals();
 
     sessionStorage.setItem('admin_tab', tab); 
     
