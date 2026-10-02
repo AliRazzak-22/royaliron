@@ -4396,7 +4396,7 @@ let swipeDirectionLocked = false;
 let activeSec = null, targetSec = null;
 let swipeTargetIndex = -1;
 
-const tabsOrder = ['dashboard', 'custoconst tabsOrder = ['daily-report', 'finance', 'customers', 'wallet', 'more-menu'];mers', 'wallet', 'subscriptions', 'more-menu'];
+const tabsOrder = ['daily-report', 'finance', 'customers', 'wallet', 'more-menu'];
 const adminScreenEl = document.getElementById('admin-screen');
 
 if (adminScreenEl) {
