@@ -1358,3 +1358,189 @@ input, select { outline: none; }
     #admin-more-menu .stat-icon { font-size: 24px !important; width: 45px !important; height: 45px !important; margin-bottom: 8px !important; }
 }
 
+/* ========================================================= */
+/* --- 1. تجميل الجداول في الكمبيوتر (Hover Effects) --- */
+/* ========================================================= */
+.interactive-row {
+    transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1) !important;
+    cursor: pointer;
+}
+.interactive-row:hover {
+    transform: scale(1.02) !important; /* تكبير ناعم جداً */
+    background: rgba(212, 175, 55, 0.1) !important; /* إضاءة ذهبية خفيفة خلف الصف */
+    border-color: var(--gold) !important;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4) !important;
+    border-radius: 8px !important;
+}
+
+/* ========================================================= */
+/* --- 2. ثورة العرض في الموبايل (Full Screen & Smart Cards) --- */
+/* ========================================================= */
+@media (max-width: 768px) {
+    
+    /* جعل النوافذ المنبثقة بحجم الشاشة بالكامل (Full Screen Native App Style) */
+    .modal-overlay {
+        padding: 0 !important;
+        align-items: flex-start !important; /* تبدأ النافذة من أعلى حافة بالشاشة */
+    }
+    .modal-content {
+        width: 100vw !important;
+        height: 100dvh !important; /* الطول الكامل للشاشة بما فيها شريط الآيفون */
+        max-width: 100vw !important;
+        max-height: 100dvh !important;
+        border-radius: 0 !important; /* إزالة الحواف الدائرية */
+        border: none !important;
+        margin: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        background: rgba(15, 15, 15, 0.98) !important; /* خلفية داكنة صلبة */
+    }
+    
+    /* تثبيت الهيدر وزر الإغلاق السفلي */
+    .modal-header-sticky {
+        padding: 20px 15px 15px !important;
+        background: #111 !important;
+        border-bottom: 1px solid rgba(212, 175, 55, 0.2) !important;
+    }
+    .modal-footer-sticky {
+        margin-top: auto !important; /* دفع الزر لأقصى الأسفل دائماً */
+        padding: 15px 15px calc(15px + env(safe-area-inset-bottom)) !important; /* دعم حافة الآيفون السفلية */
+        background: #111 !important;
+        border-top: 1px solid rgba(212, 175, 55, 0.2) !important;
+    }
+    .modal-body-scrollable {
+        flex: 1 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        padding: 10px 0 !important; /* إزالة الهوامش الجانبية لإعطاء مساحة للجدول */
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* --------------------------------------------------------- */
+    /* 3. تصميم البطاقة البطلة (تقرير حركة الأيام) في الجوال */
+    /* --------------------------------------------------------- */
+    #admin-daily-reports-body tr {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        grid-template-areas: 
+            "date day"
+            "net net"
+            "sales exp" !important;
+        gap: 10px !important;
+        padding: 20px !important;
+        background: linear-gradient(145deg, rgba(30, 30, 30, 0.95), rgba(15, 15, 15, 1)) !important;
+        border-radius: 20px !important;
+        border: 1px solid rgba(212, 175, 55, 0.2) !important;
+        margin-bottom: 15px !important;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+    }
+    
+    /* إخفاء تفاصيل الصرفيات نهائياً من البطاقة */
+    #admin-daily-reports-body td:nth-child(5) { display: none !important; }
+    
+    /* التاريخ (أعلى اليسار) */
+    #admin-daily-reports-body td:nth-child(1) {
+        grid-area: date; text-align: left !important; color: var(--text-gray) !important; font-size: 13px !important; align-self: center;
+    }
+    /* اسم اليوم (أعلى اليمين) */
+    #admin-daily-reports-body td:nth-child(2) {
+        grid-area: day; text-align: right !important; font-size: 16px !important; font-weight: bold !important; align-self: center;
+    }
+    
+    /* الدخل الصافي (المنتصف، الأكبر، والذهبي) */
+    #admin-daily-reports-body td:nth-child(6) {
+        grid-area: net;
+        text-align: center !important;
+        font-size: 38px !important; /* رقم ضخم */
+        font-weight: 900 !important;
+        color: var(--gold) !important; /* إجبار اللون على الذهبي بدلاً من الأخضر/الأحمر */
+        padding: 15px 0 !important;
+        background: none !important;
+        border: none !important;
+        text-shadow: 0 0 20px rgba(212, 175, 55, 0.4) !important;
+    }
+    #admin-daily-reports-body td:nth-child(6)::before {
+        content: "الدخل الصافي ✦";
+        display: block; font-size: 13px; color: var(--gold); font-weight: bold; margin-bottom: 5px; opacity: 0.8; text-shadow: none;
+    }
+    
+    /* المبيعات (أسفل اليمين - أخضر) */
+    #admin-daily-reports-body td:nth-child(3) {
+        grid-area: sales; text-align: center !important;
+        background: rgba(46, 213, 115, 0.1) !important; border-radius: 12px !important; padding: 12px 5px !important;
+        font-size: 18px !important; color: var(--green-success) !important;
+    }
+    #admin-daily-reports-body td:nth-child(3)::before {
+        content: "المبيعات"; display: block; font-size: 11px; color: var(--text-gray); margin-bottom: 3px;
+    }
+    
+    /* الصرفيات (أسفل اليسار - أحمر) */
+    #admin-daily-reports-body td:nth-child(4) {
+        grid-area: exp; text-align: center !important;
+        background: rgba(255, 71, 87, 0.1) !important; border-radius: 12px !important; padding: 12px 5px !important;
+        font-size: 18px !important; color: var(--red-danger) !important;
+    }
+    #admin-daily-reports-body td:nth-child(4)::before {
+        content: "الصرفيات"; display: block; font-size: 11px; color: var(--text-gray); margin-bottom: 3px;
+    }
+
+    /* --------------------------------------------------------- */
+    /* 4. تحويل قوائم النوافذ (Drill-down) إلى جداول سحب أفقية */
+    /* --------------------------------------------------------- */
+    
+    /* نلغي تحولها إلى بطاقات، ونجبرها على البقاء كجدول كلاسيكي مصغر */
+    #modal-daily-transactions .invoices-table,
+    #modal-transaction-details .cart-table {
+        display: table !important;
+        width: 100% !important;
+        border-collapse: collapse !important;
+        white-space: nowrap !important; /* السر: إجبار النص على البقاء بسطر واحد ليصنع السحب */
+    }
+    #modal-daily-transactions .invoices-table thead,
+    #modal-transaction-details .cart-table thead {
+        display: table-header-group !important; /* إظهار عناوين الجدول */
+    }
+    #modal-daily-transactions .invoices-table tbody,
+    #modal-transaction-details .cart-table tbody {
+        display: table-row-group !important;
+    }
+    #modal-daily-transactions .invoices-table tr,
+    #modal-transaction-details .cart-table tr {
+        display: table-row !important;
+        background: transparent !important;
+        border: none !important;
+        border-bottom: 1px solid #222 !important; /* خط فاصل ناعم */
+        box-shadow: none !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+    }
+    #modal-daily-transactions .invoices-table th,
+    #modal-transaction-details .cart-table th,
+    #modal-daily-transactions .invoices-table td,
+    #modal-transaction-details .cart-table td {
+        display: table-cell !important;
+        padding: 12px 10px !important;
+        font-size: 13px !important; /* خط أنعم للجوال */
+        text-align: center !important;
+        border: none !important;
+        background: transparent !important;
+    }
+    #modal-daily-transactions .invoices-table th,
+    #modal-transaction-details .cart-table th {
+        color: var(--text-gray) !important;
+        font-size: 11px !important;
+        background: #0a0a0a !important; /* لون هادئ للرأس */
+    }
+
+    /* حاوية الجدول: السماح بالسحب الأفقي فقط داخل الجدول */
+    .modal-body-scrollable {
+        overflow-x: auto !important;
+    }
+    
+    /* إخفاء عامود الخصم في الجوال لتوفير المساحة وتسهيل القراءة (إن أردت إبقائه امسح هذا السطر) */
+    #modal-daily-transactions .invoices-table th:nth-child(6),
+    #modal-daily-transactions .invoices-table td:nth-child(6) {
+        display: none !important;
+    }
+}
