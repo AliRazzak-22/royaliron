@@ -2048,7 +2048,7 @@ function animateValue(obj, start, end, duration) {
 // متغير قفل النظام الذكي لمنع التداخل بين النقر والسحب
 window.isSwipeNavigating = false; 
 
-wwindow.switchAdminTab = (tab, animationType = 'fade-in') => {
+window.switchAdminTab = (tab, animationType = 'fade-in') => {
     if (!secureAdminToken) { window.exitToMain(); return window.showAlert('محاولة وصول غير مصرح بها!', 'error'); }
     
     // 🛡️ جدار الحماية: منع النقر على الأزرار السفلية نهائياً إذا كان النظام مشغولاً بحركة سحب حالية
