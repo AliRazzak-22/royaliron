@@ -195,16 +195,16 @@
                     <i class="fa-solid fa-crown" style="color:var(--gold);"></i><br>
                     إدارة رويال
                 </div>
-                <button class="admin-nav-btn active" onclick="window.switchAdminTab('dashboard')"><i class="fa-solid fa-chart-pie"></i> الإحصائيات<button class="admin-nav-btn active" onclick="window.switchAdminTab('daily-report')"><i class="fa-solid fa-calendar-day"></i> التقرير اليومي الميداني</button>
-                <button class="admin-nav-btn" onclick="window.switchAdminTab('finance')"><i class="fa-solid fa-chart-pie"></i> الملخص المحاسبي (المالية)</button> الشاملة</button>
-                <button class="admin-nav-btn" onclick="window.switchAdminTab('debts')"><i class="fa-solid fa-address-book"></i> الديون والذمم</button>
-                <button class="admin-nav-btn" onclick="window.switchAdminTab('costs')"><i class="fa-solid fa-building-columns"></i> التكاليف التشغيلية</button>
+                <button class="admin-nav-btn active" onclick="window.switchAdminTab('daily-report')"><i class="fa-solid fa-calendar-day"></i> اليومية الميدانية</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('finance')"><i class="fa-solid fa-chart-pie"></i> الملخص المالي</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('customers')"><i class="fa-solid fa-users-rays"></i> إحصائيات الزبائن</button>
-                <button class="admin-nav-btn" onclick="window.switchAdminTab('logs')"><i class="fa-solid fa-clock-rotate-left"></i> سجل الحركات</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('wallet')"><i class="fa-solid fa-wallet"></i> المحفظة </button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('subscriptions')"><i class="fa-solid fa-id-card-clip"></i> إدارة الاشتراكات</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('debts')"><i class="fa-solid fa-address-book"></i> الديون والذمم</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('costs')"><i class="fa-solid fa-building-columns"></i> التكاليف الثابتة</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('logs')"><i class="fa-solid fa-clock-rotate-left"></i> سجل الحركات</button>
                 <button class="admin-nav-btn" onclick="window.switchAdminTab('settings')"><i class="fa-solid fa-gears"></i> التخصيصات</button>
-                <button class="admin-nav-btn" onclick="window.switchAdminTab('invoice-designer')"><i class="fa-solid fa-file-pen"></i>تصميم المطبوعات</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('invoice-designer')"><i class="fa-solid fa-file-pen"></i> تصميم المطبوعات</button>
                 <button class="admin-nav-btn" style="margin-top:auto; color:var(--red-danger);" onclick="window.exitToMain()"><i class="fa-solid fa-right-from-bracket"></i> تسجيل خروج</button>
             </div>
             <div class="admin-content">
@@ -239,9 +239,17 @@
                         </div>
 
                         <!-- الشريط السفلي (التراكمي الشهري) -->
-                        <div style="grid-column: span 2; background: #111; padding: 12px 20px; border-radius: 12px; border: 1px solid #333; display: flex; justify-content: space-between; font-size: 13px; color: var(--text-gray);">
-                            <span><i class="fa-solid fa-chart-line"></i> إجمالي استلام الشهر: <strong id="bento-month-entered" style="color: var(--text-white);">0</strong> قطعة</span>
-                            <span><i class="fa-solid fa-clipboard-check"></i> إجمالي تسليم الشهر: <strong id="bento-month-finished" style="color: var(--text-white);">0</strong> قطعة</span>
+                        <!-- الشريط السفلي (التراكمي الشهري) بتصميم عصري ناعم -->
+                        <div class="monthly-strip" style="grid-column: span 2; display: flex; justify-content: space-around; background: rgba(20,20,20,0.8); padding: 10px; border-radius: 12px; border: 1px solid #222;">
+                            <div class="monthly-strip-item" style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-gray);">
+                                <div style="width: 8px; height: 8px; border-radius: 50%; background: #4a90e2; box-shadow: 0 0 8px #4a90e2;"></div>
+                                التراكمي الشهري للاستلام: <strong id="bento-month-entered" style="color: #fff; font-size: 14px;">0</strong>
+                            </div>
+                            <div style="width: 1px; background: #333; height: 20px;"></div>
+                            <div class="monthly-strip-item" style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-gray);">
+                                <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--green-success); box-shadow: 0 0 8px var(--green-success);"></div>
+                                التراكمي الشهري للتسليم: <strong id="bento-month-finished" style="color: #fff; font-size: 14px;">0</strong>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -641,14 +649,14 @@
             <button class="bottom-nav-btn active" onclick="window.switchAdminTab('daily-report')">
                 <i class="fa-solid fa-calendar-day"></i><span>اليومية</span>
             </button>
+            <button class="bottom-nav-btn" onclick="window.switchAdminTab('finance')">
+                <i class="fa-solid fa-chart-pie"></i><span>المالية</span>
+            </button>
             <button class="bottom-nav-btn" onclick="window.switchAdminTab('customers')">
                 <i class="fa-solid fa-users-rays"></i><span>الزبائن</span>
             </button>
             <button class="bottom-nav-btn" onclick="window.switchAdminTab('wallet')">
                 <i class="fa-solid fa-wallet"></i><span>المحفظة</span>
-            </button>
-            <button class="bottom-nav-btn" onclick="window.switchAdminTab('subscriptions')">
-                <i class="fa-solid fa-id-card-clip"></i><span>الاشتراكات</span>
             </button>
             <button class="bottom-nav-btn" onclick="window.switchAdminTab('more-menu')">
                 <i class="fa-solid fa-bars"></i><span>المزيد</span>
