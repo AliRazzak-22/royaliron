@@ -1297,3 +1297,64 @@ input, select { outline: none; }
         grid-template-rows: auto auto auto auto !important;
     }
 }
+
+/* ========================================================= */
+/* --- تجميل الجداول للكمبيوتر (Hover & Spacing) --- */
+/* ========================================================= */
+.interactive-table { border-spacing: 0 10px !important; }
+.interactive-table tr {
+    transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1) !important;
+    cursor: pointer;
+    background: rgba(25, 25, 25, 0.6) !important;
+}
+.interactive-table tr:hover {
+    transform: scale(1.015) !important; /* تكبير ناعم جداً */
+    background: rgba(212, 175, 55, 0.08) !important; /* إضاءة ذهبية خفيفة */
+    border-color: var(--gold) !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5) !important;
+    z-index: 5;
+}
+
+/* ========================================================= */
+/* --- وضع النعومة للآيفون (Compact Mobile UI) --- */
+/* ========================================================= */
+@media (max-width: 768px) {
+    /* 1. تصغير صندوق البينتو ليكون مضغوطاً وأنيقاً */
+    .bento-box-container { gap: 10px !important; margin-bottom: 20px !important; }
+    .stat-card.bento-hero { padding: 15px !important; }
+    #bento-current-pieces { font-size: 38px !important; text-shadow: 0 0 10px rgba(212, 175, 55, 0.3) !important; }
+    .bento-hero .stat-icon { font-size: 26px !important; margin-bottom: 5px !important; }
+    .bento-hero .stat-title { font-size: 12px !important; font-weight: bold !important; }
+    
+    .stat-card { padding: 12px !important; border-radius: 14px !important; }
+    .stat-card .stat-icon { width: 36px !important; height: 36px !important; font-size: 16px !important; margin-bottom: 8px !important; }
+    .stat-card .stat-title { font-size: 10px !important; letter-spacing: 0px !important; }
+    .stat-card .stat-value { font-size: 18px !important; }
+    
+    .monthly-strip { flex-direction: column !important; gap: 8px !important; padding: 12px !important; }
+    .monthly-strip > div:nth-child(2) { display: none; } /* إخفاء الخط الفاصل العمودي في الجوال */
+    .monthly-strip-item { font-size: 11px !important; justify-content: space-between; width: 100%; }
+    
+    /* 2. تصغير الخطوط والمسافات في الجداول والبطاقات */
+    .admin-section h2 { font-size: 16px !important; margin-bottom: 12px !important; }
+    .admin-section h3 { font-size: 14px !important; margin: 15px 0 10px !important; }
+    .cart-table tr, .invoices-table tr { padding: 12px !important; border-radius: 12px !important; margin-bottom: 10px !important; }
+    .cart-table td:nth-child(2), .invoices-table td:nth-child(2) { font-size: 15px !important; margin-bottom: 4px !important; }
+    
+    /* 3. إخفاء (تفاصيل الصرف) من بطاقات الأيام في الجوال */
+    #admin-daily-reports-body td:nth-child(5) { display: none !important; }
+    
+    /* 4. تصغير القوائم المنبثقة (Modals) لتناسب الآيفون بدون هوامش مبالغ بها */
+    .modal-content { padding: 15px !important; border-radius: 16px !important; }
+    .modal-header-sticky { padding: 15px 15px 5px !important; }
+    .modal-body-scrollable { padding: 10px 15px !important; }
+    .modal-footer-sticky { padding: 10px 15px 15px !important; }
+    .modal-title { font-size: 15px !important; margin-bottom: 10px !important; }
+    .modal-actions { margin-top: 10px !important; }
+    .btn { padding: 12px !important; font-size: 14px !important; border-radius: 8px !important; }
+    
+    /* تصغير بطاقات المنيو (المزيد) */
+    #admin-more-menu .stat-card { padding: 15px !important; }
+    #admin-more-menu .stat-icon { font-size: 24px !important; width: 45px !important; height: 45px !important; margin-bottom: 8px !important; }
+}
+
