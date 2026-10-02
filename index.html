@@ -238,7 +238,6 @@
                             <div class="stat-value" id="bento-finished-today" style="color: var(--green-success); font-size:26px !important;">0</div>
                         </div>
 
-                        <!-- الشريط السفلي (التراكمي الشهري) -->
                         <!-- الشريط السفلي (التراكمي الشهري) بتصميم عصري ناعم -->
                         <div class="monthly-strip" style="grid-column: span 2; display: flex; justify-content: space-around; background: rgba(20,20,20,0.8); padding: 10px; border-radius: 12px; border: 1px solid #222;">
                             <div class="monthly-strip-item" style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-gray);">
@@ -251,13 +250,23 @@
                                 التراكمي الشهري للتسليم: <strong id="bento-month-finished" style="color: #fff; font-size: 14px;">0</strong>
                             </div>
                         </div>
-                    </div>
-                </div>
-                <h3 style="margin: 30px 0 15px; color: var(--gold); border-bottom: 1px solid var(--light-gray); padding-bottom: 10px;">التقارير اليومية المفصلة</h3>
-                    <table class="cart-table">
-                        <thead><tr><th>التاريخ</th><th>اليوم</th><th>المبيعات</th><th>المصروفات</th><th>تفاصيل الصرف</th><th>الصافي</th></tr></thead>
+                    </div> <!-- إغلاق صندوق البينتو -->
+
+                    <!-- ============================================== -->
+                    <!-- السحر هنا: الجدول الآن داخل تبويب اليومية بأمان -->
+                    <!-- ============================================== -->
+                    <h3 style="margin: 30px 0 15px; color: var(--gold); border-bottom: 1px solid var(--light-gray); padding-bottom: 10px;">التقارير اليومية المفصلة</h3>
+                    <table class="cart-table interactive-table">
+                        <thead><tr><th>التاريخ</th><th>اليوم</th><th>المبيعات</th><th>المصروفات</th><th>الصافي المحقق</th></tr></thead>
                         <tbody id="admin-daily-reports-body"></tbody>
                     </table>
+                    
+                </div> <!-- 🔴 الإغلاق القاطع لتبويب اليومية الميدانية بالكامل 🔴 -->
+
+                <!-- قسم الملخص المالي المحاسبي (القديم) -->
+                <div id="admin-finance" class="admin-section">
+                    <div class="admin-control-panel">
+                        <h2 style="color:var(--gold); margin:0;">الملخص المالي المحاسبي</h2>
 
                 <!-- قسم الملخص المالي المحاسبي (القديم) -->
                 <div id="admin-finance" class="admin-section">
