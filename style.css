@@ -1577,4 +1577,12 @@ input, select { outline: none; }
         content: "الصافي";
         display: inline-block; font-size: 11px; color: #888; font-weight: normal; margin-left: 5px; text-shadow: none;
     }
-
+/* إجبار النوافذ المنبثقة على الظهور فوق أي طبقة تصميمية أخرى */
+.modal-overlay[style*="display: flex"] {
+    display: flex !important;
+    z-index: 99999 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: none !important;
+}
