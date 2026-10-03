@@ -554,13 +554,7 @@ window.confirmCloseApp = () => {
 };
 // ----------------------------------------
 window.openAdminLogin = () => { document.getElementById('modal-admin-login').style.display = 'flex'; };
-window.closeModals = () => { 
-    document.querySelectorAll('.modal-overlay').forEach(m => {
-        m.style.display = 'none'; 
-        // تأمين جراحي: منع أي نافذة من ترك طبقة مخفية تمنع النقر
-        m.style.removeProperty('pointer-events'); 
-    }); 
-};
+window.closeModals = () => { document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none'); };
 // ---------------- نظام رسائل التأكيد المخصصة ----------------
 let pendingConfirmAction = null;
 window.showConfirm = (msg, actionCallback, title = 'تأكيد الحذف', btnText = 'نعم، احذف نهائياً') => {
@@ -2060,10 +2054,13 @@ window.switchAdminTab = (tab, animationType = 'fade-in') => {
     // 🛡️ جدار الحماية: منع النقر على الأزرار السفلية نهائياً إذا كان النظام مشغولاً بحركة سحب حالية
     if (window.isSwipeNavigating && animationType !== 'none') return;
 
+    // إغلاق أي نافذة منبثقة مفتوحة فوراً عند النقر على تبويب جديد
+    window.closeModals();
+
     sessionStorage.setItem('admin_tab', tab); 
     
     document.querySelectorAll('.admin-section').forEach(s => {
-        // 💥 مسح أي إحداثيات أو أبعاد عالقة من عمليات سحب سابقة
+        // 💥 الضربة القاضية للجليتش: مسح أي إحداثيات أو أبعاد عالقة من عمليات سحب سابقة
         s.style.cssText = ''; 
         s.classList.remove('active', 'slide-from-left', 'slide-from-right', 'fade-in');
     });
