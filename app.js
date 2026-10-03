@@ -554,7 +554,13 @@ window.confirmCloseApp = () => {
 };
 // ----------------------------------------
 window.openAdminLogin = () => { document.getElementById('modal-admin-login').style.display = 'flex'; };
-window.closeModals = () => { document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none'); };
+window.closeModals = () => { 
+    document.querySelectorAll('.modal-overlay').forEach(m => {
+        m.style.display = 'none'; 
+        // تأمين جراحي: منع أي نافذة من ترك طبقة مخفية تمنع النقر
+        m.style.removeProperty('pointer-events'); 
+    }); 
+};
 // ---------------- نظام رسائل التأكيد المخصصة ----------------
 let pendingConfirmAction = null;
 window.showConfirm = (msg, actionCallback, title = 'تأكيد الحذف', btnText = 'نعم، احذف نهائياً') => {
