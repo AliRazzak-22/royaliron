@@ -2055,12 +2055,12 @@ window.switchAdminTab = (tab, animationType = 'fade-in') => {
     if (window.isSwipeNavigating && animationType !== 'none') return;
 
     // إغلاق أي نافذة منبثقة مفتوحة فوراً عند النقر على تبويب جديد
-    window.closeModals();
+    window.closeModals(); 
 
     sessionStorage.setItem('admin_tab', tab); 
     
     document.querySelectorAll('.admin-section').forEach(s => {
-        // 💥 الضربة القاضية للجليتش: مسح أي إحداثيات أو أبعاد عالقة من عمليات سحب سابقة
+        // 💥 مسح أي إحداثيات أو أبعاد عالقة من عمليات سحب سابقة
         s.style.cssText = ''; 
         s.classList.remove('active', 'slide-from-left', 'slide-from-right', 'fade-in');
     });
