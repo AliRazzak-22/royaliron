@@ -345,9 +345,7 @@ input, select { outline: none; }
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
     background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    display: none; /* يتم التحكم بها عبر الجافاسكريبت */
-    justify-content: center; align-items: center; z-index: 2000;
-    pointer-events: auto; /* السماح بالتفاعل عندما تكون مفتوحة */
+    display: none; justify-content: center; align-items: center; z-index: 2000;
 }
 .modal-content {
     background: rgba(26, 26, 26, 0.75); /* شفافية أنيقة */
@@ -1478,104 +1476,130 @@ input, select { outline: none; }
         display: none !important;
     }
 }
+/* ========================================================= */
+/* --- التصميم الفخم لبطاقة الأيام والجداول المغلقة --- */
+/* ========================================================= */
 
-/* --------------------------------------------------------- */
-    /* 3. تصميم بطاقة الهرم المقلوب (تقرير حركة الأيام) في الجوال */
-    /* --------------------------------------------------------- */
+/* زر الإغلاق العلوي للنوافذ المنبثقة */
+.close-modal-icon {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 35px;
+    height: 35px;
+    background: rgba(255, 71, 87, 0.1);
+    color: var(--red-danger);
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 18px;
+    cursor: pointer;
+    transition: 0.2s;
+    border: 1px solid rgba(255, 71, 87, 0.2);
+    z-index: 100;
+}
+.close-modal-icon:hover { background: var(--red-danger); color: #fff; }
+
+@media (max-width: 768px) {
+    /* 1. تصغير أحجام التقرير الميداني والملخص المحاسبي لتناسب الآيفون 13 */
+    #bento-current-pieces { font-size: 28px !important; text-shadow: 0 0 8px rgba(212, 175, 55, 0.3) !important; }
+    .bento-hero .stat-icon { font-size: 22px !important; }
+    .bento-hero .stat-title { font-size: 11px !important; }
+    .stat-card .stat-value { font-size: 16px !important; } /* تصغير المبالغ في الملخص المالي */
+    .stat-card .stat-title { font-size: 10px !important; }
+    .stat-card .stat-icon { width: 30px !important; height: 30px !important; font-size: 14px !important; }
+
+    /* 2. التصميم الهندسي الفاخر لبطاقة "اليوم" (بدون تظليل مزعج) */
     #admin-daily-reports-body tr {
         display: grid !important;
-        /* تقسيم ذكي: 35% لليمين (اليوم والتاريخ)، و 65% مقسومة لليسار (المبيعات والصرفيات) */
-        grid-template-columns: 35% 32.5% 32.5% !important;
-        grid-template-rows: auto auto !important;
+        grid-template-columns: 1fr 1fr !important;
         grid-template-areas: 
-            "day sales exp"
-            "date net net" !important;
-        gap: 5px 10px !important;
-        padding: 20px 15px !important;
-        background: linear-gradient(145deg, #181818, #0a0a0a) !important;
-        border-radius: 20px !important;
-        border: 1px solid rgba(212, 175, 55, 0.15) !important;
-        border-right: 4px solid var(--gold) !important;
-        margin-bottom: 15px !important;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.6) !important;
-        align-items: center !important;
+            "day date"
+            "net net"
+            "exp sales" !important; /* الصرفيات يسار، المبيعات يمين */
+        gap: 8px !important;
+        padding: 15px !important;
+        background: #0f0f0f !important; /* خلفية داكنة صافية جداً */
+        border-radius: 16px !important;
+        border: 1px solid #222 !important;
+        margin-bottom: 12px !important;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.4) !important;
         position: relative;
     }
     
-    /* إخفاء تفاصيل الصرفيات نهائياً من البطاقة */
-    #admin-daily-reports-body td:nth-child(5) { display: none !important; }
-    
-    /* 1. اسم اليوم (أعلى اليمين) */
-    #admin-daily-reports-body td:nth-child(2) {
-        grid-area: day;
-        text-align: right !important;
-        color: #ffffff !important;
-        font-size: 18px !important;
-        font-weight: 900 !important;
-        padding: 0 !important;
-        margin-bottom: 2px !important;
-        align-self: end !important; /* دفعه للأسفل ليقترب من التاريخ */
-    }
-
-    /* 2. التاريخ (أسفل اليمين - تحت اسم اليوم مباشرة) */
+    /* التاريخ (أعلى اليسار) */
     #admin-daily-reports-body td:nth-child(1) {
-        grid-area: date;
-        text-align: right !important;
-        color: var(--gold) !important;
-        font-size: 11px !important;
-        font-weight: bold !important;
-        padding: 0 !important;
-        opacity: 0.8 !important;
-        align-self: start !important; /* دفعه للأعلى ليقترب من اسم اليوم */
+        grid-area: date; text-align: left !important; color: #777 !important; font-size: 11px !important; align-self: center;
+    }
+    /* اسم اليوم (أعلى اليمين) */
+    #admin-daily-reports-body td:nth-child(2) {
+        grid-area: day; text-align: right !important; color: #ddd !important; font-size: 14px !important; font-weight: bold !important; align-self: center;
     }
     
-    /* 3. المبيعات (أعلى الوسط - أخضر حر بدون تظليل) */
-    #admin-daily-reports-body td:nth-child(3) {
-        grid-area: sales;
-        text-align: center !important;
-        background: transparent !important;
-        padding: 0 !important;
-        font-size: 16px !important;
-        color: var(--green-success) !important;
-        font-weight: 900 !important;
-        align-self: end !important;
-    }
-    #admin-daily-reports-body td:nth-child(3)::before {
-        content: "المبيعات";
-        display: block; font-size: 10px; color: #777; font-weight: normal; margin-bottom: 2px;
-    }
-    
-    /* 4. الصرفيات (أعلى اليسار - أحمر حر بدون تظليل) */
-    #admin-daily-reports-body td:nth-child(4) {
-        grid-area: exp;
-        text-align: center !important;
-        background: transparent !important;
-        padding: 0 !important;
-        font-size: 16px !important;
-        color: var(--red-danger) !important;
-        font-weight: 900 !important;
-        align-self: end !important;
-    }
-    #admin-daily-reports-body td:nth-child(4)::before {
-        content: "الصرفيات";
-        display: block; font-size: 10px; color: #777; font-weight: normal; margin-bottom: 2px;
-    }
-
-    /* 5. الدخل الصافي (رأس الهرم المقلوب - أسفل الوسط واليسار - ذهبي مشع) */
+    /* الدخل الصافي (المنتصف، ذهبي مشع) */
     #admin-daily-reports-body td:nth-child(6) {
         grid-area: net;
         text-align: center !important;
-        font-size: 22px !important;
+        font-size: 26px !important;
         font-weight: 900 !important;
         color: var(--gold) !important;
-        padding: 10px 0 0 0 !important;
-        background: transparent !important;
+        padding: 10px 0 !important;
+        background: transparent !important; /* بدون أي تظليل خلفي */
         border: none !important;
-        border-top: 1px dashed rgba(255, 255, 255, 0.1) !important; /* خط خفيف جداً يفصل الصافي عن المبيعات/الصرفيات */
-        margin-top: 5px !important;
-        text-shadow: 0 0 15px rgba(212, 175, 55, 0.4) !important;
+        text-shadow: 0 0 10px rgba(212, 175, 55, 0.4) !important;
     }
     #admin-daily-reports-body td:nth-child(6)::before {
-        content: "الصافي";
-        display: inline-block; font-size: 11px; color: #888; font-weight: normal; margin-left: 5px; text-shadow: none;
+        content: "الدخل الصافي";
+        display: block; font-size: 11px; color: #888; font-weight: normal; margin-bottom: 2px; text-shadow: none;
     }
+    
+    /* المبيعات (أخضر صافي بدون خلفية مربعة) */
+    #admin-daily-reports-body td:nth-child(3) {
+        grid-area: sales; text-align: right !important;
+        background: transparent !important; padding: 0 !important;
+        font-size: 16px !important; color: var(--green-success) !important; font-weight: 900 !important;
+    }
+    #admin-daily-reports-body td:nth-child(3)::before {
+        content: "المبيعات"; display: block; font-size: 10px; color: #666; font-weight: normal; margin-bottom: 2px;
+    }
+    
+    /* الصرفيات (أحمر صافي بدون خلفية مربعة) */
+    #admin-daily-reports-body td:nth-child(4) {
+        grid-area: exp; text-align: left !important;
+        background: transparent !important; padding: 0 !important;
+        font-size: 16px !important; color: var(--red-danger) !important; font-weight: 900 !important;
+    }
+    #admin-daily-reports-body td:nth-child(4)::before {
+        content: "الصرفيات"; display: block; font-size: 10px; color: #666; font-weight: normal; margin-bottom: 2px;
+    }
+
+    /* 3. إحكام إغلاق جدول الغوص في البيانات (Drill-down Tables) لمنع ارتداد الشاشة */
+    .modal-body-scrollable {
+        padding: 0 !important; /* إزالة الـ Padding لتوسيع مساحة الجدول */
+        /* السحر هنا: قفل حركة السحب بحيث لا تتجاوز حواف الجدول ولا تسحب النافذة */
+        overscroll-behavior-x: none !important; 
+    }
+    
+    #modal-daily-transactions .invoices-table,
+    #modal-transaction-details .cart-table {
+        min-width: 120% !important; /* إجبار الجدول ليكون أعرض من الشاشة لتفعيل السحب الداخلي */
+    }
+    
+    #modal-daily-transactions .invoices-table th,
+    #modal-transaction-details .cart-table th,
+    #modal-daily-transactions .invoices-table td,
+    #modal-transaction-details .cart-table td {
+        padding: 10px 8px !important;
+        font-size: 12px !important; /* خط أنعم للجدول */
+        border-bottom: 1px solid #1a1a1a !important; /* خطوط فاصلة ناعمة جداً */
+    }
+    
+    /* إخفاء الهيدر القديم للنافذة بما أننا أضفنا زر الإغلاق للأعلى */
+    .modal-header-sticky {
+        padding: 15px !important;
+        background: #0f0f0f !important;
+        border-bottom: none !important;
+    }
+    .modal-title { font-size: 14px !important; margin-top: 5px !important; }
+}
