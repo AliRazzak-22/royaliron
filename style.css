@@ -345,9 +345,7 @@ input, select { outline: none; }
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
     background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    display: none; /* يتم التحكم بها عبر الجافاسكريبت */
-    justify-content: center; align-items: center; z-index: 2000;
-    pointer-events: auto; /* السماح بالتفاعل عندما تكون مفتوحة */
+    display: none; justify-content: center; align-items: center; z-index: 2000;
 }
 .modal-content {
     background: rgba(26, 26, 26, 0.75); /* شفافية أنيقة */
@@ -604,10 +602,8 @@ input, select { outline: none; }
 
 /* شاشات الجوال (الحل الجذري والقاطع) */
 @media (max-width: 768px) {
-    /* 1. إجبار الشاشة على عدم التمدد العرضي والسماح القوي بالتمرير العمودي */
-    body, html, .screen { overflow-x: hidden !important; overflow-y: auto !important; max-width: 100vw !important; -webkit-overflow-scrolling: touch; }
-    .admin-layout { display: block !important; overflow-x: hidden !important; min-height: 100%; }
-    #admin-screen { height: 100dvh; overflow-y: auto !important; }
+    /* 1. إجبار الشاشة بالكامل على عدم التمدد العرضي نهائياً */
+    body, html, .screen, .admin-layout { overflow-x: hidden !important; max-width: 100vw !important; }
     
     /* 2. شريط المهام والكاشير */
     .top-bar { height: auto; flex-direction: column; padding: 15px; gap: 15px; text-align: center; }
@@ -670,162 +666,80 @@ input, select { outline: none; }
     #admin-screen .cart-table td:nth-child(n+3), #admin-screen .invoices-table td:nth-child(n+3) {
         flex: 1 1 45% !important; font-size: 14px !important; color: var(--text-white) !important;
     }
- /* ========================================== */
-    /* 5. التصميم المصرفي الفاخر جداً (Premium Mobile UI) */
-    /* ========================================== */
-    #admin-dashboard .stats-grid, #admin-more-menu .stats-grid, #admin-customers .stats-grid { 
+   /* 5. التصميم المصرفي الذكي لخلايا الملخص المالي (مربعات متجاورة) */
+    #admin-dashboard .stats-grid { 
         display: grid !important; 
         grid-template-columns: repeat(2, 1fr) !important; 
-        gap: 16px !important; 
+        gap: 12px !important; 
         flex-direction: unset !important;
     }
-    
     .stat-card { 
-        padding: 22px 12px !important; 
-        border-radius: 20px !important; /* حواف أكثر نعومة */
-        text-align: center !important; 
+        padding: 15px 12px !important; 
+        border-radius: 16px !important; 
+        text-align: right !important; 
         display: flex !important;
         flex-direction: column !important;
-        justify-content: center !important;
-        align-items: center !important;
-        /* تأثير Glassmorphism الفاخر */
-        background: linear-gradient(135deg, rgba(30, 30, 30, 0.9) 0%, rgba(15, 15, 15, 0.95) 100%) !important;
-        backdrop-filter: blur(10px) !important;
-        -webkit-backdrop-filter: blur(10px) !important;
-        border: 1px solid rgba(212, 175, 55, 0.15) !important; /* لمعة ذهبية خفيفة */
-        border-top: 1px solid rgba(255, 255, 255, 0.08) !important; /* إضاءة علوية 3D */
-        box-shadow: 0 10px 30px rgba(0,0,0,0.6), inset 0 2px 5px rgba(255,255,255,0.02) !important;
-        width: 100% !important;
-        position: relative;
-        overflow: hidden;
+        justify-content: space-between !important;
+        background: linear-gradient(145deg, #181818, #111) !important;
+        border: 1px solid rgba(212, 175, 55, 0.15) !important;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.4) !important;
+        width: auto !important;
     }
-
-    /* لمعة متحركة داخل البطاقة الفاخرة */
-    .stat-card::after {
-        content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
-        background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 60%);
-        opacity: 0; transition: 0.3s;
-    }
-    .stat-card:active::after { opacity: 1; transform: scale(0.9); }
-
     .stat-icon { 
-        font-size: 28px !important; 
-        margin: 0 auto 15px auto !important; 
-        background: linear-gradient(135deg, rgba(212, 175, 55, 0.15), rgba(212, 175, 55, 0.05)) !important;
-        border: 1px solid rgba(212, 175, 55, 0.2) !important;
-        width: 56px !important; height: 56px !important;
+        font-size: 22px !important; 
+        margin-bottom: 12px !important; 
+        background: rgba(212, 175, 55, 0.05);
+        width: 40px; height: 40px;
         display: flex; justify-content: center; align-items: center;
-        border-radius: 50% !important; /* أيقونات دائرية فخمة */
-        align-self: center !important;
-        box-shadow: 0 5px 15px rgba(212, 175, 55, 0.1) !important;
+        border-radius: 10px;
+        align-self: flex-start;
     }
+    .stat-title { font-size: 11px !important; margin-bottom: 5px !important; color: var(--text-gray) !important; font-weight: 700 !important; }
+    .stat-value { font-size: 17px !important; font-weight: 900 !important; color: var(--text-white) !important; }
+    .stat-value.profit { font-size: 18px !important; color: var(--green-success) !important; }
     
-    /* تخصيص ألوان الأيقونات حسب وظيفتها لإعطاء حيوية */
-    .stat-card[onclick*="'costs'"] .stat-icon { background: linear-gradient(135deg, rgba(255, 71, 87, 0.15), rgba(255, 71, 87, 0.05)) !important; border-color: rgba(255, 71, 87, 0.2) !important; }
-    .stat-card[onclick*="'logs'"] .stat-icon { background: linear-gradient(135deg, rgba(74, 144, 226, 0.15), rgba(74, 144, 226, 0.05)) !important; border-color: rgba(74, 144, 226, 0.2) !important; }
-
-    .stat-title { font-size: 11px !important; margin-bottom: 8px !important; color: var(--text-gray) !important; font-weight: 800 !important; letter-spacing: 0.5px; }
-    .stat-value { font-size: 19px !important; font-weight: 900 !important; color: var(--text-white) !important; letter-spacing: 1px; }
-    .stat-value.profit { font-size: 20px !important; color: var(--green-success) !important; text-shadow: 0 0 10px rgba(46, 213, 115, 0.3); }
-    
+    /* جعل الصافي يأخذ العرض بالكامل مع تصميم عرضي أنيق */
     .stat-card[style*="grid-column: span 2"] { 
-        grid-column: span 2 !important;
+        grid-column: span 2 !important; 
         flex-direction: row !important; 
-        justify-content: flex-start !important; 
-        padding: 25px 20px !important;
-        background: linear-gradient(135deg, rgba(30, 30, 30, 0.95), rgba(0, 0, 0, 0.95)) !important;
-        border: 1px solid rgba(212, 175, 55, 0.3) !important;
+        align-items: center !important; 
+        justify-content: flex-start !important;
     }
-    .stat-card[style*="grid-column: span 2"] .stat-icon { 
-        margin: 0 0 0 20px !important; 
-        width: 65px !important; height: 65px !important; font-size: 32px !important; 
-    }
-    .stat-card[style*="grid-column: span 2"] > div { display: flex; flex-direction: column; align-items: flex-start; }
+    .stat-card[style*="grid-column: span 2"] .stat-icon { margin-bottom: 0 !important; margin-left: 15px !important; }
+    .stat-card[style*="grid-column: span 2"] > div { display: flex; flex-direction: column; }
 
-
-    /* ========================================== */
-    /* 6. حل جذري للجداول وتداخل النصوص (الصرفيات والفواتير) */
-    /* ========================================== */
-    .modal-content .invoices-table, .modal-content .cart-table, #admin-screen .cart-table, #admin-screen .invoices-table { display: block !important; width: 100% !important; border: none !important; }
-    .modal-content .invoices-table thead, .modal-content .cart-table thead, #admin-screen .cart-table thead, #admin-screen .invoices-table thead { display: none !important; }
-    .modal-content .invoices-table tbody, .modal-content .cart-table tbody, #admin-screen .cart-table tbody, #admin-screen .invoices-table tbody { display: block !important; width: 100% !important; }
+    /* 6. تدمير كل الجداول في النوافذ المنبثقة (الصرفيات، الفواتير السابقة) وتحويلها لبطاقات */
+    .modal-content .invoices-table, .modal-content .cart-table { display: block !important; width: 100% !important; border: none !important; }
+    .modal-content .invoices-table thead, .modal-content .cart-table thead { display: none !important; }
+    .modal-content .invoices-table tbody, .modal-content .cart-table tbody { display: block !important; width: 100% !important; }
     
-    .modal-content .invoices-table tr, .modal-content .cart-table tr, #admin-screen .cart-table tr, #admin-screen .invoices-table tr {
-        /* الهيكلية الجديدة: الأعمدة تصبح شبكة (Grid) وليست Flex لتفادي التداخل */
-        display: grid !important; 
-        grid-template-columns: 1fr auto !important; /* عمود للبيانات، وعمود للمبلغ */
-        grid-template-rows: auto auto auto !important;
-        row-gap: 6px !important;
-        column-gap: 15px !important;
-        
-        background: linear-gradient(145deg, rgba(35, 35, 35, 0.9), rgba(20, 20, 20, 0.95)) !important; 
-        border-radius: 16px !important; margin-bottom: 15px !important;
-        padding: 16px !important; 
-        border: 1px solid rgba(255, 255, 255, 0.05) !important;
-        border-right: 4px solid var(--gold) !important; /* تمييز جمالي لكل بطاقة */
-        box-shadow: 0 8px 25px rgba(0,0,0,0.5) !important;
-        position: relative !important;
-    }
-
-    /* ألوان حدود مختلفة حسب نوع الجدول */
-    .modal-content .invoices-table tr { border-right-color: var(--red-danger) !important; }
-    #admin-debts .invoices-table tr { border-right-color: #f39c12 !important; }
-    
-    .modal-content .invoices-table td, .modal-content .cart-table td, #admin-screen .cart-table td, #admin-screen .invoices-table td { 
-        display: block !important; border: none !important; padding: 0 !important; text-align: right !important; 
-        white-space: normal !important; overflow: visible !important;
+    .modal-content .invoices-table tr, .modal-content .cart-table tr {
+        display: flex !important; flex-wrap: wrap !important; align-items: center !important; justify-content: space-between !important;
+        background: rgba(26, 26, 26, 0.9) !important; border-radius: 14px !important; margin-bottom: 12px !important;
+        padding: 12px !important; border: 1px solid rgba(255, 71, 87, 0.2) !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
     }
     
-    /* 🔴 هندسة توزيع الخلايا (السر هنا لمنع التداخل) 🔴 */
-    /* الخلية 1: التاريخ أو رقم التسلسل (أعلى اليمين) */
-    .modal-content .invoices-table td:nth-child(1), #admin-screen .cart-table td:nth-child(1), #admin-screen .invoices-table td:nth-child(1) { 
-        grid-column: 1 / 2 !important; grid-row: 1 !important;
-        font-size: 11px !important; color: var(--text-gray) !important; 
+    .modal-content .invoices-table td, .modal-content .cart-table td { 
+        display: block !important; border: none !important; padding: 2px 0 !important; text-align: right !important; 
     }
     
-    /* الخلية 2: التفاصيل أو الاسم (وسط اليمين) - نأخذ مساحتها بحرية */
-    .modal-content .invoices-table td:nth-child(2), .modal-content .invoices-table td:nth-child(3), #admin-screen .cart-table td:nth-child(2), #admin-screen .invoices-table td:nth-child(2) { 
-        grid-column: 1 / 2 !important; grid-row: 2 !important;
-        font-size: 14px !important; color: var(--text-white) !important; font-weight: 700 !important; line-height: 1.4 !important;
-    }
+    /* التوزيع الداخلي الذكي لبطاقة الصرفيات والفواتير */
+    .modal-content .invoices-table td:nth-child(1) { flex: 1 1 100% !important; font-size: 11px !important; color: var(--text-gray) !important; margin-bottom: 4px !important; }
+    .modal-content .invoices-table td:nth-child(2) { flex: 1 1 50% !important; font-size: 13px !important; color: var(--gold) !important; font-weight: bold !important; }
+    .modal-content .invoices-table td:nth-child(3) { flex: 1 1 100% !important; font-size: 14px !important; color: var(--text-white) !important; margin: 4px 0 8px !important; }
     
-    /* في بعض الجداول التفاصيل تكون في الخلية 3 */
-    .modal-content .invoices-table td:nth-child(3) { color: var(--text-white) !important; font-size: 13px !important; font-weight: normal !important; }
-
-    /* الخلية الخاصة بالمبلغ (دائماً في أقصى اليسار، وتأخذ ارتفاع صفين لمنع الاصطدام) */
-    /* نعتمد محددات مرنة لاستهداف الخلايا التي تحتوي على ألوان مميزة (المبالغ) */
-    .modal-content .invoices-table td[style*="color:var(--red-danger)"], 
-    .modal-content .invoices-table td[style*="color: var(--red-danger)"],
-    #admin-screen .cart-table td:nth-last-child(2), 
-    #admin-screen .invoices-table td:nth-last-child(2) { 
-        grid-column: 2 / 3 !important; 
-        grid-row: 1 / 3 !important; /* يمتد لصفين لتجنب النص الطويل */
-        align-self: center !important; /* توسيط عمودي */
-        font-size: 18px !important; color: var(--red-danger) !important; 
-        font-weight: 900 !important; text-align: left !important;
-        background: rgba(255, 71, 87, 0.08); /* خلفية خفيفة للمبلغ */
-        padding: 8px 12px !important;
-        border-radius: 8px !important;
-        border: 1px solid rgba(255, 71, 87, 0.2) !important;
+    /* إبراز المبلغ في الجهة اليسرى العلوية */
+    .modal-content .invoices-table td:nth-child(4) { 
+        flex: 1 1 50% !important; font-size: 16px !important; color: var(--red-danger) !important; 
+        font-weight: 900 !important; text-align: left !important; margin-top: -35px !important; 
     }
 
-    /* الأزرار والإجراءات (أسفل البطاقة) */
-    .modal-content .invoices-table td:last-child, #admin-screen .cart-table td:last-child, #admin-screen .invoices-table td:last-child { 
-        grid-column: 1 / 3 !important; grid-row: 3 !important;
-        display: flex !important; justify-content: flex-end !important; gap: 10px !important;
-        margin-top: 10px !important; padding-top: 10px !important; border-top: 1px solid rgba(255,255,255,0.05) !important;
-    }
     
-    /* إخفاء الأزرار المزعجة في شاشة الآدمن الرئيسية فقط (تُعرض بالنقر المطول) */
-    #admin-screen .cart-table td:last-child, #admin-screen .invoices-table td:last-child { display: none !important; }
-
-
-    /* 7. ترتيب أزرار النوافذ والفلاتر */
+    /* 6. إصلاح أزرار الفلتر (تصدير Excel وغيرها) */
     .admin-control-panel { flex-direction: column; align-items: stretch; gap: 15px; }
     .admin-filters { display: flex; flex-wrap: wrap; gap: 10px; width: 100%; }
-    .admin-filters button, .admin-filters input { flex: 1; min-width: 120px; justify-content: center; font-size: 14px; border-radius: 10px; }
-    
-    .modal-content { width: 95% !important; padding: 25px 20px !important; border-radius: 24px !important; }
+    .admin-filters button, .admin-filters input { flex: 1; min-width: 120px; justify-content: center; font-size: 14px; }
     
     /* 7. ترتيب النوافذ المنبثقة للجوال */
     .modal-content { width: 95% !important; padding: 20px !important; }
@@ -1236,346 +1150,3 @@ input, select { outline: none; }
 .fill-green { background: linear-gradient(90deg, #2ed573, #00b894); }
 .fill-blue { background: linear-gradient(90deg, #4a90e2, #0984e3); }
 
-/* ========================================================= */
-/* --- نظام النوافذ المنبثقة الذكية (Sticky Drill-down Modals) --- */
-/* ========================================================= */
-
-/* التفاعلية لجداول الغوص في البيانات */
-.interactive-table tr { cursor: pointer; transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-.interactive-table tr:hover { 
-    transform: scale(1.01) translateY(-2px); 
-    border-color: var(--gold) !important; 
-    box-shadow: 0 8px 20px rgba(212, 175, 55, 0.15) !important; 
-    background: linear-gradient(145deg, rgba(40, 40, 40, 0.95), rgba(20, 20, 20, 0.95)) !important;
-}
-
-/* هندسة صندوق البينتو (Bento Box) */
-#bento-current-pieces { transition: color 0.3s; }
-.bento-hero:hover #bento-current-pieces { color: #fff !important; }
-
-/* 📱 حل مشكلة زر الإغلاق الثابت في الجوال (Sticky Modals) 📱 */
-@media (max-width: 768px) {
-    .mobile-sticky-modal {
-        display: flex !important;
-        flex-direction: column !important;
-        padding: 0 !important; /* إزالة الحواف ليتمدد الرأس والتذييل */
-        max-height: 85dvh !important; /* تحديد أقصى ارتفاع للشاشة */
-        height: 85vh !important;
-        overflow: hidden !important; /* منع النافذة بالكامل من التمرير */
-        border-radius: 20px !important;
-    }
-    
-    .modal-header-sticky {
-        padding: 20px 20px 10px;
-        background: rgba(20, 20, 20, 0.95);
-        backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
-        border-bottom: 1px solid rgba(212, 175, 55, 0.2);
-        flex-shrink: 0; /* منع الرأس من الانكماش */
-        z-index: 10;
-    }
-    
-    .modal-body-scrollable {
-        padding: 15px 20px;
-        flex: 1; /* يأخذ كل المساحة المتبقية */
-        overflow-y: auto !important; /* السماح بالتمرير الداخلي فقط هنا */
-        -webkit-overflow-scrolling: touch; /* تمرير ناعم للآيفون */
-        background: rgba(10, 10, 10, 0.5);
-    }
-    
-    .modal-footer-sticky {
-        padding: 15px 20px 20px;
-        margin-top: 0 !important;
-        background: rgba(20, 20, 20, 0.95);
-        backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
-        border-top: 1px solid rgba(212, 175, 55, 0.2);
-        flex-shrink: 0; /* منع التذييل من الانكماش */
-        z-index: 10;
-        box-shadow: 0 -10px 20px rgba(0,0,0,0.5); /* ظل علوي يبرز زر الإغلاق */
-    }
-    
-    /* تعديل تصميم الجدول داخل نوافذ الغوص في الجوال */
-    .mobile-sticky-modal .invoices-table tr {
-        grid-template-columns: 1fr 1fr !important;
-        grid-template-rows: auto auto auto auto !important;
-    }
-}
-
-/* ========================================================= */
-/* --- تجميل الجداول للكمبيوتر (Hover & Spacing) --- */
-/* ========================================================= */
-.interactive-table { border-spacing: 0 10px !important; }
-.interactive-table tr {
-    transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1) !important;
-    cursor: pointer;
-    background: rgba(25, 25, 25, 0.6) !important;
-}
-.interactive-table tr:hover {
-    transform: scale(1.015) !important; /* تكبير ناعم جداً */
-    background: rgba(212, 175, 55, 0.08) !important; /* إضاءة ذهبية خفيفة */
-    border-color: var(--gold) !important;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5) !important;
-    z-index: 5;
-}
-
-/* ========================================================= */
-/* --- وضع النعومة للآيفون (Compact Mobile UI) --- */
-/* ========================================================= */
-@media (max-width: 768px) {
-    /* 1. تصغير صندوق البينتو ليكون مضغوطاً وأنيقاً */
-    .bento-box-container { gap: 10px !important; margin-bottom: 20px !important; }
-    .stat-card.bento-hero { padding: 15px !important; }
-    #bento-current-pieces { font-size: 38px !important; text-shadow: 0 0 10px rgba(212, 175, 55, 0.3) !important; }
-    .bento-hero .stat-icon { font-size: 26px !important; margin-bottom: 5px !important; }
-    .bento-hero .stat-title { font-size: 12px !important; font-weight: bold !important; }
-    
-    .stat-card { padding: 12px !important; border-radius: 14px !important; }
-    .stat-card .stat-icon { width: 36px !important; height: 36px !important; font-size: 16px !important; margin-bottom: 8px !important; }
-    .stat-card .stat-title { font-size: 10px !important; letter-spacing: 0px !important; }
-    .stat-card .stat-value { font-size: 18px !important; }
-    
-    .monthly-strip { flex-direction: column !important; gap: 8px !important; padding: 12px !important; }
-    .monthly-strip > div:nth-child(2) { display: none; } /* إخفاء الخط الفاصل العمودي في الجوال */
-    .monthly-strip-item { font-size: 11px !important; justify-content: space-between; width: 100%; }
-    
-    /* 2. تصغير الخطوط والمسافات في الجداول والبطاقات */
-    .admin-section h2 { font-size: 16px !important; margin-bottom: 12px !important; }
-    .admin-section h3 { font-size: 14px !important; margin: 15px 0 10px !important; }
-    .cart-table tr, .invoices-table tr { padding: 12px !important; border-radius: 12px !important; margin-bottom: 10px !important; }
-    .cart-table td:nth-child(2), .invoices-table td:nth-child(2) { font-size: 15px !important; margin-bottom: 4px !important; }
-    
-    /* 3. إخفاء (تفاصيل الصرف) من بطاقات الأيام في الجوال */
-    #admin-daily-reports-body td:nth-child(5) { display: none !important; }
-    
-    /* 4. تصغير القوائم المنبثقة (Modals) لتناسب الآيفون بدون هوامش مبالغ بها */
-    .modal-content { padding: 15px !important; border-radius: 16px !important; }
-    .modal-header-sticky { padding: 15px 15px 5px !important; }
-    .modal-body-scrollable { padding: 10px 15px !important; }
-    .modal-footer-sticky { padding: 10px 15px 15px !important; }
-    .modal-title { font-size: 15px !important; margin-bottom: 10px !important; }
-    .modal-actions { margin-top: 10px !important; }
-    .btn { padding: 12px !important; font-size: 14px !important; border-radius: 8px !important; }
-    
-    /* تصغير بطاقات المنيو (المزيد) */
-    #admin-more-menu .stat-card { padding: 15px !important; }
-    #admin-more-menu .stat-icon { font-size: 24px !important; width: 45px !important; height: 45px !important; margin-bottom: 8px !important; }
-}
-
-/* ========================================================= */
-/* --- 1. تجميل الجداول في الكمبيوتر (Hover Effects) --- */
-/* ========================================================= */
-.interactive-row {
-    transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1) !important;
-    cursor: pointer;
-}
-.interactive-row:hover {
-    transform: scale(1.02) !important; /* تكبير ناعم جداً */
-    background: rgba(212, 175, 55, 0.1) !important; /* إضاءة ذهبية خفيفة خلف الصف */
-    border-color: var(--gold) !important;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4) !important;
-    border-radius: 8px !important;
-}
-
-/* ========================================================= */
-/* --- 2. ثورة العرض في الموبايل (Full Screen & Smart Cards) --- */
-/* ========================================================= */
-@media (max-width: 768px) {
-    
-    /* جعل النوافذ المنبثقة بحجم الشاشة بالكامل (Full Screen Native App Style) */
-    .modal-overlay {
-        padding: 0 !important;
-        align-items: flex-start !important; /* تبدأ النافذة من أعلى حافة بالشاشة */
-    }
-    .modal-content {
-        width: 100vw !important;
-        height: 100dvh !important; /* الطول الكامل للشاشة بما فيها شريط الآيفون */
-        max-width: 100vw !important;
-        max-height: 100dvh !important;
-        border-radius: 0 !important; /* إزالة الحواف الدائرية */
-        border: none !important;
-        margin: 0 !important;
-        display: flex !important;
-        flex-direction: column !important;
-        background: rgba(15, 15, 15, 0.98) !important; /* خلفية داكنة صلبة */
-    }
-    
-    /* تثبيت الهيدر وزر الإغلاق السفلي */
-    .modal-header-sticky {
-        padding: 20px 15px 15px !important;
-        background: #111 !important;
-        border-bottom: 1px solid rgba(212, 175, 55, 0.2) !important;
-    }
-    .modal-footer-sticky {
-        margin-top: auto !important; /* دفع الزر لأقصى الأسفل دائماً */
-        padding: 15px 15px calc(15px + env(safe-area-inset-bottom)) !important; /* دعم حافة الآيفون السفلية */
-        background: #111 !important;
-        border-top: 1px solid rgba(212, 175, 55, 0.2) !important;
-    }
-    .modal-body-scrollable {
-        flex: 1 !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-        padding: 10px 0 !important; /* إزالة الهوامش الجانبية لإعطاء مساحة للجدول */
-        -webkit-overflow-scrolling: touch;
-    }
-
-    /* --------------------------------------------------------- */
-    /* 4. تحويل قوائم النوافذ (Drill-down) إلى جداول سحب أفقية */
-    /* --------------------------------------------------------- */
-    
-    /* نلغي تحولها إلى بطاقات، ونجبرها على البقاء كجدول كلاسيكي مصغر */
-    #modal-daily-transactions .invoices-table,
-    #modal-transaction-details .cart-table {
-        display: table !important;
-        width: 100% !important;
-        border-collapse: collapse !important;
-        white-space: nowrap !important; /* السر: إجبار النص على البقاء بسطر واحد ليصنع السحب */
-    }
-    #modal-daily-transactions .invoices-table thead,
-    #modal-transaction-details .cart-table thead {
-        display: table-header-group !important; /* إظهار عناوين الجدول */
-    }
-    #modal-daily-transactions .invoices-table tbody,
-    #modal-transaction-details .cart-table tbody {
-        display: table-row-group !important;
-    }
-    #modal-daily-transactions .invoices-table tr,
-    #modal-transaction-details .cart-table tr {
-        display: table-row !important;
-        background: transparent !important;
-        border: none !important;
-        border-bottom: 1px solid #222 !important; /* خط فاصل ناعم */
-        box-shadow: none !important;
-        margin: 0 !important;
-        border-radius: 0 !important;
-        padding: 0 !important;
-    }
-    #modal-daily-transactions .invoices-table th,
-    #modal-transaction-details .cart-table th,
-    #modal-daily-transactions .invoices-table td,
-    #modal-transaction-details .cart-table td {
-        display: table-cell !important;
-        padding: 12px 10px !important;
-        font-size: 13px !important; /* خط أنعم للجوال */
-        text-align: center !important;
-        border: none !important;
-        background: transparent !important;
-    }
-    #modal-daily-transactions .invoices-table th,
-    #modal-transaction-details .cart-table th {
-        color: var(--text-gray) !important;
-        font-size: 11px !important;
-        background: #0a0a0a !important; /* لون هادئ للرأس */
-    }
-
-    /* حاوية الجدول: السماح بالسحب الأفقي فقط داخل الجدول */
-    .modal-body-scrollable {
-        overflow-x: auto !important;
-    }
-    
-    /* إخفاء عامود الخصم في الجوال لتوفير المساحة وتسهيل القراءة (إن أردت إبقائه امسح هذا السطر) */
-    #modal-daily-transactions .invoices-table th:nth-child(6),
-    #modal-daily-transactions .invoices-table td:nth-child(6) {
-        display: none !important;
-    }
-}
-
-/* --------------------------------------------------------- */
-    /* 3. تصميم بطاقة الهرم المقلوب (تقرير حركة الأيام) في الجوال */
-    /* --------------------------------------------------------- */
-    #admin-daily-reports-body tr {
-        display: grid !important;
-        /* تقسيم ذكي: 35% لليمين (اليوم والتاريخ)، و 65% مقسومة لليسار (المبيعات والصرفيات) */
-        grid-template-columns: 35% 32.5% 32.5% !important;
-        grid-template-rows: auto auto !important;
-        grid-template-areas: 
-            "day sales exp"
-            "date net net" !important;
-        gap: 5px 10px !important;
-        padding: 20px 15px !important;
-        background: linear-gradient(145deg, #181818, #0a0a0a) !important;
-        border-radius: 20px !important;
-        border: 1px solid rgba(212, 175, 55, 0.15) !important;
-        border-right: 4px solid var(--gold) !important;
-        margin-bottom: 15px !important;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.6) !important;
-        align-items: center !important;
-        position: relative;
-    }
-    
-    /* إخفاء تفاصيل الصرفيات نهائياً من البطاقة */
-    #admin-daily-reports-body td:nth-child(5) { display: none !important; }
-    
-    /* 1. اسم اليوم (أعلى اليمين) */
-    #admin-daily-reports-body td:nth-child(2) {
-        grid-area: day;
-        text-align: right !important;
-        color: #ffffff !important;
-        font-size: 18px !important;
-        font-weight: 900 !important;
-        padding: 0 !important;
-        margin-bottom: 2px !important;
-        align-self: end !important; /* دفعه للأسفل ليقترب من التاريخ */
-    }
-
-    /* 2. التاريخ (أسفل اليمين - تحت اسم اليوم مباشرة) */
-    #admin-daily-reports-body td:nth-child(1) {
-        grid-area: date;
-        text-align: right !important;
-        color: var(--gold) !important;
-        font-size: 11px !important;
-        font-weight: bold !important;
-        padding: 0 !important;
-        opacity: 0.8 !important;
-        align-self: start !important; /* دفعه للأعلى ليقترب من اسم اليوم */
-    }
-    
-    /* 3. المبيعات (أعلى الوسط - أخضر حر بدون تظليل) */
-    #admin-daily-reports-body td:nth-child(3) {
-        grid-area: sales;
-        text-align: center !important;
-        background: transparent !important;
-        padding: 0 !important;
-        font-size: 16px !important;
-        color: var(--green-success) !important;
-        font-weight: 900 !important;
-        align-self: end !important;
-    }
-    #admin-daily-reports-body td:nth-child(3)::before {
-        content: "المبيعات";
-        display: block; font-size: 10px; color: #777; font-weight: normal; margin-bottom: 2px;
-    }
-    
-    /* 4. الصرفيات (أعلى اليسار - أحمر حر بدون تظليل) */
-    #admin-daily-reports-body td:nth-child(4) {
-        grid-area: exp;
-        text-align: center !important;
-        background: transparent !important;
-        padding: 0 !important;
-        font-size: 16px !important;
-        color: var(--red-danger) !important;
-        font-weight: 900 !important;
-        align-self: end !important;
-    }
-    #admin-daily-reports-body td:nth-child(4)::before {
-        content: "الصرفيات";
-        display: block; font-size: 10px; color: #777; font-weight: normal; margin-bottom: 2px;
-    }
-
-    /* 5. الدخل الصافي (رأس الهرم المقلوب - أسفل الوسط واليسار - ذهبي مشع) */
-    #admin-daily-reports-body td:nth-child(6) {
-        grid-area: net;
-        text-align: center !important;
-        font-size: 22px !important;
-        font-weight: 900 !important;
-        color: var(--gold) !important;
-        padding: 10px 0 0 0 !important;
-        background: transparent !important;
-        border: none !important;
-        border-top: 1px dashed rgba(255, 255, 255, 0.1) !important; /* خط خفيف جداً يفصل الصافي عن المبيعات/الصرفيات */
-        margin-top: 5px !important;
-        text-shadow: 0 0 15px rgba(212, 175, 55, 0.4) !important;
-    }
-    #admin-daily-reports-body td:nth-child(6)::before {
-        content: "الصافي";
-        display: inline-block; font-size: 11px; color: #888; font-weight: normal; margin-left: 5px; text-shadow: none;
-    }
