@@ -41,10 +41,17 @@ html.is-mobile {
     --m-n: 1;
 }
 
-html.is-mobile,
-html.is-mobile body { height: 100%; }
+html.is-mobile { height: 100%; overflow: hidden; }
 
+/* المستند مثبّت لا يُتمرَّر: في safari هذا هو السبب الوحيد الذي يحرّك العناصر
+   المثبتة — المستند يرتد بالمط عند نهاية السحب (rubber-band) وشريط العنوان ينكمش
+   فيعيد حساب الأسفل. بتثبيت body يبقى الشريط في مكانه، وكل تمرير يحدث داخل
+   اللوحات والنوافذ وحدها. */
 html.is-mobile body {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     overflow: hidden;
     overscroll-behavior: none;
     background: var(--m-bg);
@@ -170,6 +177,25 @@ html.is-mobile #admin-screen * {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
 }
+
+/* --------- دخول تدريجي لمكونات التبويب ---------
+   الحركة مكتوبة في ورقة الأنماط لا بـ element.animate: safari الآيفون يُهمل
+   أنيميشن جافاسكريبت المُولّد لحظياً (كان هذا سبب أن الموشن «ما يعمله» على
+   الجهاز)، وحركة CSS تعمل على محرّك التركيب نفسه بـ 60 إطار.
+   تُحرَّك عناصر الشبكة نفسها لا الحاوية، فتتكوَّن البطاقات واحدة بعد الأخرى. */
+@keyframes mRise {
+    from { opacity: .22; transform: translate3d(0, 18px, 0) scale(.985); }
+    to   { opacity: 1;   transform: none; }
+}
+@keyframes mFade { from { opacity: .9; } to { opacity: 1; } }
+html.is-mobile .admin-section.m-enter { animation: mFade .26s linear both; }
+html.is-mobile .admin-section .m-anim {
+    animation: mRise .44s var(--m-ease) both;
+    animation-delay: calc(min(var(--m-k, 0), 9) * 42ms);
+}
+/* أثناء السحب اليدوي اللوحة تتبع الإصبع: لا مكان لحركة دخول متزامنة معها */
+html.is-mobile body.m-dragging .admin-section.m-enter,
+html.is-mobile body.m-dragging .admin-section .m-anim { animation: none; }
 html.is-mobile .admin-section h2 { font-size: 20px !important; font-weight: 800; margin: 6px 0 14px !important; text-align: start !important; color: var(--m-gold) !important; }
 
 /* بطاقات بدل الجداول */
@@ -303,6 +329,16 @@ html.is-mobile .stat-icon {
 }
 html.is-mobile .stat-title { font-size: 12px !important; color: var(--m-muted) !important; margin: 0 !important; font-weight: 800 !important; }
 html.is-mobile .stat-value { font-size: 18px !important; font-weight: 900 !important; color: var(--m-text) !important; }
+/* أرقام اللوحات لا تنبض: النظام يكتب transform=scale(1.1) سطرياً عند كل رسم،
+   وعلى الجوال يتكرر الرسم مع كل حركة تمرير فتكبر الأرقام وتصغر. القفلة هنا للعرض
+   فقط، القيم نفسها تُحسب وتُكتب كما هي. */
+html.is-mobile .stat-value,
+html.is-mobile .bento-num,
+html.is-mobile [id^="bento-"] {
+    transform: none !important;
+    transition: none !important;
+    -webkit-transform: none !important;
+}
 html.is-mobile .stat-card[style*="grid-column: span 2"] {
     grid-column: span 2 !important;
     flex-direction: row !important;
@@ -435,23 +471,42 @@ html.is-mobile .modal-overlay.m-sheet {
     inset: 0;
     align-items: flex-end !important;
     justify-content: center !important;
-    padding: 0 0 var(--m-kb) !important;
+    /* الحافة السفلية صفر: النافذة التي تحتاج ارتفاعاً فوق لوحة المفاتيح يُكتب
+       لها ذلك سطرياً وحدها، فلا تقفز بقية النوافذ عند صعود اللوحة أو نزولها */
+    padding: 0 !important;
     background: rgba(0,0,0,.62);
     /* بدون تمويه: تمويه خلفية تتحرك فوقها النافذة يعيد رسم الشاشة كل إطار */
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
     opacity: 0;
     pointer-events: none;
-    transition: opacity .25s var(--m-ease), padding .18s linear;
+    transition: opacity .25s var(--m-ease);
 }
 html.is-mobile .modal-overlay.m-sheet.m-on { opacity: 1; pointer-events: auto; }
+/* الدخول والخروج حركات CSS لا انتقالات: النظام يُخفي النافذة بـ display:none،
+   والانتقال لا يعمل عبر الإخفاء — فكانت النافذة تختفي فجأة أو تهبط ثم تصعد.
+   الحركة تُبطل أيضاً slideUp الخاصة بالنظام التي كانت تركب فوق حركة الطبقة. */
+@keyframes mSheetIn { from { transform: translateY(105%); } to { transform: translateY(0); } }
+@keyframes mSheetOut { from { transform: translateY(0); } to { transform: translateY(105%); } }
+@keyframes mScrimIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mScrimOut { from { opacity: 1; } to { opacity: 0; } }
+html.is-mobile .modal-overlay.m-sheet .modal-content { animation: none; }
+html.is-mobile .modal-overlay.m-sheet.m-on { animation: mScrimIn .24s linear both; }
+/* m-in تُنزع بعد اكتمال الحركة: لولا ذلك أبقت الحركة تعبئتها وسجّلت قيمة
+   transform، فجاء سحب الإصبع فوقها بلا استجابة */
+html.is-mobile .modal-overlay.m-sheet.m-in .modal-content { animation: mSheetIn .3s var(--m-ease) both; }
 /* يُبقي النافذة مرئية لحظة الانزلاق للأسفل رغم display:none التي يضعها النظام */
-html.is-mobile .modal-overlay.m-sheet.m-closing { display: flex !important; opacity: 0; pointer-events: none; }
+html.is-mobile .modal-overlay.m-sheet.m-closing {
+    display: flex !important;
+    pointer-events: none;
+    animation: mScrimOut .3s linear both;
+}
+html.is-mobile .modal-overlay.m-sheet.m-closing .modal-content { animation: mSheetOut .3s var(--m-ease) both; }
 html.is-mobile .modal-overlay.m-sheet .modal-content {
     width: 100% !important;
     max-width: 720px !important;
     height: auto !important;
-    max-height: calc(92dvh - var(--m-kb)) !important;
+    max-height: 92dvh !important;
     margin: 0 !important;
     border-radius: var(--m-radius-sheet) var(--m-radius-sheet) 0 0 !important;
     border: 1px solid var(--m-line) !important;
@@ -485,7 +540,9 @@ html.is-mobile .modal-content.mobile-sticky-modal .modal-body-scrollable {
 html.is-mobile .modal-overlay .modal-content.mobile-sticky-modal .m-grab { margin: 8px 14px 0; }
 html.is-mobile .modal-overlay .modal-content.mobile-sticky-modal .m-sheet-x { top: 14px; }
 html.is-mobile .modal-overlay.m-sheet.m-on .modal-content { transform: translateY(0); }
-html.is-mobile .modal-overlay.m-sheet.m-live .modal-content { transition: transform .1s linear; }
+html.is-mobile .modal-overlay.m-sheet.m-live .modal-content { animation: none !important; transition: transform .1s linear; }
+/* الارتفاع فوق لوحة المفاتيح يُكتب سطرياً على النافذة نفسها (جافاسكريبت الطبقة):
+   صنف عام على الجذر كان يجعل كل نافذة تقفز لمّا تُغلق لوحة المفاتيح */
 html.is-mobile .m-grab {
     width: 42px; height: 5px; border-radius: 99px;
     background: rgba(255,255,255,.22);
@@ -554,7 +611,9 @@ html.is-mobile .m-viewbtn {
     font-size: 15px; font-weight: 700;
 }
 
-html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow: hidden; }
+/* الخلفية تتجمّد باللمس لا بتغيير overflow: سفاري يصفّر موضع التمرير عند تغيير
+   overflow، فتقفل النافذة بصفحة تهبط إلى أعلى ثم ترجع — قفزة بلا أي فائدة. */
+html.is-mobile body.m-lock .admin-section { pointer-events: none; }
 
 @media (prefers-reduced-motion: reduce) {
     html.is-mobile *, html.is-mobile *::before, html.is-mobile *::after {
@@ -562,6 +621,16 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         animation-duration: .001ms !important;
         animation-iteration-count: 1 !important;
     }
+    /* حركة الطبقة تُخفَّف ولا تُلغى: تُلغيها الكاملة هي ما جعل المستخدم يقول
+       «الموشن لم يعمل» حين تكون خاصية تقليل الحركة مفعّلة في الجهاز */
+    html.is-mobile .admin-section.m-enter,
+    html.is-mobile .admin-section .m-anim,
+    html.is-mobile .modal-overlay.m-sheet,
+    html.is-mobile .modal-overlay.m-sheet .modal-content {
+        transition-duration: .16s !important;
+        animation-duration: .16s !important;
+    }
+    html.is-mobile .admin-section .m-anim { animation-delay: 0s !important; }
 }
 `;
 
@@ -941,7 +1010,7 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         springTo(Math.round(phys.P), 0);
     }
 
-    function finishGesture() { setBusy(false); flushRepaint(); }
+    function finishGesture() { setBusy(false); setTimeout(flushRepaint, 260); }
 
     function commit(pageIdx) {
         const i = clamp(Math.round(pageIdx), 0, state.n - 1);
@@ -954,7 +1023,8 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         syncA11y();
         onArrive(key);
         setBusy(false);
-        flushRepaint();
+        enterAnimate(state.pages[i]);
+        setTimeout(flushRepaint, 520);
     }
 
     /* نستدعي دالة التوجيه الأصلية مباشرة: التفاف الطبقة يفعّل الحركة، والسحب هنا يفعّلها بنفسه */
@@ -1107,6 +1177,12 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         el.classList.add('m-sheet');
         document.body.classList.add('m-sheet-open');
         const content = el.querySelector('.modal-content');
+        if (content) {
+            el.style.removeProperty('padding-bottom');
+            content.style.removeProperty('height');
+            content.style.removeProperty('max-height');
+            content.style.removeProperty('transform');
+        }
         if (content && !content.querySelector('.m-grab')) {
             const grab = document.createElement('div');
             grab.className = 'm-grab';
@@ -1115,6 +1191,7 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         addCloseButton(el, content);
         lockBackground();
         bindSheetDrag(el, content);
+        if (content) meterSheets(content);
         sheetStack.push(el);
         if (!pushing) {
             pushing = true;
@@ -1123,10 +1200,8 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         }
         /* قراءة تخطيط واحدة لتثبيت الوضع الأول ثم التحريك، بلا انتظار إطار رسم */
         void el.offsetHeight;
-        el.classList.add('m-on');
-        if (!REDUCED && content && content.animate) {
-            content.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240, easing: 'cubic-bezier(.2,.8,.2,1)' });
-        }
+        el.classList.add('m-on', 'm-in');
+        setTimeout(() => el.classList.remove('m-in'), 330);
     }
 
     function addCloseButton(el, content) {
@@ -1148,14 +1223,62 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         syncSheet(el);
     }
 
-    function closeSheet(el, skipHistory) {
-        el.classList.remove('m-on');
-        el.classList.add('m-closing');
+    /* لحظة الإغلاق: تُثبَّت أبعاد النافذة على آخر ما قيست وهي ظاهرة. النظام يُخفي
+       النافذة قبل أن تصلنا المراقبة، فلا يُمكن قياسها في تلك اللحظة، وبقاء ارتفاع
+       لوحة المفاتيح مثبّتاً هو ما يمنع النافذة من الهبوط ثم الصعود ثم الاختفاء. */
+    let sheetMeter = null;
+    function meterSheets(content) {
+        if (!window.ResizeObserver) return;
+        if (!sheetMeter) {
+            sheetMeter = new ResizeObserver((entries) => {
+                for (let i = 0; i < entries.length; i++) {
+                    const e = entries[i];
+                    const bb = e.borderBoxSize;
+                    const h = bb && bb[0] ? Math.round(bb[0].blockSize) : Math.round(e.contentRect.height);
+                    if (!h) continue;
+                    const ov = e.target.closest('.modal-overlay');
+                    if (!ov || ov.classList.contains('m-closing')) continue;
+                    ov.__mH = h;
+                }
+            });
+        }
+        sheetMeter.observe(content);
+    }
+
+    function freezeSheet(el) {
+        const content = el.querySelector('.modal-content');
+        if (!content) return;
+        const live = content.offsetHeight;
+        const h = live || el.__mH || 0;
+        if (!h) return;
+        /* السطر المكتوب على النافذة نفسها يُقرأ حتى وهي مخفية، فلا حاجة لقياسها */
+        const pad = Math.round(parseFloat(el.style.paddingBottom) || 0);
+        el.style.setProperty('padding-bottom', pad + 'px', 'important');
+        content.style.setProperty('height', h + 'px', 'important');
+        content.style.setProperty('max-height', 'none', 'important');
         setTimeout(() => {
-            if (el.classList.contains('m-on')) return;
-            /* نبقي m-sheet علامةً على النافذة المفتوحة، فإزالتها هنا تجعل إعادة الفتح تعمل */
-            el.classList.remove('m-closing', 'm-sheet');
-        }, 340);
+            el.style.removeProperty('padding-bottom');
+            content.style.removeProperty('height');
+            content.style.removeProperty('max-height');
+        }, 380);
+    }
+
+    function closeSheet(el, skipHistory, instant) {
+        if (el.classList.contains('m-closing')) return;
+        if (instant) {
+            /* التنقل لا ينتظر الانزلاق: اللوحة الجديدة تصعد خلف هذه النافذة،
+               فأي حركة خروج تبقى فوقها تُرى كنافذة معلّقة. */
+            el.classList.remove('m-on', 'm-sheet', 'm-in');
+        } else {
+            freezeSheet(el);
+            el.classList.remove('m-on');
+            el.classList.add('m-closing');
+            setTimeout(() => {
+                if (el.classList.contains('m-on')) return;
+                /* نبقي m-sheet علامةً على النافذة المفتوحة، فإزالتها هنا تجعل إعادة الفتح تعمل */
+                el.classList.remove('m-closing', 'm-sheet', 'm-in');
+            }, 340);
+        }
         const i = sheetStack.lastIndexOf(el);
         if (i > -1) sheetStack.splice(i, 1);
         if (!sheetStack.length) {
@@ -1170,7 +1293,7 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
     }
 
     /* التنقل إلى تبويب آخر يُغلق كل نافذة مفتوحة في نفس اللحظة، بمسار إغلاق النظام
-       نفسه، وبانزلاق واحد إلى الأسفل. لا يبقى شيء معلّق فوق اللوحة الجديدة. */
+       نفسه، وبلا انزلاق خروج. لا يبقى شيء معلّق فوق اللوحة الجديدة. */
     function closeOpenSheets() {
         if (!sheetStack.length) return;
         const list = sheetStack.slice();
@@ -1183,7 +1306,7 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
             const cancel = el.querySelector('.btn-cancel[onclick*="close"], .modal-actions [onclick*="close"]');
             if (cancel) cancel.click();
             else el.style.display = 'none';
-            closeSheet(el, true);
+            closeSheet(el, true, true);
         }
         setTimeout(() => { pushing = false; }, 260);
         if (history.state && history.state.royalSheet) {
@@ -1198,18 +1321,13 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         if (typeof window.exitToMain === 'function' && document.getElementById(ADMIN_ID).classList.contains('active-screen')) return;
     }
 
-    /* حفظ مواضع التمرير واستعادتها عند الرجوع */
-    let savedScroll = 0;
+    /* تجميد الخلفية باللمس فقط، لا بتغيير overflow: تغييرها في سفاري يصفّر موضع
+       التمرير إلى الصفر ثم نستعيده، فتقفل النافذة بصفحة تهبط وتصعد. */
     function lockBackground() {
-        if (document.body.classList.contains('m-lock')) return;
-        const page = state.pages[state.index];
-        savedScroll = page ? page.scrollTop : 0;
         document.body.classList.add('m-lock');
     }
     function unlockBackground() {
         document.body.classList.remove('m-lock');
-        const page = state.pages[state.index];
-        if (page) page.scrollTop = savedScroll;
     }
 
     /* سحب النافذة للأسفل للإغلاق */
@@ -1255,17 +1373,71 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         return t !== 'checkbox' && t !== 'radio' && t !== 'range' && t !== 'file' && t !== 'button';
     }
 
+    /* رفع النافذة فوق لوحة المفاتيح: القيم تُكتب على النافذة نفسها لا على متغيّر
+       عام، فلا تتغير أبعاد نافذة إلا حين يتغيّر وضعها هي. */
+    function raiseSheet(el, kb) {
+        const content = el.querySelector('.modal-content');
+        if (!content) return;
+        if (kb > 0) {
+            el.style.setProperty('padding-bottom', kb + 'px', 'important');
+            content.style.setProperty('max-height', Math.max(160, Math.round(window.innerHeight * .92) - kb) + 'px', 'important');
+        } else {
+            el.style.removeProperty('padding-bottom');
+            content.style.removeProperty('max-height');
+        }
+    }
+
+    /* المستند مُثبّت، فالآيفون لم يعد يمرّر تلقائياً لإظهار الحقل خلف لوحة المفاتيح.
+       الرفع يشمل كل منبثقة فيها حقل نشط لا النوافذ المنزلاقة وحدها: شاشة كلمة
+       المرور مثلاً وسَطية ومُستثناة من الانزلاق، فبدون هذا تبقى تحت اللوحة. */
+    /* حقل داخل لوحة بلا منبثقة: المستند مثبّت، فالنظام لم يعد يمرّر تلقائياً لإظهار
+       الحقل خلف لوحة المفاتيح. نُوسّع أسفل اللوحة ثم نزيحها بقدر يُظهر الحقل فوقها. */
+    let kbPadEl = null;
+    function revealInPage(field, kb) {
+        const sec = kb > 0 && field && field.closest ? field.closest('.admin-section') : null;
+        if (kbPadEl && kbPadEl !== sec) {
+            kbPadEl.style.removeProperty('padding-bottom');
+            kbPadEl = null;
+        }
+        if (!sec) return;
+        const limit = window.innerHeight - kb - 18;
+        const bottom = field.getBoundingClientRect().bottom;
+        if (bottom <= limit) return;
+        /* التوسيع مرة واحدة للوحة نفسها: تكراره مع كل حقل يزيد أسفل الصفحة بلا داعٍ */
+        if (kbPadEl !== sec) {
+            sec.style.setProperty('padding-bottom',
+                Math.round(parseFloat(getComputedStyle(sec).paddingBottom) + kb) + 'px', 'important');
+            kbPadEl = sec;
+        }
+        sec.scrollTop += Math.round(bottom - limit);
+    }
+
     function bindKeyboard() {
         if (!window.visualViewport) return;
         const apply = () => {
             let kb = 0;
+            let host = null;
             if (isEditing()) {
+                const a = document.activeElement;
+                host = a && a.closest ? a.closest('.modal-overlay') : null;
                 const gap = Math.round(window.innerHeight - visualViewport.height - visualViewport.offsetTop);
                 if (gap >= 90) kb = gap;
             }
-            if (state.kb === kb) return;
-            state.kb = kb;
-            root.style.setProperty('--m-kb', kb + 'px');
+            if (state.kb !== kb) {
+                state.kb = kb;
+                root.style.setProperty('--m-kb', kb + 'px');
+            }
+            /* لا يرتفع إلا الوعاء الذي فيه الحقل، والنوافذ المنزلاقة تُترك كما هي:
+               تغيير أبعادها أثناء الخروج هو ما يجعلها تهبط ثم تصعد ثم تختفي */
+            qsa('.modal-overlay').forEach((s) => {
+                if (s.classList.contains('m-closing')) return;
+                if (host !== s && !/display:\s*flex/.test(s.getAttribute('style') || '')) return;
+                raiseSheet(s, kb > 0 && s === host ? kb : 0);
+            });
+            /* حقل داخل لوحة بلا منبثقة: المستند مثبّت، فالنظام لم يعد يمرّر إليه من
+               تلقاء نفسه. نُوسّع أسفل اللوحة ثم نزيحها بقدر يُظهر الحقل فوق اللوحة،
+               ونعيد ما وسّعناه حين تنزل. */
+            revealInPage(kb > 0 && !host ? document.activeElement : null, kb > 0 && !host ? kb : 0);
         };
         visualViewport.addEventListener('resize', apply, { passive: true });
         visualViewport.addEventListener('scroll', apply, { passive: true });
@@ -1325,20 +1497,36 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
     }
 
     /* ================== الدخول المتتالي للبطاقات ==================
-       لا يُستخدم opacity:0 في لحظة الانتظار: backwards fill مع صفر شفافية كان
-       يترك اللوحة بيضاء ربع ثانية ثم تعود. البداية من نص الظهور فتبقى اللوحة مرئية. */
-    function staggerEntry(page) {
-        if (REDUCED || !page || !page.animate) return;
-        page.animate([{ opacity: .72 }, { opacity: 1 }], { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' });
-        const kids = Array.prototype.slice.call(page.children, 0, 10);
-        kids.forEach((el, i) => {
-            if (!el.animate) return;
-            el.animate(
-                [{ transform: 'translate3d(0,15px,0) scale(.988)', opacity: .45 },
-                 { transform: 'none', opacity: 1 }],
-                { duration: 430, delay: Math.min(i, 9) * 44, easing: 'cubic-bezier(.22,.78,.2,1)', fill: 'backwards' }
-            );
+       الحركة كلها في CSS (@keyframes mRise) لأن سفاري الآيفون يُهمل الأنيميشن
+       المُولَّد بكل نقرة. تُجمَّع عناصر اللوحة بالترتيب — عناصر الشبكات نفسها لا
+       الحاويات — ويُرقَّم كل عنصر بـ --m-k ليأخر انطلاقه خطوة. */
+    function enterNodes(page) {
+        const out = [];
+        qsa(':scope > *', page).forEach((c) => {
+            const kids = qsa(':scope > *', c);
+            const allCards = kids.length > 1 && kids.every((k) => k.classList.contains('stat-card'));
+            const grid = c.classList.contains('bento-box-container') || c.classList.contains('stats-grid') || allCards;
+            if (grid && kids.length) { kids.forEach((k) => out.push(k)); }
+            else { out.push(c); }
         });
+        return out;
+    }
+
+    function enterAnimate(page) {
+        if (!page) return;
+        const nodes = enterNodes(page);
+        page.classList.remove('m-enter');
+        nodes.forEach((n, i) => {
+            n.classList.remove('m-anim');
+            n.style.setProperty('--m-k', String(i));
+        });
+        void page.offsetWidth;
+        page.classList.add('m-enter');
+        nodes.forEach((n) => n.classList.add('m-anim'));
+        setTimeout(() => {
+            page.classList.remove('m-enter');
+            nodes.forEach((n) => n.classList.remove('m-anim'));
+        }, 940);
     }
 
     /* ================== تجاوز switchAdminTab (عرض فقط) ================== */
@@ -1347,8 +1535,12 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         if (typeof original !== 'function' || original.__mWrapped) return;
         const wrapped = function (tab, animationType) {
             closeOpenSheets();
+            /* المنع من أول السطر: دوال الرسم الأصلية تُستدعى داخل switchAdminTab،
+               ولو مرّت وهي غير ممنوعة تُجدول رسماً بعد 150م.س. يقع في منتصف
+               الانزلاق فتظهر اللوحة وتختفي لحظة — وهو الغلتش الذي وصفه المستخدم. */
+            setBusy(true);
             original.call(window, tab, 'none');
-            if (state.started) goTo(tab);
+            if (state.started) { goTo(tab); } else { setBusy(false); }
         };
         wrapped.__mWrapped = true;
         wrapped.__mOriginal = original;
@@ -1375,13 +1567,17 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         state.index = i;
         phys.P = i;
         setBusy(true);
+        /* الرسم الثقيل قبل الحركة والهدف ما زال خارج الشاشة: تحديث اللوحات يعيد
+           بناء الجداول بأكملها، ولو جرى والانزلاق جارٍ انقطعت الحركة واختفت
+           اللوحة ربع ثانية ثم رجعت. */
+        flushRepaint();
         paintTransforms();
         if (src) { src.classList.add('m-seen'); src.style.willChange = 'transform'; }
         if (dst) { dst.style.willChange = 'transform'; }
         setOffset(src, 0);
         setOffset(dst, s);
         const s0 = now();
-        const dur = REDUCED ? 1 : 300;
+        const dur = 280;
         const step = () => {
             const k = clamp((now() - s0) / dur, 0, 1);
             const e = 1 - Math.pow(1 - k, 3);
@@ -1398,8 +1594,9 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
             paintTransforms();
             syncA11y();
             setBusy(false);
-            flushRepaint();
-            staggerEntry(dst);
+            enterAnimate(dst);
+            /* ما استجد أثناء الحركة يُرسم بعد اكتمال الدخول، لا فوقه */
+            setTimeout(flushRepaint, 520);
         };
         phys.raf = requestAnimationFrame(step);
     }
@@ -1508,7 +1705,7 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         mirrorConnection();
         state.started = true;
         flushRepaint();
-        staggerEntry(state.pages[state.index]);
+        enterAnimate(state.pages[state.index]);
     }
 
     /* شاشة تحميل تختفي بتلاشٍ .6s عند جهوزية الهيكل */
