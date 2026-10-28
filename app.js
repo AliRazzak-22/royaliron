@@ -2232,6 +2232,16 @@ window.updateAdminDashboard = () => {
         }
     }
 
+    // قسم التكاليف التشغيلية
+    const costsTbody = document.getElementById('costs-table-body');
+    if (costsTbody) {
+        costsTbody.innerHTML = (localData.operatingCosts || []).map(c => `<tr>
+                <td>${window.escapeHTML(c.date)}</td>
+                <td>${window.escapeHTML(c.name)}</td>
+                <td style="font-weight:bold; color:var(--red-danger);">${c.amount.toLocaleString()}</td>
+            </tr>`).join('');
+    }
+
     // ==========================================
     // --- محرك الذكاء المالي: إحصائيات الزبائن ---
     // ==========================================

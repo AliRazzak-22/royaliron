@@ -69,6 +69,14 @@ html.is-mobile body::before {
         radial-gradient(52% 34% at 50% 104%, rgba(46,213,115,.07), transparent 70%);
 }
 
+html.is-mobile .screen { height: 100dvh; }
+/* الشاشات غير الإدارية تفتح تحت منطقة الحالة مباشرة في وضع ويب اب */
+html.is-mobile #pos-screen.active-screen,
+html.is-mobile #main-screen.active-screen {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
 html.is-mobile #admin-screen.active-screen {
     display: flex;
     flex-direction: column;
@@ -84,14 +92,21 @@ html.is-mobile #admin-screen.active-screen {
 
 html.is-mobile .admin-sidebar { display: none; }
 
-html.is-mobile .admin-layout { display: block; flex: 1; min-height: 0; height: 100%; }
-
+/* الارتفاع يُقسم بعد الترويسة: لو بقيت الحاوية على 100% من الشاشة فإن آخر الصفحة
+   يقع تحت الشريط السفلي ولا يصل إليه التمرير (سبب نقص صفحة المزيد). */
+html.is-mobile .admin-layout {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    height: auto;
+}
 html.is-mobile .admin-content {
     position: relative;
-    flex: none;
-    height: 100%;
-    padding: 0;
+    flex: 1;
     min-height: 0;
+    height: auto;
+    padding: 0;
     overflow: hidden;
 }
 
@@ -168,7 +183,8 @@ html.is-mobile #admin-screen .invoices-table tbody { display: block !important; 
 html.is-mobile #admin-screen .cart-table tr,
 html.is-mobile #admin-screen .invoices-table tr {
     display: grid !important;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-rows: none !important;
     align-items: center;
     gap: 4px 10px;
     background: linear-gradient(160deg, var(--m-card2), var(--m-card)) !important;
@@ -182,48 +198,63 @@ html.is-mobile #admin-screen .invoices-table tr {
 html.is-mobile #admin-screen .cart-table tr::after,
 html.is-mobile #admin-screen .invoices-table tr::after { content: none !important; }
 
-html.is-mobile #admin-screen .cart-table td,
-html.is-mobile #admin-screen .invoices-table td {
+/* مواضع الخلايا مكتوبة بـ !important على tr > td
+   ورقة أنماط المتجر ترسل الخلية قبل الأخيرة (nth-last-child(2)) إلى العمود الثاني
+   والخيرة إلى صف كامل، بكود مشدّد. تلتقي هذه مع إبراز الطبقة للأزرار فتنكمش
+   مسافة العمود الأول إلى صفر وتختفي تفاصيل سجل المحفظة والتكاليف. كتابة الموضع
+   على tr > td تعطي الطبقة خصوصية أعلى فتلغي قواعد المتجر مهما كان ترتيبها. */
+html.is-mobile #admin-screen .cart-table tr > td,
+html.is-mobile #admin-screen .invoices-table tr > td {
     display: block !important;
+    grid-column: 1 !important;
+    grid-row: auto !important;
+    align-self: auto !important;
     border: none !important;
+    border-top: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
     padding: 1px 0 !important;
+    margin: 0 !important;
     text-align: start !important;
     white-space: normal !important;
+    overflow: visible !important;
     min-width: 0 !important;
     font-size: 14px !important;
+    font-weight: 600 !important;
     color: var(--m-text) !important;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    line-height: 1.45 !important;
 }
-/* الخلية الأولى = العنوان، الثانية = المبلغ البارز، الباقي تفاصيل، والأخيرة إجراءات ظاهرة */
-html.is-mobile #admin-screen .cart-table td:first-child,
-html.is-mobile #admin-screen .invoices-table td:first-child {
-    grid-column: 1 / -1;
+/* الخلية الأولى = العنوان، الثانية = الأبرز، الباقي تفاصيل، والأخيرة إجراءات ظاهرة */
+html.is-mobile #admin-screen .cart-table tr > td:first-child,
+html.is-mobile #admin-screen .invoices-table tr > td:first-child {
+    grid-column: 1 / -1 !important;
     font-size: 13px !important;
+    font-weight: 700 !important;
     color: var(--m-muted) !important;
     margin-bottom: 2px !important;
 }
-html.is-mobile #admin-screen .cart-table td:nth-child(2),
-html.is-mobile #admin-screen .invoices-table td:nth-child(2) {
-    grid-column: 1;
+html.is-mobile #admin-screen .cart-table tr > td:nth-child(2),
+html.is-mobile #admin-screen .invoices-table tr > td:nth-child(2) {
+    grid-column: 1 !important;
     font-size: 19px !important;
     font-weight: 800 !important;
     color: var(--m-gold) !important;
 }
-html.is-mobile #admin-screen .cart-table td:nth-child(n+3),
-html.is-mobile #admin-screen .invoices-table td:nth-child(n+3) { grid-column: 1; font-size: 13px !important; }
-html.is-mobile #admin-screen .cart-table td:last-child,
-html.is-mobile #admin-screen .invoices-table td:last-child {
+html.is-mobile #admin-screen .cart-table tr > td:nth-child(n+3),
+html.is-mobile #admin-screen .invoices-table tr > td:nth-child(n+3) { grid-column: 1 !important; font-size: 13px !important; font-weight: 600 !important; }
+html.is-mobile #admin-screen .cart-table tr > td:last-child:not(:first-child),
+html.is-mobile #admin-screen .invoices-table tr > td:last-child:not(:first-child) {
     display: flex !important;
-    grid-column: 2;
-    grid-row: 2 / span 3;
+    grid-column: 2 !important;
+    grid-row: 2 / span 4 !important;
     align-items: center;
     justify-content: flex-end;
     gap: 6px;
-    overflow: visible;
-    -webkit-line-clamp: unset;
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    color: var(--m-gold) !important;
 }
 html.is-mobile #admin-screen td:last-child .top-bar-btn,
 html.is-mobile #admin-screen td:last-child .action-icon {
@@ -241,23 +272,45 @@ html.is-mobile #admin-screen td:last-child .action-icon {
     margin: 0 !important;
 }
 
-/* شبكة البطاقات والإحصائيات */
-html.is-mobile .stats-grid { display: grid !important; grid-template-columns: repeat(2, minmax(0,1fr)) !important; gap: 10px !important; margin-bottom: 18px !important; }
+/* شبكة البطاقات والإحصائيات
+   البطاقة في نسخة الهاتف أصلها دائرة أيقونة في الوسط تحتها عنوان ثم رقم، والطبقة
+   تحافظ على هذا الوضع حرفياً وتضبط المقاسات والحواف فقط. أي override على
+   .stat-icon هنا يرسل الأيقونة إلى الركن بدلاً من وسطها. */
+html.is-mobile .stats-grid { display: grid !important; grid-template-columns: repeat(2, minmax(0,1fr)) !important; gap: 12px !important; margin-bottom: 18px !important; }
 html.is-mobile .stat-card {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
     background: linear-gradient(160deg, var(--m-card2), var(--m-card)) !important;
     border: 1px solid var(--m-line) !important;
     border-radius: var(--m-radius-card) !important;
-    padding: 14px !important;
-    text-align: start !important;
-    display: flex; flex-direction: column; justify-content: space-between; gap: 8px;
-    min-height: 96px;
+    padding: 18px 12px !important;
     box-shadow: 0 6px 18px rgba(0,0,0,.32) !important;
 }
 html.is-mobile .stat-card:hover { transform: none !important; box-shadow: 0 6px 18px rgba(0,0,0,.32) !important; }
-html.is-mobile .stat-icon { font-size: 20px !important; margin: 0 !important; width: auto !important; height: auto !important; background: none !important; border-radius: 0 !important; display: inline !important; align-self: auto !important; }
-html.is-mobile .stat-title { font-size: 12.5px !important; color: var(--m-muted) !important; margin: 0 !important; font-weight: 700 !important; }
-html.is-mobile .stat-value { font-size: 18px !important; font-weight: 800 !important; color: var(--m-text) !important; }
-html.is-mobile .stat-card[style*="grid-column: span 2"] { grid-column: span 2 !important; }
+html.is-mobile .stat-icon {
+    display: flex !important;
+    width: 54px !important; height: 54px !important;
+    margin: 0 auto 12px !important;
+    align-self: center !important;
+    flex: none;
+    justify-content: center; align-items: center;
+    border-radius: 50% !important;
+    font-size: 23px !important;
+    line-height: 1;
+}
+html.is-mobile .stat-title { font-size: 12px !important; color: var(--m-muted) !important; margin: 0 !important; font-weight: 800 !important; }
+html.is-mobile .stat-value { font-size: 18px !important; font-weight: 900 !important; color: var(--m-text) !important; }
+html.is-mobile .stat-card[style*="grid-column: span 2"] {
+    grid-column: span 2 !important;
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    text-align: start !important;
+    gap: 14px;
+}
+html.is-mobile .stat-card[style*="grid-column: span 2"] .stat-icon { margin: 0 !important; flex: none !important; }
 
 /* اللوحاتControl والفلاتر */
 html.is-mobile .admin-control-panel { display: flex !important; flex-direction: column !important; align-items: stretch !important; gap: 10px !important; margin-bottom: 12px !important; }
@@ -297,12 +350,15 @@ html.is-mobile button:active, html.is-mobile a:active, html.is-mobile .stat-card
     transition: none;
 }
 
-/* --------- شريط التبويبات العائم (يعيد استخدام الأزرار الموجودة) --------- */
+/* --------- شريط التبويبات العائم (يعيد استخدام الأزرار الموجودة) ---------
+   الثبات المطلق: الشريط في body وليس داخل الشاشة الإدارية، وموضعه لا يقرأ
+   لوحة المفاتيح ولا ارتفاع الشاشة المتغير — لا يتحرك مهما تمُرّر المحتوى. */
 html.is-mobile #mobile-bottom-nav {
     display: none;
     position: fixed;
+    width: auto !important;
     left: 12px; right: 12px;
-    bottom: calc(10px + env(safe-area-inset-bottom) + var(--m-kb));
+    bottom: calc(10px + env(safe-area-inset-bottom));
     height: var(--m-bar-h);
     z-index: 9500;
     padding: 5px;
@@ -314,6 +370,7 @@ html.is-mobile #mobile-bottom-nav {
     justify-content: space-around;
     align-items: stretch;
     overflow: hidden;
+    pointer-events: auto;
 }
 html.is-mobile body.m-admin #mobile-bottom-nav { display: flex; }
 
@@ -348,17 +405,41 @@ html.is-mobile .m-ind {
 }
 html.is-mobile .bottom-nav-btn.active + .m-ind, html.is-mobile .m-ind { pointer-events: none; }
 
-/* --------- النوافذ السفلية --------- */
+/* --------- نوافذ النظام التي لا تتحول إلى سفلية (الدخول/التحديث/الوردية) ---------
+   في وضع "ويب اب" يمتد المحتوى تحت شريط الحالة، ونسخة الهاتف تُنزل النافذة إلى
+   حافة الشاشة العليا من أول بكسل — فيُقص أول سطر منها. تُصفَّر الحواف وتُوسَّط. */
+html.is-mobile .modal-overlay:not(.m-sheet) {
+    align-items: center !important;
+    justify-content: center !important;
+    padding: calc(env(safe-area-inset-top) + 10px) 10px calc(env(safe-area-inset-bottom) + 10px) !important;
+}
+html.is-mobile .modal-overlay:not(.m-sheet) .modal-content {
+    width: 100% !important;
+    max-width: 720px !important;
+    height: auto !important;
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 20px) !important;
+    margin: 0 auto !important;
+    border-radius: 26px !important;
+    border: 1px solid var(--m-line) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+}
+
+/* --------- النوافذ السفلية ---------
+   نسخة الهاتف原有 تجعل كل نافذة ملء الشاشة من الحافة العليا بـ !important،
+   فلا بد من !important هنا وإلا بقيت النافذة فوق ومقطوعة من تحت. */
 html.is-mobile .modal-overlay.m-sheet {
     display: flex;
     position: fixed;
     inset: 0;
-    align-items: flex-end;
-    justify-content: center;
-    padding: 0 0 var(--m-kb);
-    background: rgba(0,0,0,.55);
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
+    align-items: flex-end !important;
+    justify-content: center !important;
+    padding: 0 0 var(--m-kb) !important;
+    background: rgba(0,0,0,.62);
+    /* بدون تمويه: تمويه خلفية تتحرك فوقها النافذة يعيد رسم الشاشة كل إطار */
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
     opacity: 0;
     pointer-events: none;
     transition: opacity .25s var(--m-ease), padding .18s linear;
@@ -368,22 +449,41 @@ html.is-mobile .modal-overlay.m-sheet.m-on { opacity: 1; pointer-events: auto; }
 html.is-mobile .modal-overlay.m-sheet.m-closing { display: flex !important; opacity: 0; pointer-events: none; }
 html.is-mobile .modal-overlay.m-sheet .modal-content {
     width: 100% !important;
-    max-width: 720px;
-    max-height: 93dvh !important;
+    max-width: 720px !important;
     height: auto !important;
-    margin: 0;
+    max-height: calc(92dvh - var(--m-kb)) !important;
+    margin: 0 !important;
     border-radius: var(--m-radius-sheet) var(--m-radius-sheet) 0 0 !important;
-    border: 1px solid var(--m-line);
-    border-bottom: none;
-    background: var(--m-card);
-    box-shadow: 0 -18px 60px rgba(0,0,0,.6);
-    padding: 6px 14px calc(18px + env(safe-area-inset-bottom)) !important;
-    overflow-y: auto;
+    border: 1px solid var(--m-line) !important;
+    border-bottom: none !important;
+    background: var(--m-card) !important;
+    box-shadow: 0 -18px 60px rgba(0,0,0,.6) !important;
+    padding: 6px 14px calc(14px + env(safe-area-inset-bottom)) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
     transform: translateY(105%);
     transition: transform .32s var(--m-ease);
 }
+/* النوافذ الطويلة برأس وتذييل مثبتين: التمرير داخل الوسط فقط، فلا يُقص زر الإغلاق */
+html.is-mobile .modal-overlay .modal-content.mobile-sticky-modal {
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+}
+html.is-mobile .modal-content.mobile-sticky-modal .modal-body-scrollable {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    /* جداول الغوص أعمدة كثيرة: سحب أفقي بدل قصّ الأعمدة */
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+}
+html.is-mobile .modal-overlay .modal-content.mobile-sticky-modal .m-grab { margin: 8px 14px 0; }
+html.is-mobile .modal-overlay .modal-content.mobile-sticky-modal .m-sheet-x { top: 14px; }
 html.is-mobile .modal-overlay.m-sheet.m-on .modal-content { transform: translateY(0); }
 html.is-mobile .modal-overlay.m-sheet.m-live .modal-content { transition: transform .1s linear; }
 html.is-mobile .m-grab {
@@ -419,12 +519,6 @@ html.is-mobile #toast-container {
     display: flex; flex-direction: column; gap: 8px; align-items: stretch;
 }
 html.is-mobile .toast-msg { border-radius: var(--m-radius-card) !important; box-shadow: 0 12px 30px rgba(0,0,0,.5) !important; max-width: none !important; }
-
-/* هياكل التحميل */
-html.is-mobile .m-skel { border-radius: 12px; background: linear-gradient(90deg, var(--m-card) 0%, var(--m-card2) 40%, var(--m-card) 80%); background-size: 300% 100%; animation: mShim 1.4s linear infinite; margin-bottom: 10px; }
-html.is-mobile .m-skel.tall { height: 92px; }
-html.is-mobile .m-skel.short { height: 42px; }
-@keyframes mShim { from { background-position: 120% 0; } to { background-position: -120% 0; } }
 
 html.is-mobile .m-offline {
     display: flex; align-items: center; gap: 8px;
@@ -494,7 +588,9 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         width: 1,
         busy: false,
         pendingRepaint: false,
-        started: false
+        started: false,
+        kb: 0,
+        jumping: null
     };
 
     /* ================== ترتيب التبويبات ديناميكياً ==================
@@ -624,6 +720,25 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
             }
         }
         paintIndicator();
+    }
+
+    /* إزاحة لوحة واحدة سطرياً فوق حساب الشريط: الحساب يبقى في ورقة الأنماط لبقية اللوحات */
+    function setOffset(el, d) {
+        if (!el) return;
+        el.style.setProperty('--m-d', d.toFixed(4));
+        if (!calcOk) {
+            el.style.transform = 'translate3d(' + (dirSign() * d * state.width).toFixed(2) + 'px,0,0)';
+            el.style.opacity = String(1 - Math.min(1, Math.abs(d)) * 0.2);
+        }
+    }
+
+    function clearOffsets() {
+        for (let i = 0; i < state.pages.length; i++) {
+            const el = state.pages[i];
+            if (!el) continue;
+            el.style.removeProperty('--m-d');
+            if (!calcOk) { el.style.transform = ''; el.style.opacity = ''; }
+        }
     }
 
     /* خطوط الاستوديو تُنزَّل أول مرة تدخل لوحة الاستوديو المدى — لا قبل فتح الإدارة */
@@ -914,7 +1029,6 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
             if (k === 'subscriptions') callOriginal('renderAdminSubs');
         } catch (err) { console.warn('mobile repaint:', err); }
         markSyncTime();
-        hideSkeletonFor(state.keys[state.index]);
         if (page && Math.abs(page.scrollTop - top) > 2) page.scrollTop = top;
         openSheets.forEach((c, i) => { if (Math.abs(c.scrollTop - sheetTops[i]) > 2) c.scrollTop = sheetTops[i]; });
     }
@@ -949,52 +1063,12 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         });
     }
 
-    /* عند الوصول لتبويب: هيكل تحميل إن لم تكن بياناته قد وصلت، ثم رسم فوري */
+    /* عند الوصول لتبويب: رسم فوري من نفس دوال النظام */
     function onArrive(key) {
         if (!key) return;
-        showSkeletonFor(key);
         setPending();
         if (state.busy) return;
         flushRepaint();
-    }
-
-    /* =================== Skeleton أثناء انتظار البيانات =================== */
-    /* مفتاحان للوحة نفسها: admin-daily-report في مستودع الجوال و admin-dashboard في نسخة الكمبيوتر */
-    const SKELETON_HOSTS = {
-        'daily-report': '#admin-daily-reports-body',
-        dashboard: '#admin-daily-reports-body',
-        debts: '#debts-table-body',
-        costs: '#costs-table-body',
-        logs: '#logs-table-body',
-        subscriptions: '#admin-subs-body',
-        wallet: '#wallet-transactions-body'
-    };
-
-    function hostOf(key) {
-        const sel = SKELETON_HOSTS[key];
-        const page = pageOf(key);
-        return sel && page ? page.querySelector(sel) : null;
-    }
-
-    function showSkeletonFor(key) {
-        if (!key || key !== state.keys[state.index]) return;
-        const page = pageOf(key);
-        const host = hostOf(key);
-        if (!page || !host || page.querySelector('.m-skel-box')) return;
-        if (host.children.length) return;
-        const box = document.createElement('div');
-        box.className = 'm-skel-box';
-        box.innerHTML = '<div class="m-skel short"></div><div class="m-skel tall"></div><div class="m-skel tall"></div>';
-        page.appendChild(box);
-    }
-
-    function hideSkeletonFor(key) {
-        const page = pageOf(key);
-        if (!page) return;
-        const box = page.querySelector('.m-skel-box');
-        if (!box) return;
-        const host = hostOf(key);
-        if ((host && host.children.length) || navigator.onLine === false) box.remove();
     }
 
     function pageOf(key) { return document.getElementById('admin-' + key); }
@@ -1074,7 +1148,7 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         syncSheet(el);
     }
 
-    function closeSheet(el) {
+    function closeSheet(el, skipHistory) {
         el.classList.remove('m-on');
         el.classList.add('m-closing');
         setTimeout(() => {
@@ -1088,10 +1162,32 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
             document.body.classList.remove('m-sheet-open');
             unlockBackground();
         }
-        if (!sheetStack.length && history.state && history.state.royalSheet) {
+        if (!pushing && !skipHistory && !sheetStack.length && history.state && history.state.royalSheet) {
             pushing = true;
             try { history.back(); } catch (e) {}
             setTimeout(() => { pushing = false; }, 250);
+        }
+    }
+
+    /* التنقل إلى تبويب آخر يُغلق كل نافذة مفتوحة في نفس اللحظة، بمسار إغلاق النظام
+       نفسه، وبانزلاق واحد إلى الأسفل. لا يبقى شيء معلّق فوق اللوحة الجديدة. */
+    function closeOpenSheets() {
+        if (!sheetStack.length) return;
+        const list = sheetStack.slice();
+        sheetStack.length = 0;
+        document.body.classList.remove('m-sheet-open');
+        unlockBackground();
+        pushing = true;
+        for (let i = 0; i < list.length; i++) {
+            const el = list[i];
+            const cancel = el.querySelector('.btn-cancel[onclick*="close"], .modal-actions [onclick*="close"]');
+            if (cancel) cancel.click();
+            else el.style.display = 'none';
+            closeSheet(el, true);
+        }
+        setTimeout(() => { pushing = false; }, 260);
+        if (history.state && history.state.royalSheet) {
+            try { history.back(); } catch (e) {}
         }
     }
 
@@ -1147,15 +1243,35 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         content.addEventListener('touchcancel', end, { passive: true });
     }
 
-    /* لوحة المفاتيح: لا تغطي النافذة الحقل النشط */
+    /* لوحة المفاتيح: لا تغطي النافذة الحقل النشط.
+       الآيفون يغيّر visualViewport كلما صعد شريط العنوان أو انزلقت الصفحة، فلو حسبنا
+       كل فرقٍ لوحة مفاتيح لتحرك شريط التبويبات مع التمرير. لذلك لا يُعتد بالفرق إلا
+       مع حقل كتابة مُركّز عليه، وبمقدار يشبه لوحة مفاتيح فعلية. */
+    function isEditing() {
+        const a = document.activeElement;
+        if (!a || !a.tagName) return false;
+        if (!/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;
+        const t = (a.type || '').toLowerCase();
+        return t !== 'checkbox' && t !== 'radio' && t !== 'range' && t !== 'file' && t !== 'button';
+    }
+
     function bindKeyboard() {
         if (!window.visualViewport) return;
         const apply = () => {
-            const kb = Math.max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop);
+            let kb = 0;
+            if (isEditing()) {
+                const gap = Math.round(window.innerHeight - visualViewport.height - visualViewport.offsetTop);
+                if (gap >= 90) kb = gap;
+            }
+            if (state.kb === kb) return;
+            state.kb = kb;
             root.style.setProperty('--m-kb', kb + 'px');
         };
         visualViewport.addEventListener('resize', apply, { passive: true });
         visualViewport.addEventListener('scroll', apply, { passive: true });
+        document.addEventListener('focusin', apply, { passive: true });
+        document.addEventListener('focusout', apply, { passive: true });
+        apply();
     }
 
     /* ================== التبديل اليدوي بين النسختين ================== */
@@ -1208,14 +1324,19 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         }, 800);
     }
 
-    /* ================== الدخول المتتالي للبطاقات ================== */
+    /* ================== الدخول المتتالي للبطاقات ==================
+       لا يُستخدم opacity:0 في لحظة الانتظار: backwards fill مع صفر شفافية كان
+       يترك اللوحة بيضاء ربع ثانية ثم تعود. البداية من نص الظهور فتبقى اللوحة مرئية. */
     function staggerEntry(page) {
-        if (REDUCED || !page || !window.Element || !Element.prototype.animate) return;
-        const kids = Array.prototype.slice.call(page.children, 0, 9);
+        if (REDUCED || !page || !page.animate) return;
+        page.animate([{ opacity: .72 }, { opacity: 1 }], { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' });
+        const kids = Array.prototype.slice.call(page.children, 0, 10);
         kids.forEach((el, i) => {
+            if (!el.animate) return;
             el.animate(
-                [{ transform: 'translateY(18px)', opacity: 0 }, { transform: 'translateY(0px)', opacity: 1 }],
-                { duration: 700, delay: i * 70, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' }
+                [{ transform: 'translate3d(0,15px,0) scale(.988)', opacity: .45 },
+                 { transform: 'none', opacity: 1 }],
+                { duration: 430, delay: Math.min(i, 9) * 44, easing: 'cubic-bezier(.22,.78,.2,1)', fill: 'backwards' }
             );
         });
     }
@@ -1225,6 +1346,7 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         const original = window.switchAdminTab;
         if (typeof original !== 'function' || original.__mWrapped) return;
         const wrapped = function (tab, animationType) {
+            closeOpenSheets();
             original.call(window, tab, 'none');
             if (state.started) goTo(tab);
         };
@@ -1237,31 +1359,47 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         const i = state.keys.indexOf(tab);
         if (i === -1) return;
         showAdminChrome();
-        if (i === state.index && Math.abs(phys.P - i) < 0.02) {
+        const from = clamp(state.index, 0, state.n - 1);
+        if (i === from) {
             const page = state.pages[i];
             if (page) page.scrollTo({ top: 0, behavior: REDUCED ? 'auto' : 'smooth' });
             return;
         }
-        const from = phys.P;
         stopSpring();
+        clearOffsets();
+        const src = state.pages[from];
+        const dst = state.pages[i];
+        const s = i > from ? 1 : -1;
+        /* النقر ينتقل مباشرة بين المصدر والهدف: لا قلب على الصفحات الوسيطة ولا
+           لحظة اختفاء — المصدر يخرج والهدف يدخل في مسار واحد بطول لوحة واحدة. */
+        state.index = i;
+        phys.P = i;
         setBusy(true);
+        paintTransforms();
+        if (src) { src.classList.add('m-seen'); src.style.willChange = 'transform'; }
+        if (dst) { dst.style.willChange = 'transform'; }
+        setOffset(src, 0);
+        setOffset(dst, s);
         const s0 = now();
-        const dur = Math.min(520, 220 + Math.abs(i - from) * 120);
+        const dur = REDUCED ? 1 : 300;
         const step = () => {
             const k = clamp((now() - s0) / dur, 0, 1);
             const e = 1 - Math.pow(1 - k, 3);
+            setOffset(src, -s * e);
+            setOffset(dst, s * (1 - e));
             phys.P = from + (i - from) * e;
+            paintIndicator();
+            if (k < 1) { phys.raf = requestAnimationFrame(step); return; }
+            phys.P = i;
+            state.index = i;
+            if (src) src.style.willChange = 'auto';
+            if (dst) dst.style.willChange = 'auto';
+            clearOffsets();
             paintTransforms();
-            if (k < 1) { phys.raf = requestAnimationFrame(step); }
-            else {
-                phys.P = i;
-                state.index = i;
-                paintTransforms();
-                syncA11y();
-                setBusy(false);
-                flushRepaint();
-                staggerEntry(state.pages[i]);
-            }
+            syncA11y();
+            setBusy(false);
+            flushRepaint();
+            staggerEntry(dst);
         };
         phys.raf = requestAnimationFrame(step);
     }
@@ -1333,6 +1471,10 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
     /* ================== التركيب ================== */
     function mount() {
         splash();
+        /* الشريط إلى body مباشرة: لا حاوية متحوّلة أو مقصوصة تبقى فوقه،
+           فلا تتحرك خانته ولا شبر واحد مهما تمرّر المحتوى أو فُتحت نافذة. */
+        const nav = document.querySelector(BAR_SELECTOR);
+        if (nav && nav.parentNode !== document.body) document.body.appendChild(nav);
         /* التلفيف هنا لا في boot: هذا الملف قد يُنفَّذ قبل app.js،
            وعند فتح الأدمن تكون دوال النظام معرّفة بالكامل. */
         wrapRepainters();
@@ -1365,7 +1507,6 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         bindKeyboard();
         mirrorConnection();
         state.started = true;
-        showSkeletonFor(order[state.index]);
         flushRepaint();
         staggerEntry(state.pages[state.index]);
     }
