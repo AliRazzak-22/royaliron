@@ -105,9 +105,8 @@ html.is-mobile .m-head {
     gap: 10px;
     padding: 10px 14px 8px;
     border-bottom: 1px solid var(--m-hair);
-    background: rgba(10,10,10,.72);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
-    backdrop-filter: blur(20px) saturate(160%);
+    /* الخلفية مصمتة: أي blur فوق لوحة متحركة يُعيد رسم الشاشة كاملة كل إطار */
+    background: rgba(10,10,10,.96);
 }
 html.is-mobile .m-head:empty { display: none; }
 .m-brand { font-size: 22px; font-weight: 800; color: var(--m-gold); letter-spacing: .2px; }
@@ -116,8 +115,14 @@ html.is-mobile .m-head:empty { display: none; }
 .m-dot.off { background: var(--m-red); box-shadow: 0 0 8px rgba(255,71,87,.6); }
 .m-time { font-size: 12px; color: var(--m-muted); font-variant-numeric: tabular-nums; min-width: 46px; text-align: end; }
 
-/* الصفحات */
+/* الصفحات
+   الموضع مشتق بالكامل من متغيرات على وسم html: --m-p للصفحة العشرية، --m-w لعرضها،
+   --m-dir لاتجاه RTL، و --m-i لرقم الصفحة (تُكتب في ورقة أنماط مستقلة بالـ id).
+   السبب: دالة switchAdminTab الأصلية تنفّذ style.cssText = '' على كل لوحة، فتمسح أي
+   transform سطري وتنشر اللوحة الهدف فوق الحالية. الأنماط في ورقة الأنماط لا تُمسح. */
 html.is-mobile .admin-section {
+    --m-d: calc(var(--m-i, 0) - var(--m-p, 0));
+    --m-ad: max(var(--m-d), calc(var(--m-d) * -1));
     display: none;
     position: absolute;
     inset: 0;
@@ -125,15 +130,31 @@ html.is-mobile .admin-section {
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
-    contain: layout style;
+    contain: layout style paint;
     padding: 14px 12px calc(var(--m-bar-h) + 74px + env(safe-area-inset-bottom));
     scrollbar-width: none;
+    transform: translate3d(calc(var(--m-d) * var(--m-dir, 1) * var(--m-w, 100vw)), 0, 0);
+    opacity: calc(1 - min(1, var(--m-ad)) * 0.2);
 }
 html.is-mobile .admin-section::-webkit-scrollbar { display: none; }
-html.is-mobile .admin-section.active,
-html.is-mobile .admin-section.m-neighbor { display: block; }
-html.is-mobile .admin-section.m-neighbor { pointer-events: none; }
+html.is-mobile .admin-section.m-seen { display: block; }
+/* مقياس الحساب: إن لم يدعمه المتصفح تُكتب المواضع سطرياً من الجافاسكريبت */
+html.is-mobile .m-calc-probe {
+    position: absolute; visibility: hidden; pointer-events: none;
+    transform: translate3d(calc((2 - var(--m-q, 0)) * 10px), 0, 0);
+}
+/* اللوحة غير الجارية لا تستقبل اللمس، وأثناء السحب كل اللوحات لا تستقبله */
+html.is-mobile .admin-section.m-seen:not(.m-cur):not(.active),
 html.is-mobile body.m-dragging .admin-section { pointer-events: none; }
+/* لا شيء داخل مسار السحب يتحرك بانتقال: يضاعف إعادة الحساب لكل إطار */
+html.is-mobile body.m-dragging #admin-screen,
+html.is-mobile body.m-dragging #admin-screen * { transition: none !important; }
+/* الآيفون يُعيد تمويه الخلفية لكل إطار حركة: هذا هو سبب التقطيع */
+html.is-mobile #admin-screen,
+html.is-mobile #admin-screen * {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
 html.is-mobile .admin-section h2 { font-size: 20px !important; font-weight: 800; margin: 6px 0 14px !important; text-align: start !important; color: var(--m-gold) !important; }
 
 /* بطاقات بدل الجداول */
@@ -286,9 +307,8 @@ html.is-mobile #mobile-bottom-nav {
     z-index: 9500;
     padding: 5px;
     border-radius: var(--m-radius-bar);
-    background: rgba(21,21,23,.68);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
-    backdrop-filter: blur(28px) saturate(180%);
+    /* مصمت بدل الزجاج: الشريط ثابت فوق محتوى يتمرر، والتمويه يعيد رسمه كل إطار */
+    background: rgba(21,21,23,.97);
     border: 0.5px solid var(--m-line);
     box-shadow: 0 12px 34px rgba(0,0,0,.5);
     justify-content: space-around;
@@ -375,9 +395,7 @@ html.is-mobile .modal-overlay.m-sheet .modal-title {
     position: sticky; top: -6px; z-index: 3;
     margin: 0 -14px 10px;
     padding: 12px 14px 10px;
-    background: rgba(21,21,23,.86);
-    -webkit-backdrop-filter: blur(20px);
-    backdrop-filter: blur(20px);
+    background: rgba(21,21,23,.98);
     border-bottom: 1px solid var(--m-hair);
     border-radius: var(--m-radius-sheet) var(--m-radius-sheet) 0 0;
     font-size: 17px;
@@ -469,6 +487,8 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         pages: [],
         barKeys: [],
         barBtns: [],
+        barW: 0,
+        cell: 0,
         n: 1,
         index: 0,
         width: 1,
@@ -546,37 +566,94 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         const page = state.pages[state.index];
         const w = (page && page.clientWidth) || (host && host.clientWidth) || window.innerWidth;
         state.width = Math.max(1, w);
+        root.style.setProperty('--m-w', state.width + 'px');
+    }
+
+    /* كل لوحة تحمل رقمها --m-i داخل ورقة أنماط مستقلة، فلا يمسحها style.cssText = '' */
+    function paintPageIndexes() {
+        let el = document.getElementById('royal-mobile-geo');
+        if (!el) {
+            el = document.createElement('style');
+            el.id = 'royal-mobile-geo';
+            document.head.appendChild(el);
+        }
+        let css = '';
+        for (let i = 0; i < state.pages.length; i++) {
+            const p = state.pages[i];
+            if (p && p.id) css += '#' + ADMIN_ID + ' #' + p.id + '{--m-i:' + i + '}';
+        }
+        css += 'html.is-mobile{--m-dir:' + dirSign() + '}';
+        if (el.textContent !== css) el.textContent = css;
+    }
+
+    /* المصدر الوحيد للظهور والحالة الجارية */
+    let calcOk = true;
+
+    /* يدقّ بعد حقن الأنماط: يتأكد أن translate3d(calc(var)) يُحسب فعلاً في هذا المتصفح */
+    function probeCalc() {
+        const host = document.getElementById(ADMIN_ID) || document.body;
+        const probe = document.createElement('div');
+        probe.className = 'm-calc-probe';
+        host.appendChild(probe);
+        let shift = 0;
+        try {
+            const t = getComputedStyle(probe).transform;
+            shift = t && t !== 'none' ? new DOMMatrix(t).e : 0;
+        } catch (e) { shift = 0; }
+        probe.remove();
+        calcOk = shift === 20;
     }
 
     function paintTransforms() {
-        const s = dirSign();
-        const w = state.width;
+        root.style.setProperty('--m-p', phys.P.toFixed(4));
         const P = phys.P;
         for (let i = 0; i < state.pages.length; i++) {
             const el = state.pages[i];
             if (!el) continue;
-            const d = i - P;
-            if (Math.abs(d) > 1.2) {
-                if (el.style.transform) { el.style.transform = ''; el.style.opacity = ''; }
-                continue;
+            const seen = Math.abs(i - P) <= 1.5;
+            if (seen !== el.classList.contains('m-seen')) el.classList.toggle('m-seen', seen);
+            const cur = i === state.index;
+            if (cur !== el.classList.contains('m-cur')) el.classList.toggle('m-cur', cur);
+            if (seen && state.keys[i] === 'invoice-designer') ensureStudioFonts();
+            if (!calcOk) {
+                const d = i - P;
+                el.style.transform = seen
+                    ? 'translate3d(' + (dirSign() * d * state.width).toFixed(2) + 'px,0,0)'
+                    : '';
+                el.style.opacity = seen ? String(1 - Math.min(1, Math.abs(d)) * 0.2) : '';
             }
-            el.style.transform = 'translate3d(' + (s * d * w).toFixed(2) + 'px,0px,0px)';
-            el.style.opacity = String(1 - Math.min(1, Math.abs(d)) * 0.22);
         }
         paintIndicator();
     }
 
-    /* المؤشر يتحرك من نفس الموضع العشري للصفحات */
+    /* خطوط الاستوديو تُنزَّل أول مرة تدخل لوحة الاستوديو المدى — لا قبل فتح الإدارة */
+    function ensureStudioFonts() {
+        if (window.__mStudioFonts || !window.ROYAL_STUDIO_FONTS) return;
+        window.__mStudioFonts = true;
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = window.ROYAL_STUDIO_FONTS;
+        document.head.appendChild(link);
+    }
+
+    /* المؤشر يتحرك من نفس الموضع العشري للصفحات.
+       قياس الشريط محفوظ: قراءة clientWidth داخل كل إطار تُجبر المتصفح على تخطيط كامل
+       وهو ما كان يُظهر التأخير في بداية السحب. */
     function paintIndicator() {
         const ind = document.querySelector('.m-ind');
         const bar = document.querySelector(BAR_SELECTOR);
         if (!ind || !bar) return;
         const M = Math.max(1, state.barBtns.length);
         const pad = 5;
-        const cell = (bar.clientWidth - pad * 2) / M;
+        if (!state.cell) {
+            const w = bar.clientWidth;
+            if (!w) return;
+            state.barW = w;
+            state.cell = (w - pad * 2) / M;
+        }
         const f = clamp(barPosFor(phys.P), 0, M - 1);
-        const left = dirSign() < 0 ? (bar.clientWidth - pad - (f + 1) * cell) : (pad + f * cell);
-        ind.style.width = cell + 'px';
+        const left = dirSign() < 0 ? (state.barW - pad - (f + 1) * state.cell) : (pad + f * state.cell);
+        ind.style.width = state.cell + 'px';
         ind.style.transform = 'translate3d(' + left.toFixed(2) + 'px,0px,0px)';
         const bi = barIndexOfPage(clamp(Math.round(phys.P), 0, state.n - 1));
         state.barBtns.forEach((b, i) => b.classList.toggle('m-hi', i === bi));
@@ -658,7 +735,6 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
             if (blocksHorizontalScroll(e.target, dx)) { abortGesture(); return; }
             phys.axis = 'x';
             document.body.classList.add('m-dragging');
-            state.pages.forEach((el, i) => { if (Math.abs(i - phys.P) <= 1) el.classList.add('m-neighbor'); });
         }
 
         /* 1:1 مع الإصبع + مرونة عند الحدود */
@@ -754,7 +830,6 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
 
     function commit(pageIdx) {
         const i = clamp(Math.round(pageIdx), 0, state.n - 1);
-        clearNeighbors();
         phys.P = i;
         state.index = i;
         paintTransforms();
@@ -773,8 +848,6 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         if (typeof fn !== 'function') return;
         (fn.__mOriginal || fn).call(window, key, 'none');
     }
-
-    function clearNeighbors() { state.pages.forEach((el) => el.classList.remove('m-neighbor')); }
 
     function currentTabKey() {
         const el = document.querySelector('.admin-section.active');
@@ -886,8 +959,10 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
     }
 
     /* =================== Skeleton أثناء انتظار البيانات =================== */
+    /* مفتاحان للوحة نفسها: admin-daily-report في مستودع الجوال و admin-dashboard في نسخة الكمبيوتر */
     const SKELETON_HOSTS = {
         'daily-report': '#admin-daily-reports-body',
+        dashboard: '#admin-daily-reports-body',
         debts: '#debts-table-body',
         costs: '#costs-table-body',
         logs: '#logs-table-body',
@@ -1170,10 +1245,6 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         const from = phys.P;
         stopSpring();
         setBusy(true);
-        /* نُظهر الصفحات الواقعة في المسار حتى لا يظهر فراغ أثناء الانزلاق */
-        for (let j = Math.floor(Math.min(from, i)); j <= Math.ceil(Math.max(from, i)); j++) {
-            if (state.pages[j]) state.pages[j].classList.add('m-neighbor');
-        }
         const s0 = now();
         const dur = Math.min(520, 220 + Math.abs(i - from) * 120);
         const step = () => {
@@ -1185,7 +1256,6 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
             else {
                 phys.P = i;
                 state.index = i;
-                clearNeighbors();
                 paintTransforms();
                 syncA11y();
                 setBusy(false);
@@ -1197,7 +1267,10 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
     }
 
     function showAdminChrome() {
+        const wasAdmin = document.body.classList.contains('m-admin');
         document.body.classList.add('m-admin');
+        /* الشريط يصبح ظاهراً الآن: خانته تُقاس من جديد */
+        if (!wasAdmin) state.cell = 0;
         /* الشريط كان مخفياً عند التركيب: نعيد قياس الخانة والمؤشر بعد إظهاره */
         if (state.started) paintTransforms();
     }
@@ -1283,6 +1356,8 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
         state.index = clamp(order.indexOf(currentTabKey()), 0, state.n - 1);
         phys.P = state.index;
         decorateBar();
+        paintPageIndexes();
+        probeCalc();
         cacheWidth();
         paintTransforms();
         bindGestures();
@@ -1310,6 +1385,7 @@ html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow
 
     function onResize() {
         if (!state.started) return;
+        state.cell = 0;
         cacheWidth();
         paintTransforms();
         reevaluateLater();

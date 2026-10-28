@@ -18,11 +18,15 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
     <link rel="icon" type="image/png" sizes="192x192" href="icon.png">
     <!-- مكتبة الأيقونات (FontAwesome) -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- خطوط جوجل (Cairo) -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-    <!-- مكتبة محرك التصميم الرسومي للفواتير (Fabric.js) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <!-- مكتبة محرك التصميم الرسومي للفواتير (Fabric.js): defer حتى لا تحجب أول رسم -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <!-- ربط ملف التصميم -->
     <link rel="stylesheet" href="style.css">
 
@@ -61,6 +65,17 @@
         document.documentElement.classList.add(mobile ? 'is-mobile' : 'is-desktop');
         window.ROYAL_VIEW = mobile ? 'mobile' : 'desktop';
     })();
+    </script>
+
+    <!-- طبقة الجوال: تُحمَّل فقط عندما يكون الكشف قد حدّد بيئة جوال، فلا أثر لها على الكمبيوتر.
+         موضعه في الرأس حتى يُنزّل بالتوازي مع app.js بدل الانتظار حتى نهاية الصفحة. -->
+    <script>
+    if (document.documentElement.classList.contains('is-mobile')) {
+        var royalMobileLayer = document.createElement('script');
+        royalMobileLayer.type = 'module';
+        royalMobileLayer.src = 'mobile-shell.js';
+        document.head.appendChild(royalMobileLayer);
+    }
     </script>
 </head>
 <body>
@@ -479,10 +494,19 @@
                 </div>
                 
                 <!-- قسم تصميم الفاتورة A5 (الاستوديو الاحترافي - Word Style) -->
-                <style>
-                    /* استدعاء أسطول من الخطوط العربية الفاخرة للاستوديو */
-                    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Tajawal:wght@400;700;900&family=Alexandria:wght@400;700;900&family=Aref+Ruqaa:wght@400;700&family=Amiri:wght@400;700&family=Almarai:wght@400;700;800&family=Changa:wght@400;700&family=El+Messiri:wght@400;700&family=Lalezar&family=Lateef&family=Mada:wght@400;700&family=Markazi+Text:wght@400;700&family=Rakkas&family=Reem+Kufi:wght@400;700&family=Lemonada:wght@400;700&family=Kufam:wght@400;700&display=swap');
-                </style>
+                <!-- أسطول خطوط الاستوديو: على الكمبيوتر يُحمَّل هنا كما كان تماماً.
+                     على الجوال يؤجَّل إلى أن تدخل لوحة الاستوديو المدى (تنفذه طبقة الجوال)،
+                     لأنه كان يحجب أول رسم وينزّل سبعة عشر خطاً قبل فتح الإدارة. -->
+                <script>
+                (function () {
+                    window.ROYAL_STUDIO_FONTS = 'https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Tajawal:wght@400;700;900&family=Alexandria:wght@400;700;900&family=Aref+Ruqaa:wght@400;700&family=Amiri:wght@400;700&family=Almarai:wght@400;700;800&family=Changa:wght@400;700&family=El+Messiri:wght@400;700&family=Lalezar&family=Lateef&family=Mada:wght@400;700&family=Markazi+Text:wght@400;700&family=Rakkas&family=Reem+Kufi:wght@400;700&family=Lemonada:wght@400;700&family=Kufam:wght@400;700&display=swap';
+                    if (document.documentElement.classList.contains('is-mobile')) return;
+                    var royalStudioLink = document.createElement('link');
+                    royalStudioLink.rel = 'stylesheet';
+                    royalStudioLink.href = window.ROYAL_STUDIO_FONTS;
+                    document.head.appendChild(royalStudioLink);
+                })();
+                </script>
                 <div id="admin-invoice-designer" class="admin-section">
                     <h2 style="margin-bottom:15px; color:var(--gold); display: flex; justify-content: space-between; align-items: center;">
     <div style="display:flex; align-items:center; gap:15px;">
@@ -1457,20 +1481,10 @@
         </div>
     </div>
 
-    <!-- مكتبة نظام السحب والإفلات التفاعلي -->
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <!-- مكتبة نظام السحب والإفلات التفاعلي (نفس إصدار نسخة الكمبيوتر، بلا إعادة توجيه @latest) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.7/Sortable.min.js"></script>
     
     <!-- استدعاء ملف الجافاسكريبت كـ Module لدعم Firebase -->
     <script type="module" src="app.js"></script>
-
-    <!-- طبقة الجوال: تُحمَّل فقط عندما يكون الكشف قد حدّد بيئة جوال، فلا أثر لها على الكمبيوتر -->
-    <script>
-    if (document.documentElement.classList.contains('is-mobile')) {
-        var royalMobileLayer = document.createElement('script');
-        royalMobileLayer.type = 'module';
-        royalMobileLayer.src = 'mobile-shell.js';
-        document.head.appendChild(royalMobileLayer);
-    }
-    </script>
 </body>
 </html>
