@@ -1,0 +1,1362 @@
+/* =========================================================================
+   طبقة عرض للجوال فقط — لا تُحمَّل ولا تعمل إطلاقاً على الكمبيوتر
+   تعتمد على صنف html.is-mobile الذي يحدده سكريبت الكشف في رأس الصفحة.
+   لا تغيّر منطق الأعمال: تستدعي دوال النظام الحالية كما هي.
+   ========================================================================= */
+(function () {
+    'use strict';
+
+    const root = document.documentElement;
+    if (!root.classList.contains('is-mobile')) return;
+
+    const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const BAR_SELECTOR = '#mobile-bottom-nav';
+    const ADMIN_ID = 'admin-screen';
+    const SETTINGS_BACKUP_VIEW = 'desktop';
+
+    /* ------------------------- متغيرات الهوية (داكن فقط) ------------------------- */
+    const CSS = `
+html.is-mobile {
+    --m-bg: #0a0a0a;
+    --m-card: #151517;
+    --m-card2: #1d1d20;
+    --m-text: #f7f7f8;
+    --m-muted: #9a9aa2;
+    --m-line: rgba(212,175,55,.16);
+    --m-hair: rgba(255,255,255,.07);
+    --m-gold: #D4AF37;
+    --m-gold-soft: rgba(212,175,55,.13);
+    --m-green: #2ed573;
+    --m-red: #ff4757;
+    --m-blue: #4a90e2;
+    --m-radius-card: 18px;
+    --m-radius-sheet: 24px;
+    --m-radius-bar: 24px;
+    --m-radius-pill: 19px;
+    --m-radius-grain: 99px;
+    --m-ease: cubic-bezier(.2,.8,.2,1);
+    --m-bar-h: 62px;
+    --m-kb: 0px;
+    color-scheme: dark;
+    --m-n: 1;
+}
+
+html.is-mobile,
+html.is-mobile body { height: 100%; }
+
+html.is-mobile body {
+    overflow: hidden;
+    overscroll-behavior: none;
+    background: var(--m-bg);
+    color: var(--m-text);
+    font-family: -apple-system, "SF Arabic", "Segoe UI", Cairo, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    margin: 0;
+}
+
+/* خلفية خفيفة بعيدة عن التمرير */
+html.is-mobile body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+        radial-gradient(48% 32% at 92% 0%, rgba(74,144,226,.10), transparent 70%),
+        radial-gradient(42% 30% at 8% 22%, rgba(212,175,55,.09), transparent 72%),
+        radial-gradient(52% 34% at 50% 104%, rgba(46,213,115,.07), transparent 70%);
+}
+
+html.is-mobile #admin-screen.active-screen {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    max-width: 720px !important;
+    margin-inline: auto;
+    height: 100dvh;
+    overflow: hidden;
+    padding-top: env(safe-area-inset-top);
+}
+
+html.is-mobile .admin-sidebar { display: none; }
+
+html.is-mobile .admin-layout { display: block; flex: 1; min-height: 0; height: 100%; }
+
+html.is-mobile .admin-content {
+    position: relative;
+    flex: none;
+    height: 100%;
+    padding: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* ترويسة الثل الجوال */
+html.is-mobile .m-head {
+    position: relative;
+    z-index: 5;
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid var(--m-hair);
+    background: rgba(10,10,10,.72);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    backdrop-filter: blur(20px) saturate(160%);
+}
+html.is-mobile .m-head:empty { display: none; }
+.m-brand { font-size: 22px; font-weight: 800; color: var(--m-gold); letter-spacing: .2px; }
+.m-conn { margin-inline-start: auto; display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--m-muted); }
+.m-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--m-green); box-shadow: 0 0 8px rgba(46,213,115,.7); }
+.m-dot.off { background: var(--m-red); box-shadow: 0 0 8px rgba(255,71,87,.6); }
+.m-time { font-size: 12px; color: var(--m-muted); font-variant-numeric: tabular-nums; min-width: 46px; text-align: end; }
+
+/* الصفحات */
+html.is-mobile .admin-section {
+    display: none;
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    contain: layout style;
+    padding: 14px 12px calc(var(--m-bar-h) + 74px + env(safe-area-inset-bottom));
+    scrollbar-width: none;
+}
+html.is-mobile .admin-section::-webkit-scrollbar { display: none; }
+html.is-mobile .admin-section.active,
+html.is-mobile .admin-section.m-neighbor { display: block; }
+html.is-mobile .admin-section.m-neighbor { pointer-events: none; }
+html.is-mobile body.m-dragging .admin-section { pointer-events: none; }
+html.is-mobile .admin-section h2 { font-size: 20px !important; font-weight: 800; margin: 6px 0 14px !important; text-align: start !important; color: var(--m-gold) !important; }
+
+/* بطاقات بدل الجداول */
+html.is-mobile #admin-screen .cart-table,
+html.is-mobile #admin-screen .invoices-table { display: block !important; width: 100% !important; border: none !important; background: transparent !important; }
+html.is-mobile #admin-screen .cart-table thead,
+html.is-mobile #admin-screen .invoices-table thead { display: none !important; }
+html.is-mobile #admin-screen .cart-table tbody,
+html.is-mobile #admin-screen .invoices-table tbody { display: block !important; width: 100% !important; }
+
+html.is-mobile #admin-screen .cart-table tr,
+html.is-mobile #admin-screen .invoices-table tr {
+    display: grid !important;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 4px 10px;
+    background: linear-gradient(160deg, var(--m-card2), var(--m-card)) !important;
+    border: 1px solid var(--m-line) !important;
+    border-radius: var(--m-radius-card) !important;
+    margin-bottom: 10px !important;
+    padding: 12px 13px !important;
+    box-shadow: 0 6px 18px rgba(0,0,0,.35) !important;
+    position: relative !important;
+}
+html.is-mobile #admin-screen .cart-table tr::after,
+html.is-mobile #admin-screen .invoices-table tr::after { content: none !important; }
+
+html.is-mobile #admin-screen .cart-table td,
+html.is-mobile #admin-screen .invoices-table td {
+    display: block !important;
+    border: none !important;
+    padding: 1px 0 !important;
+    text-align: start !important;
+    white-space: normal !important;
+    min-width: 0 !important;
+    font-size: 14px !important;
+    color: var(--m-text) !important;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+/* الخلية الأولى = العنوان، الثانية = المبلغ البارز، الباقي تفاصيل، والأخيرة إجراءات ظاهرة */
+html.is-mobile #admin-screen .cart-table td:first-child,
+html.is-mobile #admin-screen .invoices-table td:first-child {
+    grid-column: 1 / -1;
+    font-size: 13px !important;
+    color: var(--m-muted) !important;
+    margin-bottom: 2px !important;
+}
+html.is-mobile #admin-screen .cart-table td:nth-child(2),
+html.is-mobile #admin-screen .invoices-table td:nth-child(2) {
+    grid-column: 1;
+    font-size: 19px !important;
+    font-weight: 800 !important;
+    color: var(--m-gold) !important;
+}
+html.is-mobile #admin-screen .cart-table td:nth-child(n+3),
+html.is-mobile #admin-screen .invoices-table td:nth-child(n+3) { grid-column: 1; font-size: 13px !important; }
+html.is-mobile #admin-screen .cart-table td:last-child,
+html.is-mobile #admin-screen .invoices-table td:last-child {
+    display: flex !important;
+    grid-column: 2;
+    grid-row: 2 / span 3;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+}
+html.is-mobile #admin-screen td:last-child .top-bar-btn,
+html.is-mobile #admin-screen td:last-child .action-icon {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px !important;
+    padding: 8px 10px !important;
+    border-radius: var(--m-radius-pill) !important;
+    background: var(--m-gold-soft) !important;
+    border: 1px solid var(--m-line) !important;
+    color: var(--m-gold) !important;
+    margin: 0 !important;
+}
+
+/* شبكة البطاقات والإحصائيات */
+html.is-mobile .stats-grid { display: grid !important; grid-template-columns: repeat(2, minmax(0,1fr)) !important; gap: 10px !important; margin-bottom: 18px !important; }
+html.is-mobile .stat-card {
+    background: linear-gradient(160deg, var(--m-card2), var(--m-card)) !important;
+    border: 1px solid var(--m-line) !important;
+    border-radius: var(--m-radius-card) !important;
+    padding: 14px !important;
+    text-align: start !important;
+    display: flex; flex-direction: column; justify-content: space-between; gap: 8px;
+    min-height: 96px;
+    box-shadow: 0 6px 18px rgba(0,0,0,.32) !important;
+}
+html.is-mobile .stat-card:hover { transform: none !important; box-shadow: 0 6px 18px rgba(0,0,0,.32) !important; }
+html.is-mobile .stat-icon { font-size: 20px !important; margin: 0 !important; width: auto !important; height: auto !important; background: none !important; border-radius: 0 !important; display: inline !important; align-self: auto !important; }
+html.is-mobile .stat-title { font-size: 12.5px !important; color: var(--m-muted) !important; margin: 0 !important; font-weight: 700 !important; }
+html.is-mobile .stat-value { font-size: 18px !important; font-weight: 800 !important; color: var(--m-text) !important; }
+html.is-mobile .stat-card[style*="grid-column: span 2"] { grid-column: span 2 !important; }
+
+/* اللوحاتControl والفلاتر */
+html.is-mobile .admin-control-panel { display: flex !important; flex-direction: column !important; align-items: stretch !important; gap: 10px !important; margin-bottom: 12px !important; }
+html.is-mobile .admin-filters { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; width: 100% !important; }
+html.is-mobile .admin-filters > * { flex: 1 1 132px; min-width: 0; }
+
+/* حقول الإدخال */
+html.is-mobile input, html.is-mobile select, html.is-mobile textarea, html.is-mobile button { font-family: inherit; }
+html.is-mobile .note-input,
+html.is-mobile .input-group input,
+html.is-mobile .input-group select {
+    font-size: 16px !important;
+    background: rgba(255,255,255,.055) !important;
+    border: 1px solid var(--m-hair) !important;
+    border-radius: 11px !important;
+    color: var(--m-text) !important;
+    padding: 11px 12px !important;
+    width: 100% !important;
+    min-height: 44px;
+}
+html.is-mobile input:focus, html.is-mobile select:focus, html.is-mobile textarea:focus {
+    outline: none;
+    border-color: rgba(212,175,55,.55) !important;
+    box-shadow: 0 0 0 3px rgba(212,175,55,.14) !important;
+}
+
+/* الأزرار: لمس 44px وحالة ضغط فورية */
+html.is-mobile .btn, html.is-mobile .top-bar-btn, html.is-mobile .btn-royal-action,
+html.is-mobile .btn-save, html.is-mobile .btn-cancel, html.is-mobile .btn-confirm,
+html.is-mobile .admin-nav-btn, html.is-mobile .modal-actions button {
+    min-height: 44px;
+    border-radius: 14px !important;
+}
+html.is-mobile button:active, html.is-mobile a:active, html.is-mobile .stat-card:active {
+    opacity: .55;
+    transform: scale(.98);
+    transition: none;
+}
+
+/* --------- شريط التبويبات العائم (يعيد استخدام الأزرار الموجودة) --------- */
+html.is-mobile #mobile-bottom-nav {
+    display: none;
+    position: fixed;
+    left: 12px; right: 12px;
+    bottom: calc(10px + env(safe-area-inset-bottom) + var(--m-kb));
+    height: var(--m-bar-h);
+    z-index: 9500;
+    padding: 5px;
+    border-radius: var(--m-radius-bar);
+    background: rgba(21,21,23,.68);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    backdrop-filter: blur(28px) saturate(180%);
+    border: 0.5px solid var(--m-line);
+    box-shadow: 0 12px 34px rgba(0,0,0,.5);
+    justify-content: space-around;
+    align-items: stretch;
+    overflow: hidden;
+}
+html.is-mobile body.m-admin #mobile-bottom-nav { display: flex; }
+
+html.is-mobile .bottom-nav-btn {
+    position: relative;
+    z-index: 2;
+    /* عدد الخانات يقرا من --m-n الذي يضبطه الجافاسكريبت، لا عدد مكتوب يدوياً */
+    flex: 1 1 calc(100% / var(--m-n));
+    min-width: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    background: transparent; border: none; color: var(--m-muted);
+    padding: 4px 2px;
+    transition: color .22s var(--m-ease);
+}
+html.is-mobile .bottom-nav-btn i { font-size: 18px; line-height: 1; transition: transform .22s var(--m-ease); }
+html.is-mobile .bottom-nav-btn span {
+    font-size: 11.5px; font-weight: 700; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+html.is-mobile .bottom-nav-btn.active, html.is-mobile .bottom-nav-btn.m-hi { color: var(--m-gold); }
+html.is-mobile .bottom-nav-btn.active i { transform: translateY(-1px); }
+
+html.is-mobile .m-ind {
+    position: absolute; z-index: 1;
+    top: 5px; bottom: 5px;
+    left: 0; width: 0;
+    border-radius: var(--m-radius-pill);
+    background: var(--m-gold);
+    box-shadow: 0 6px 18px rgba(212,175,55,.4);
+    opacity: .16;
+    will-change: transform;
+}
+html.is-mobile .bottom-nav-btn.active + .m-ind, html.is-mobile .m-ind { pointer-events: none; }
+
+/* --------- النوافذ السفلية --------- */
+html.is-mobile .modal-overlay.m-sheet {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0 0 var(--m-kb);
+    background: rgba(0,0,0,.55);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s var(--m-ease), padding .18s linear;
+}
+html.is-mobile .modal-overlay.m-sheet.m-on { opacity: 1; pointer-events: auto; }
+/* يُبقي النافذة مرئية لحظة الانزلاق للأسفل رغم display:none التي يضعها النظام */
+html.is-mobile .modal-overlay.m-sheet.m-closing { display: flex !important; opacity: 0; pointer-events: none; }
+html.is-mobile .modal-overlay.m-sheet .modal-content {
+    width: 100% !important;
+    max-width: 720px;
+    max-height: 93dvh !important;
+    height: auto !important;
+    margin: 0;
+    border-radius: var(--m-radius-sheet) var(--m-radius-sheet) 0 0 !important;
+    border: 1px solid var(--m-line);
+    border-bottom: none;
+    background: var(--m-card);
+    box-shadow: 0 -18px 60px rgba(0,0,0,.6);
+    padding: 6px 14px calc(18px + env(safe-area-inset-bottom)) !important;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    transform: translateY(105%);
+    transition: transform .32s var(--m-ease);
+}
+html.is-mobile .modal-overlay.m-sheet.m-on .modal-content { transform: translateY(0); }
+html.is-mobile .modal-overlay.m-sheet.m-live .modal-content { transition: transform .1s linear; }
+html.is-mobile .m-grab {
+    width: 42px; height: 5px; border-radius: 99px;
+    background: rgba(255,255,255,.22);
+    margin: 6px auto 8px;
+}
+html.is-mobile .modal-overlay.m-sheet .modal-title {
+    position: sticky; top: -6px; z-index: 3;
+    margin: 0 -14px 10px;
+    padding: 12px 14px 10px;
+    background: rgba(21,21,23,.86);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--m-hair);
+    border-radius: var(--m-radius-sheet) var(--m-radius-sheet) 0 0;
+    font-size: 17px;
+}
+html.is-mobile .modal-overlay.m-sheet .modal-actions { position: sticky; bottom: 0; padding-top: 8px; background: linear-gradient(to top, var(--m-card) 65%, transparent); }
+html.is-mobile .m-sheet-x {
+    position: absolute; top: 10px; inset-inline-end: 12px; z-index: 4;
+    width: 44px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    border: 1px solid var(--m-hair);
+    background: rgba(255,255,255,.06);
+    color: var(--m-text); font-size: 16px;
+}
+
+/* التنبيهات: فوق الشريط العائم لا خلفه */
+html.is-mobile #toast-container {
+    top: auto !important; left: 12px !important; right: 12px !important;
+    bottom: calc(var(--m-bar-h) + 22px + env(safe-area-inset-bottom) + var(--m-kb)) !important;
+    z-index: 9600 !important;
+    display: flex; flex-direction: column; gap: 8px; align-items: stretch;
+}
+html.is-mobile .toast-msg { border-radius: var(--m-radius-card) !important; box-shadow: 0 12px 30px rgba(0,0,0,.5) !important; max-width: none !important; }
+
+/* هياكل التحميل */
+html.is-mobile .m-skel { border-radius: 12px; background: linear-gradient(90deg, var(--m-card) 0%, var(--m-card2) 40%, var(--m-card) 80%); background-size: 300% 100%; animation: mShim 1.4s linear infinite; margin-bottom: 10px; }
+html.is-mobile .m-skel.tall { height: 92px; }
+html.is-mobile .m-skel.short { height: 42px; }
+@keyframes mShim { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+
+html.is-mobile .m-offline {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--m-red);
+    background: rgba(255,71,87,.1);
+    border: 1px solid rgba(255,71,87,.28);
+    border-radius: 12px; padding: 8px 10px; margin-bottom: 10px;
+}
+
+html.is-mobile .m-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 9700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--m-bg);
+    opacity: 1;
+    transition: opacity .6s var(--m-ease);
+}
+html.is-mobile .m-splash.m-off2 { opacity: 0; }
+html.is-mobile .m-splash i { font-size: 34px; color: var(--m-gold); animation: mSpin 1s linear infinite; }
+@keyframes mSpin { to { transform: rotate(360deg); } }
+
+/* زر التبديل ويافطة إعادة المحاولة */
+html.is-mobile .m-viewbtn {
+    width: 100%; margin-top: 14px;
+    min-height: 46px;
+    border-radius: 14px;
+    border: 1px solid var(--m-line);
+    background: var(--m-gold-soft);
+    color: var(--m-gold);
+    font-size: 15px; font-weight: 700;
+}
+
+html.is-mobile body.m-lock, html.is-mobile body.m-lock .admin-section { overflow: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+    html.is-mobile *, html.is-mobile *::before, html.is-mobile *::after {
+        transition-duration: .001ms !important;
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
+`;
+
+    /* ============================ أدوات ============================ */
+    const qsa = (sel, ctx) => Array.prototype.slice.call((ctx || document).querySelectorAll(sel));
+    const esc = (v) => (window.escapeHTML ? window.escapeHTML(String(v == null ? '' : v)) : String(v == null ? '' : v));
+    const store = {
+        get(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
+        set(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
+    };
+
+    /* موضع المحور: التبويب التالي يظهر من اليسار في RTL */
+    const dirSign = () => (root.getAttribute('dir') || document.dir || 'rtl').toLowerCase() === 'rtl' ? -1 : 1;
+
+    const state = {
+        keys: [],
+        pages: [],
+        barKeys: [],
+        barBtns: [],
+        n: 1,
+        index: 0,
+        width: 1,
+        busy: false,
+        pendingRepaint: false,
+        started: false
+    };
+
+    /* ================== ترتيب التبويبات ديناميكياً ==================
+       نفس مصدر الترتيب الحالي: أزرار شريط الجوال أولاً ثم بقية اللوحات. */
+    function readTabsOrder() {
+        const order = [];
+        const add = (k) => { if (k && order.indexOf(k) === -1) order.push(k); };
+        qsa(BAR_SELECTOR + ' .bottom-nav-btn').forEach((btn) => {
+            const m = /switchAdminTab\(\s*['"]([^'"]+)['"]/.exec(btn.getAttribute('onclick') || '');
+            if (m) add(m[1]);
+        });
+        qsa('.admin-section').forEach((sec) => add(sec.id.replace(/^admin-/, '')));
+        return order;
+    }
+
+    /* ==================== حقن الأنماط والهيكل ==================== */
+    function injectChrome() {
+        const style = document.createElement('style');
+        style.id = 'royal-mobile-style';
+        style.textContent = CSS;
+        document.head.appendChild(style);
+
+        const admin = document.getElementById(ADMIN_ID);
+        if (!admin) return;
+
+        const head = document.createElement('header');
+        head.className = 'm-head';
+        head.innerHTML =
+            '<span class="m-brand">' + esc(brandName()) + '</span>' +
+            '<span class="m-conn"><i class="m-dot"></i><span class="m-conn-text">متصل</span></span>' +
+            '<span class="m-time">--:--</span>';
+        admin.insertBefore(head, admin.firstChild);
+        headRef = head;
+
+        const indicator = document.createElement('div');
+        indicator.className = 'm-ind';
+        const bar = document.querySelector(BAR_SELECTOR);
+        if (bar) bar.appendChild(indicator);
+    }
+    let headRef = null;
+
+    function brandName() {
+        const t = (document.title || '').split('-')[0].trim();
+        return t || 'إدارة رويال';
+    }
+
+    /* ================== حالة الاتصال وآخر مزامنة ================== */
+    function mirrorConnection() {
+        if (!headRef) return;
+        const dot = headRef.querySelector('.m-dot');
+        const txt = headRef.querySelector('.m-conn-text');
+        const online = navigator.onLine !== false;
+        dot.classList.toggle('off', !online);
+        txt.textContent = online ? 'متصل' : 'أوفلاين';
+    }
+
+    function markSyncTime() {
+        if (!headRef) return;
+        const el = headRef.querySelector('.m-time');
+        const d = new Date();
+        const p = (v) => (v < 10 ? '0' + v : '' + v);
+        el.textContent = p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+
+    /* ==================== مواضع التمرير والحركات ==================== */
+    /* العرض يقاس من الحاوية: الصفحة المخفية clientWidth لها صفر، والتبويب المستعاد قد لا يكون مفعّلاً بعد */
+    function cacheWidth() {
+        const host = document.querySelector('#' + ADMIN_ID + ' .admin-content') || document.getElementById(ADMIN_ID);
+        const page = state.pages[state.index];
+        const w = (page && page.clientWidth) || (host && host.clientWidth) || window.innerWidth;
+        state.width = Math.max(1, w);
+    }
+
+    function paintTransforms() {
+        const s = dirSign();
+        const w = state.width;
+        const P = phys.P;
+        for (let i = 0; i < state.pages.length; i++) {
+            const el = state.pages[i];
+            if (!el) continue;
+            const d = i - P;
+            if (Math.abs(d) > 1.2) {
+                if (el.style.transform) { el.style.transform = ''; el.style.opacity = ''; }
+                continue;
+            }
+            el.style.transform = 'translate3d(' + (s * d * w).toFixed(2) + 'px,0px,0px)';
+            el.style.opacity = String(1 - Math.min(1, Math.abs(d)) * 0.22);
+        }
+        paintIndicator();
+    }
+
+    /* المؤشر يتحرك من نفس الموضع العشري للصفحات */
+    function paintIndicator() {
+        const ind = document.querySelector('.m-ind');
+        const bar = document.querySelector(BAR_SELECTOR);
+        if (!ind || !bar) return;
+        const M = Math.max(1, state.barBtns.length);
+        const pad = 5;
+        const cell = (bar.clientWidth - pad * 2) / M;
+        const f = clamp(barPosFor(phys.P), 0, M - 1);
+        const left = dirSign() < 0 ? (bar.clientWidth - pad - (f + 1) * cell) : (pad + f * cell);
+        ind.style.width = cell + 'px';
+        ind.style.transform = 'translate3d(' + left.toFixed(2) + 'px,0px,0px)';
+        const bi = barIndexOfPage(clamp(Math.round(phys.P), 0, state.n - 1));
+        state.barBtns.forEach((b, i) => b.classList.toggle('m-hi', i === bi));
+    }
+
+    function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+    function barIndexOfPage(pageIdx) {
+        const key = state.keys[pageIdx];
+        let i = state.barKeys.indexOf(key);
+        if (i === -1) i = state.barKeys.indexOf('more-menu');
+        if (i === -1) i = 0;
+        return i;
+    }
+
+    function barPosFor(P) {
+        const lo = clamp(Math.floor(P), 0, state.n - 1);
+        const hi = clamp(lo + 1, 0, state.n - 1);
+        const frac = clamp(P - lo, 0, 1);
+        return barIndexOfPage(lo) + (barIndexOfPage(hi) - barIndexOfPage(lo)) * frac;
+    }
+
+    /* ====================== محرك السحب الفيزيائي ====================== */
+    const phys = {
+        touching: false,
+        axis: 'none',
+        startX: 0, startY: 0,
+        P0: 0, P: 0,
+        samples: [],
+        raf: 0
+    };
+
+    const OMEGA = 15;
+
+    function rubber(v) {
+        const x = Math.abs(v);
+        return (1 - 1 / (x * 0.55 + 1)) * Math.sign(v);
+    }
+
+    function onPointerStart(e) {
+        if (!state.started || document.body.classList.contains('m-sheet-open')) return;
+        const touches = e.touches;
+        if (touches && touches.length > 1) {
+            /* pinch أو إصبعان: نوقف السحب ونثبت أقرب موضع بدون قفزة */
+            if (phys.touching || phys.raf) {
+                phys.touching = false;
+                phys.axis = 'none';
+                document.body.classList.remove('m-dragging');
+                springTo(Math.round(phys.P), velocity());
+            }
+            return;
+        }
+        const admin = document.getElementById(ADMIN_ID);
+        if (!admin || !admin.classList.contains('active-screen')) return;
+        if (e.target.closest('.m-ind, .modal-overlay, #workspace-container, [data-m-no-drag]')) return;
+
+        cacheWidth();
+        stopSpring();
+        phys.touching = true;
+        phys.axis = 'none';
+        phys.startX = touches ? touches[0].clientX : e.clientX;
+        phys.startY = touches ? touches[0].clientY : e.clientY;
+        phys.P0 = phys.P;
+        phys.samples = [{ t: now(), x: phys.P }];
+        setBusy(true);
+    }
+
+    function onPointerMove(e) {
+        if (!phys.touching) return;
+        if (e.touches && e.touches.length > 1) return;
+        const x = e.touches ? e.touches[0].clientX : e.clientX;
+        const y = e.touches ? e.touches[0].clientY : e.clientY;
+        const dx = x - phys.startX;
+        const dy = y - phys.startY;
+
+        if (phys.axis === 'none') {
+            if (Math.abs(dx) < 7 && Math.abs(dy) < 7) return;
+            if (Math.abs(dy) > Math.abs(dx)) { abortGesture(); return; }
+            if (blocksHorizontalScroll(e.target, dx)) { abortGesture(); return; }
+            phys.axis = 'x';
+            document.body.classList.add('m-dragging');
+            state.pages.forEach((el, i) => { if (Math.abs(i - phys.P) <= 1) el.classList.add('m-neighbor'); });
+        }
+
+        /* 1:1 مع الإصبع + مرونة عند الحدود */
+        const step = dx / state.width;
+        let raw = dirSign() < 0 ? phys.P0 + step : phys.P0 - step;
+        let over = 0;
+        if (raw < 0) { over = raw; raw = 0; }
+        if (raw > state.n - 1) { over = raw - (state.n - 1); raw = state.n - 1; }
+        phys.P = clamp(raw + rubber(over), -0.5, state.n - 0.5);
+        phys.samples.push({ t: now(), x: phys.P });
+        while (phys.samples.length > 2 && now() - phys.samples[0].t > 100) phys.samples.shift();
+        paintTransforms();
+    }
+
+    /* لا نبدأ سحب التبويبات إذا بدأت اللمسة داخل منطقة تمرير أفقي ولم تصل لحافتها */
+    function blocksHorizontalScroll(target, dx) {
+        const scroller = target && target.closest ? target.closest('table, .cart-table, .invoices-table, [style*="overflow"], .admin-filters, .icon-picker-grid, #workspace-container') : null;
+        if (!scroller) return false;
+        if (scroller.scrollWidth <= scroller.clientWidth + 1) return false;
+        const atStart = scroller.scrollLeft <= 0;
+        const atEnd = scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 1;
+        const goingForward = dx < 0;
+        if (dirSign() < 0) return goingForward ? !atStart : !atEnd;
+        return goingForward ? !atEnd : !atStart;
+    }
+
+    function onPointerEnd(e) {
+        /* إصبع ما زال على الشاشة: لا نهتم بتحرير الحركة */
+        if (e && e.touches && e.touches.length > 0) return;
+        if (!phys.touching) {
+            if (state.busy) { setBusy(false); flushRepaint(); }
+            return;
+        }
+        phys.touching = false;
+        document.body.classList.remove('m-dragging');
+        if (phys.axis !== 'x') { finishGesture(); return; }
+
+        const v = velocity();
+        let target = Math.round(phys.P + v * 0.2);
+        target = clamp(target, phys.P0 - 1, phys.P0 + 1);
+        target = clamp(target, 0, state.n - 1);
+        springTo(target, v);
+    }
+
+    function velocity() {
+        const t = now();
+        const last = phys.samples[phys.samples.length - 1];
+        if (!last || t - last.t > 90) return 0;
+        let i = phys.samples.length - 1;
+        while (i > 0 && t - phys.samples[i].t < 100) i--;
+        const a = phys.samples[i];
+        const dt = (last.t - a.t) / 1000;
+        if (dt <= 0.008) return 0;
+        return (last.x - a.x) / dt;
+    }
+
+    /* نابض مثبّت حرجاً: x(s) = t + (A + B·s)·e^(−ω·s) */
+    function springTo(t, v0) {
+        stopSpring();
+        const A = phys.P - t;
+        const B = v0 + OMEGA * A;
+        const s0 = now();
+        let done = false;
+        const step = () => {
+            const s = (now() - s0) / 1000;
+            const e = Math.exp(-OMEGA * s);
+            const x = t + (A + B * s) * e;
+            const v = e * (B - OMEGA * (A + B * s));
+            phys.P = x;
+            paintTransforms();
+            if (Math.abs(x - t) < 0.0005 && Math.abs(v) < 0.01 || s > 1.5) {
+                phys.P = t;
+                paintTransforms();
+                done = true;
+                commit(t);
+                return;
+            }
+            phys.raf = requestAnimationFrame(step);
+        };
+        phys.raf = requestAnimationFrame(step);
+    }
+
+    function stopSpring() { if (phys.raf) { cancelAnimationFrame(phys.raf); phys.raf = 0; } }
+
+    function abortGesture() {
+        phys.touching = false;
+        phys.axis = 'none';
+        document.body.classList.remove('m-dragging');
+        springTo(Math.round(phys.P), 0);
+    }
+
+    function finishGesture() { setBusy(false); flushRepaint(); }
+
+    function commit(pageIdx) {
+        const i = clamp(Math.round(pageIdx), 0, state.n - 1);
+        clearNeighbors();
+        phys.P = i;
+        state.index = i;
+        paintTransforms();
+        document.body.classList.remove('m-dragging');
+        const key = state.keys[i];
+        if (key && key !== currentTabKey()) routeOriginal(key);
+        syncA11y();
+        onArrive(key);
+        setBusy(false);
+        flushRepaint();
+    }
+
+    /* نستدعي دالة التوجيه الأصلية مباشرة: التفاف الطبقة يفعّل الحركة، والسحب هنا يفعّلها بنفسه */
+    function routeOriginal(key) {
+        const fn = window.switchAdminTab;
+        if (typeof fn !== 'function') return;
+        (fn.__mOriginal || fn).call(window, key, 'none');
+    }
+
+    function clearNeighbors() { state.pages.forEach((el) => el.classList.remove('m-neighbor')); }
+
+    function currentTabKey() {
+        const el = document.querySelector('.admin-section.active');
+        return (el ? el.id.replace(/^admin-/, '') : null) || store.get('admin_tab') || state.keys[0];
+    }
+
+    function setBusy(v) {
+        state.busy = v;
+        document.body.classList.toggle('m-dragging', v && phys.axis === 'x');
+        const lo = clamp(Math.floor(phys.P) - 1, 0, state.n - 1);
+        const hi = clamp(Math.ceil(phys.P) + 1, 0, state.n - 1);
+        for (let i = lo; i <= hi; i++) {
+            if (state.pages[i]) state.pages[i].style.willChange = v ? 'transform' : 'auto';
+        }
+    }
+
+    const now = () => (window.performance && performance.now ? performance.now() : Date.now());
+
+    function bindGestures() {
+        const admin = document.getElementById(ADMIN_ID);
+        if (!admin) return;
+        admin.addEventListener('touchstart', onPointerStart, { passive: true });
+        admin.addEventListener('touchmove', onPointerMove, { passive: true });
+        admin.addEventListener('touchend', onPointerEnd, { passive: true });
+        admin.addEventListener('touchcancel', onPointerEnd, { passive: true });
+        /* دعم القلم/الماوس على التابلت دون المساس بلمسة الهاتف */
+        admin.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'touch') onPointerStart(e); }, { passive: true });
+        admin.addEventListener('pointermove', (e) => { if (e.pointerType !== 'touch' && phys.touching) onPointerMove(e); }, { passive: true });
+        admin.addEventListener('pointerup', (e) => { if (e.pointerType !== 'touch') onPointerEnd(); }, { passive: true });
+        admin.addEventListener('pointercancel', () => { if (phys.touching) onPointerEnd(); }, { passive: true });
+    }
+
+    /* ================= إعادة الرسم المنظمة (debounce + إرجاء) ================= */
+    const RENDERERS = ['updateAdminDashboard', 'renderLogs', 'renderAdminSubs'];
+    const originals = {};
+    let repaintTimer = 0;
+    function setPending() { state.pendingRepaint = true; }
+
+    function scheduleRepaint() {
+        if (!state.started) return;
+        if (state.busy) { setPending(); return; }
+        if (repaintTimer) return;
+        repaintTimer = setTimeout(() => {
+            repaintTimer = 0;
+            runRepaint();
+        }, 150);
+    }
+
+    /* استدعاء الدوال الأصلية مباشرة: الطبقة لا تُعيد نفسها في حلقة رسم */
+    function callOriginal(name) {
+        const fn = originals[name] || window[name];
+        if (typeof fn === 'function') fn.call(window);
+    }
+
+    function runRepaint() {
+        const page = state.pages[state.index];
+        const top = page ? page.scrollTop : 0;
+        const openSheets = qsa('.modal-overlay.m-sheet.m-on .modal-content');
+        const sheetTops = openSheets.map((c) => c.scrollTop);
+        try {
+            callOriginal('updateAdminDashboard');
+            const k = state.keys[state.index];
+            if (k === 'logs') callOriginal('renderLogs');
+            if (k === 'subscriptions') callOriginal('renderAdminSubs');
+        } catch (err) { console.warn('mobile repaint:', err); }
+        markSyncTime();
+        hideSkeletonFor(state.keys[state.index]);
+        if (page && Math.abs(page.scrollTop - top) > 2) page.scrollTop = top;
+        openSheets.forEach((c, i) => { if (Math.abs(c.scrollTop - sheetTops[i]) > 2) c.scrollTop = sheetTops[i]; });
+    }
+
+    function flushRepaint() {
+        if (!state.pendingRepaint) return;
+        state.pendingRepaint = false;
+        runRepaint();
+    }
+
+    function wrapRepainters() {
+        RENDERERS.forEach((name) => {
+            const original = window[name];
+            if (typeof original !== 'function' || original.__mWrapped) return;
+            originals[name] = original;
+            const wrapped = function () {
+                if (!originals[name]) return original.apply(window, arguments);
+                scheduleRepaint();
+                setPending();
+            };
+            wrapped.__mWrapped = true;
+            wrapped.__mOriginal = original;
+            window[name] = wrapped;
+        });
+    }
+
+    function unwrapRepainters() {
+        RENDERERS.forEach((name) => {
+            const fn = window[name];
+            if (fn && fn.__mOriginal) window[name] = fn.__mOriginal;
+            delete originals[name];
+        });
+    }
+
+    /* عند الوصول لتبويب: هيكل تحميل إن لم تكن بياناته قد وصلت، ثم رسم فوري */
+    function onArrive(key) {
+        if (!key) return;
+        showSkeletonFor(key);
+        setPending();
+        if (state.busy) return;
+        flushRepaint();
+    }
+
+    /* =================== Skeleton أثناء انتظار البيانات =================== */
+    const SKELETON_HOSTS = {
+        'daily-report': '#admin-daily-reports-body',
+        debts: '#debts-table-body',
+        costs: '#costs-table-body',
+        logs: '#logs-table-body',
+        subscriptions: '#admin-subs-body',
+        wallet: '#wallet-transactions-body'
+    };
+
+    function hostOf(key) {
+        const sel = SKELETON_HOSTS[key];
+        const page = pageOf(key);
+        return sel && page ? page.querySelector(sel) : null;
+    }
+
+    function showSkeletonFor(key) {
+        if (!key || key !== state.keys[state.index]) return;
+        const page = pageOf(key);
+        const host = hostOf(key);
+        if (!page || !host || page.querySelector('.m-skel-box')) return;
+        if (host.children.length) return;
+        const box = document.createElement('div');
+        box.className = 'm-skel-box';
+        box.innerHTML = '<div class="m-skel short"></div><div class="m-skel tall"></div><div class="m-skel tall"></div>';
+        page.appendChild(box);
+    }
+
+    function hideSkeletonFor(key) {
+        const page = pageOf(key);
+        if (!page) return;
+        const box = page.querySelector('.m-skel-box');
+        if (!box) return;
+        const host = hostOf(key);
+        if ((host && host.children.length) || navigator.onLine === false) box.remove();
+    }
+
+    function pageOf(key) { return document.getElementById('admin-' + key); }
+
+    /* ================== النوافذ السفلية فوق المنبثقات ================== */
+    const sheetStack = [];
+    let pushing = false;
+
+    function sheetExempt(el) {
+        return el.id === 'modal-admin-login' || el.id === 'modal-ota-update' || el.id === 'update-modal' || el.id === 'modal-shift-report';
+    }
+
+    function observeSheets() {
+        qsa('.modal-overlay').forEach((el) => {
+            if (el.dataset.mSheetObs === '1') return;
+            el.dataset.mSheetObs = '1';
+            new MutationObserver(() => syncSheet(el)).observe(el, { attributes: true, attributeFilter: ['style'] });
+            el.addEventListener('touchstart', (e) => {
+                if (e.target === el && !sheetExempt(el)) requestSheetClose(el);
+            }, { passive: true });
+            syncSheet(el);
+        });
+        window.addEventListener('popstate', onPop);
+    }
+
+    function syncSheet(el) {
+        if (sheetExempt(el)) return;
+        const open = /(^|;)\s*display:\s*flex/.test(el.getAttribute('style') || '');
+        const known = el.classList.contains('m-sheet');
+        if (open && !known) openSheet(el);
+        else if (!open && known) closeSheet(el);
+    }
+
+    function openSheet(el) {
+        el.classList.remove('m-closing');
+        el.classList.add('m-sheet');
+        document.body.classList.add('m-sheet-open');
+        const content = el.querySelector('.modal-content');
+        if (content && !content.querySelector('.m-grab')) {
+            const grab = document.createElement('div');
+            grab.className = 'm-grab';
+            content.insertBefore(grab, content.firstChild);
+        }
+        addCloseButton(el, content);
+        lockBackground();
+        bindSheetDrag(el, content);
+        sheetStack.push(el);
+        if (!pushing) {
+            pushing = true;
+            try { history.pushState({ royalSheet: el.id }, ''); } catch (e) {}
+            pushing = false;
+        }
+        /* قراءة تخطيط واحدة لتثبيت الوضع الأول ثم التحريك، بلا انتظار إطار رسم */
+        void el.offsetHeight;
+        el.classList.add('m-on');
+        if (!REDUCED && content && content.animate) {
+            content.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240, easing: 'cubic-bezier(.2,.8,.2,1)' });
+        }
+    }
+
+    function addCloseButton(el, content) {
+        if (!content || el.querySelector('.m-sheet-x')) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'm-sheet-x';
+        btn.setAttribute('aria-label', 'إغلاق');
+        btn.textContent = '×';
+        btn.addEventListener('click', () => requestSheetClose(el));
+        content.insertBefore(btn, content.firstChild);
+    }
+
+    function requestSheetClose(el) {
+        /* نمرّر عبر زر الإلغاء الرسمي للنافذة نفسها إن وُجد، ولا نغلق بقية النوافذ */
+        const cancel = el.querySelector('.btn-cancel[onclick*="close"], .modal-actions [onclick*="close"]');
+        if (cancel) { cancel.click(); return; }
+        el.style.display = 'none';
+        syncSheet(el);
+    }
+
+    function closeSheet(el) {
+        el.classList.remove('m-on');
+        el.classList.add('m-closing');
+        setTimeout(() => {
+            if (el.classList.contains('m-on')) return;
+            /* نبقي m-sheet علامةً على النافذة المفتوحة، فإزالتها هنا تجعل إعادة الفتح تعمل */
+            el.classList.remove('m-closing', 'm-sheet');
+        }, 340);
+        const i = sheetStack.lastIndexOf(el);
+        if (i > -1) sheetStack.splice(i, 1);
+        if (!sheetStack.length) {
+            document.body.classList.remove('m-sheet-open');
+            unlockBackground();
+        }
+        if (!sheetStack.length && history.state && history.state.royalSheet) {
+            pushing = true;
+            try { history.back(); } catch (e) {}
+            setTimeout(() => { pushing = false; }, 250);
+        }
+    }
+
+    function onPop() {
+        if (pushing) return;
+        const el = sheetStack[sheetStack.length - 1];
+        if (el) { requestSheetClose(el); return; }
+        if (typeof window.exitToMain === 'function' && document.getElementById(ADMIN_ID).classList.contains('active-screen')) return;
+    }
+
+    /* حفظ مواضع التمرير واستعادتها عند الرجوع */
+    let savedScroll = 0;
+    function lockBackground() {
+        if (document.body.classList.contains('m-lock')) return;
+        const page = state.pages[state.index];
+        savedScroll = page ? page.scrollTop : 0;
+        document.body.classList.add('m-lock');
+    }
+    function unlockBackground() {
+        document.body.classList.remove('m-lock');
+        const page = state.pages[state.index];
+        if (page) page.scrollTop = savedScroll;
+    }
+
+    /* سحب النافذة للأسفل للإغلاق */
+    function bindSheetDrag(el, content) {
+        if (!content || content.dataset.mDragBound === '1') return;
+        content.dataset.mDragBound = '1';
+        let sy = 0, dy = 0, active = false, t0 = 0;
+        content.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 1) return;
+            const scrollerIsTop = content.scrollTop <= 0;
+            const onHeader = !!e.target.closest('.modal-title, .m-grab, .m-sheet-x');
+            if (!scrollerIsTop && !onHeader) return;
+            active = true; sy = e.touches[0].clientY; dy = 0; t0 = now();
+            content.classList.add('m-live');
+        }, { passive: true });
+        content.addEventListener('touchmove', (e) => {
+            if (!active) return;
+            dy = e.touches[0].clientY - sy;
+            if (dy < 0) dy *= 0.25;
+            content.style.transform = 'translateY(' + dy.toFixed(1) + 'px)';
+        }, { passive: true });
+        const end = () => {
+            if (!active) return;
+            active = false;
+            content.classList.remove('m-live');
+            const v = dy / Math.max(16, now() - t0);
+            content.style.transform = '';
+            if (dy > 120 || v > 0.9) requestSheetClose(el);
+        };
+        content.addEventListener('touchend', end, { passive: true });
+        content.addEventListener('touchcancel', end, { passive: true });
+    }
+
+    /* لوحة المفاتيح: لا تغطي النافذة الحقل النشط */
+    function bindKeyboard() {
+        if (!window.visualViewport) return;
+        const apply = () => {
+            const kb = Math.max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop);
+            root.style.setProperty('--m-kb', kb + 'px');
+        };
+        visualViewport.addEventListener('resize', apply, { passive: true });
+        visualViewport.addEventListener('scroll', apply, { passive: true });
+    }
+
+    /* ================== التبديل اليدوي بين النسختين ================== */
+    function openDesktopView() {
+        store.set('royal_view_override', SETTINGS_BACKUP_VIEW);
+        const url = new URL(window.location.href);
+        url.searchParams.set('view', SETTINGS_BACKUP_VIEW);
+        window.location.replace(url.toString());
+    }
+
+    function addViewToggle() {
+        const page = pageOf('settings');
+        if (!page || page.querySelector('.m-viewbtn')) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'm-viewbtn';
+        btn.textContent = 'عرض نسخة الكمبيوتر';
+        btn.addEventListener('click', () => {
+            const msg = 'سيتم فتح نسخة الكمبيوتر على هذا الهاتف. للرجوع لنسخة الجوال أضف آخر الرابط ?view=auto';
+            if (typeof window.showConfirm === 'function') {
+                window.showConfirm(msg, openDesktopView, 'نسخة الكمبيوتر', 'نعم، افتحها');
+            } else {
+                openDesktopView();
+            }
+        });
+        page.appendChild(btn);
+    }
+
+    /* ================== إعادة تقييم البيئة عند التدوير ==================
+       لا نلمس الاختيار اليدوي، ولا نبدّل أثناء سحب أو نافذة مفتوحة أو إدخال. */
+    function detectMobile() {
+        const mm = (q) => { try { return !!(window.matchMedia && window.matchMedia(q).matches); } catch (e) { return false; } };
+        const appShell = (typeof require !== 'undefined') || window.location.protocol === 'file:';
+        const touchCapable = mm('(pointer: coarse)') || mm('(hover: none)') || (navigator.maxTouchPoints || 0) > 0;
+        const smallScreen = Math.min(window.innerWidth, window.screen ? window.screen.width : window.innerWidth) <= 820;
+        const uaPhone = /iPhone|Android|iPad|webOS/i.test(navigator.userAgent);
+        return !appShell && touchCapable && (smallScreen || uaPhone);
+    }
+
+    function reevaluateLater() {
+        setTimeout(() => {
+            if (store.get('royal_view_override')) return;
+            if (state.busy || phys.touching || document.body.classList.contains('m-sheet-open')) return;
+            const a = document.activeElement;
+            if (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return;
+            if (detectMobile()) return;
+            const url = new URL(window.location.href);
+            url.searchParams.set('view', 'auto');
+            window.location.replace(url.toString());
+        }, 800);
+    }
+
+    /* ================== الدخول المتتالي للبطاقات ================== */
+    function staggerEntry(page) {
+        if (REDUCED || !page || !window.Element || !Element.prototype.animate) return;
+        const kids = Array.prototype.slice.call(page.children, 0, 9);
+        kids.forEach((el, i) => {
+            el.animate(
+                [{ transform: 'translateY(18px)', opacity: 0 }, { transform: 'translateY(0px)', opacity: 1 }],
+                { duration: 700, delay: i * 70, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' }
+            );
+        });
+    }
+
+    /* ================== تجاوز switchAdminTab (عرض فقط) ================== */
+    function wrapRouter() {
+        const original = window.switchAdminTab;
+        if (typeof original !== 'function' || original.__mWrapped) return;
+        const wrapped = function (tab, animationType) {
+            original.call(window, tab, 'none');
+            if (state.started) goTo(tab);
+        };
+        wrapped.__mWrapped = true;
+        wrapped.__mOriginal = original;
+        window.switchAdminTab = wrapped;
+    }
+
+    function goTo(tab) {
+        const i = state.keys.indexOf(tab);
+        if (i === -1) return;
+        showAdminChrome();
+        if (i === state.index && Math.abs(phys.P - i) < 0.02) {
+            const page = state.pages[i];
+            if (page) page.scrollTo({ top: 0, behavior: REDUCED ? 'auto' : 'smooth' });
+            return;
+        }
+        const from = phys.P;
+        stopSpring();
+        setBusy(true);
+        /* نُظهر الصفحات الواقعة في المسار حتى لا يظهر فراغ أثناء الانزلاق */
+        for (let j = Math.floor(Math.min(from, i)); j <= Math.ceil(Math.max(from, i)); j++) {
+            if (state.pages[j]) state.pages[j].classList.add('m-neighbor');
+        }
+        const s0 = now();
+        const dur = Math.min(520, 220 + Math.abs(i - from) * 120);
+        const step = () => {
+            const k = clamp((now() - s0) / dur, 0, 1);
+            const e = 1 - Math.pow(1 - k, 3);
+            phys.P = from + (i - from) * e;
+            paintTransforms();
+            if (k < 1) { phys.raf = requestAnimationFrame(step); }
+            else {
+                phys.P = i;
+                state.index = i;
+                clearNeighbors();
+                paintTransforms();
+                syncA11y();
+                setBusy(false);
+                flushRepaint();
+                staggerEntry(state.pages[i]);
+            }
+        };
+        phys.raf = requestAnimationFrame(step);
+    }
+
+    function showAdminChrome() {
+        document.body.classList.add('m-admin');
+        /* الشريط كان مخفياً عند التركيب: نعيد قياس الخانة والمؤشر بعد إظهاره */
+        if (state.started) paintTransforms();
+    }
+
+    /* ================== إمكانية الوصول ================== */
+    function decorateBar() {
+        const bar = document.querySelector(BAR_SELECTOR);
+        if (!bar) return;
+        bar.setAttribute('role', 'tablist');
+        bar.setAttribute('aria-label', 'أقسام الإدارة');
+        state.barBtns.forEach((b) => {
+            b.setAttribute('role', 'tab');
+            const label = b.querySelector('span');
+            if (label) b.setAttribute('aria-label', label.textContent.trim());
+        });
+        state.pages.forEach((p) => { if (p) p.setAttribute('role', 'tabpanel'); });
+        if (bar.dataset.mKeysBound !== '1') {
+            bar.dataset.mKeysBound = '1';
+            bar.addEventListener('keydown', onBarKeys);
+        }
+        syncA11y();
+    }
+
+    function onBarKeys(e) {
+        const s = dirSign();
+        let forward = null;
+        if (e.key === 'ArrowLeft') forward = s < 0;
+        else if (e.key === 'ArrowRight') forward = s > 0;
+        else return;
+        const i = clamp(state.index + (forward ? 1 : -1), 0, state.n - 1);
+        if (i === state.index) return;
+        e.preventDefault();
+        window.switchAdminTab(state.keys[i], 'none');
+        const btn = state.barBtns[barIndexOfPage(i)];
+        if (btn) btn.focus();
+    }
+
+    function syncA11y() {
+        const activeBar = barIndexOfPage(state.index);
+        state.barBtns.forEach((b, i) => b.setAttribute('aria-selected', String(i === activeBar)));
+    }
+
+    /* مراقبة فتح شاشة الأدمن (بعد التحقق من كلمة المرور) لإطلاق الطبقة */
+    function watchAdminOpen() {
+        const admin = document.getElementById(ADMIN_ID);
+        if (!admin) return;
+        const sync = () => {
+            if (admin.classList.contains('active-screen')) {
+                if (!state.started) mount();
+                showAdminChrome();
+                addViewToggle();
+            } else {
+                document.body.classList.remove('m-admin');
+            }
+        };
+        new MutationObserver(sync).observe(admin, { attributes: true, attributeFilter: ['class'] });
+        sync();
+    }
+
+    /* ================== التركيب ================== */
+    function mount() {
+        splash();
+        /* التلفيف هنا لا في boot: هذا الملف قد يُنفَّذ قبل app.js،
+           وعند فتح الأدمن تكون دوال النظام معرّفة بالكامل. */
+        wrapRepainters();
+        wrapRouter();
+        const order = readTabsOrder();
+        if (!order.length) return;
+        state.keys = order;
+        state.n = order.length;
+        root.style.setProperty('--m-n', String(state.n));
+        /* نفس ترتيب المفاتيح حرفياً: خانة فارغة إن نقص لوح، فلا يزيح بقية التبويبات */
+        state.pages = order.map(pageOf);
+        if (!state.pages.some(Boolean)) return;
+
+        const bar = document.querySelector(BAR_SELECTOR);
+        state.barBtns = bar ? qsa('.bottom-nav-btn', bar) : [];
+        state.barKeys = state.barBtns.map((b) => {
+            const m = /switchAdminTab\(\s*['"]([^'"]+)['"]/.exec(b.getAttribute('onclick') || '');
+            return m ? m[1] : '';
+        });
+
+        state.index = clamp(order.indexOf(currentTabKey()), 0, state.n - 1);
+        phys.P = state.index;
+        decorateBar();
+        cacheWidth();
+        paintTransforms();
+        bindGestures();
+        observeSheets();
+        bindKeyboard();
+        mirrorConnection();
+        state.started = true;
+        showSkeletonFor(order[state.index]);
+        flushRepaint();
+        staggerEntry(state.pages[state.index]);
+    }
+
+    /* شاشة تحميل تختفي بتلاشٍ .6s عند جهوزية الهيكل */
+    function splash() {
+        if (REDUCED || document.querySelector('.m-splash')) return;
+        const el = document.createElement('div');
+        el.className = 'm-splash';
+        el.innerHTML = '<i class="fa-solid fa-circle-notch"></i>';
+        document.body.appendChild(el);
+        requestAnimationFrame(() => {
+            el.classList.add('m-off2');
+            setTimeout(() => el.remove(), 650);
+        });
+    }
+
+    function onResize() {
+        if (!state.started) return;
+        cacheWidth();
+        paintTransforms();
+        reevaluateLater();
+    }
+
+    function boot() {
+        injectChrome();
+        watchAdminOpen();
+        window.addEventListener('resize', onResize, { passive: true });
+        window.addEventListener('orientationchange', () => setTimeout(onResize, 260), { passive: true });
+        window.addEventListener('online', mirrorConnection, { passive: true });
+        window.addEventListener('offline', () => {
+            mirrorConnection();
+            const page = state.pages[state.index];
+            if (page && !page.querySelector('.m-offline')) {
+                const warn = document.createElement('div');
+                warn.className = 'm-offline';
+                warn.innerHTML = '<i class="fa-solid fa-wifi"></i><span>لا يوجد اتصال — تُحفظ الحركات محلياً وتُرسل تلقائياً</span>' +
+                    '<button class="top-bar-btn" style="margin-inline-start:auto" type="button">إعادة المحاولة</button>';
+                warn.querySelector('button').addEventListener('click', () => window.location.reload());
+                page.insertBefore(warn, page.firstChild);
+            }
+        }, { passive: true });
+        const syncText = document.getElementById('sync-text');
+        if (syncText && window.MutationObserver) {
+            new MutationObserver(mirrorConnection).observe(syncText, { childList: true, characterData: true, subtree: true });
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot, { once: true });
+    } else {
+        boot();
+    }
+
+    window.RoyalMobileShell = {
+        state: state,
+        tabs: () => state.keys.slice(),
+        goTo: (k) => window.switchAdminTab(k, 'none'),
+        dispose() {
+            state.started = false;
+            unwrapRepainters();
+            const o = window.switchAdminTab;
+            if (o && o.__mOriginal) window.switchAdminTab = o.__mOriginal;
+            const st = document.getElementById('royal-mobile-style');
+            if (st) st.remove();
+            document.body.classList.remove('m-admin', 'm-sheet-open', 'm-lock', 'm-dragging');
+        }
+    };
+})();

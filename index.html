@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <!-- منع التقريب التلقائي (Zoom) في الآيفون عند الضغط على الحقول لتجربة تشبه التطبيقات -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>مكوى رويال  - نظام الإدارة</title>
 
     <!-- إعدادات تطبيق الويب (PWA) للآيفون والأندرويد (Full Screen) -->
@@ -25,6 +25,43 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <!-- ربط ملف التصميم -->
     <link rel="stylesheet" href="style.css">
+
+    <!-- كشف البيئة قبل أول رسم: يضع صنف is-mobile أو is-desktop على وسم html -->
+    <script>
+    (function () {
+        var KEY = 'royal_view_override';
+        var saved = null;
+        try { saved = sessionStorage.getItem(KEY); } catch (e) { saved = null; }
+
+        var params = new URLSearchParams(window.location.search);
+        var asked = params.get('view');
+        if (asked === 'desktop' || asked === 'mobile') {
+            try { sessionStorage.setItem(KEY, asked); } catch (e) {}
+        } else if (asked === 'auto') {
+            try { sessionStorage.removeItem(KEY); } catch (e) {}
+            saved = null;
+        }
+
+        var forced = (asked === 'desktop' || asked === 'mobile') ? asked
+                   : (saved === 'desktop' || saved === 'mobile') ? saved : null;
+
+        /* تطبيق الكاشير: Node متاح داخل Electron، والملف يُفتح عبر بروتوكول file.
+           لا نختبر اسم Electron في المتصفح لأنه يُعطي إيجابيات كاذبة. */
+        var appShell = (typeof require !== 'undefined') || window.location.protocol === 'file:';
+
+        var mm = function (q) {
+            try { return window.matchMedia && window.matchMedia(q).matches; } catch (e) { return false; }
+        };
+        var touchCapable = mm('(pointer: coarse)') || mm('(hover: none)') || (navigator.maxTouchPoints || 0) > 0;
+        var smallScreen = Math.min(window.innerWidth, window.screen ? window.screen.width : window.innerWidth) <= 820;
+        var uaPhone = /iPhone|Android|iPad|webOS/i.test(navigator.userAgent);
+
+        var mobile = forced ? forced === 'mobile' : (!appShell && touchCapable && (smallScreen || uaPhone));
+
+        document.documentElement.classList.add(mobile ? 'is-mobile' : 'is-desktop');
+        window.ROYAL_VIEW = mobile ? 'mobile' : 'desktop';
+    })();
+    </script>
 </head>
 <body>
     
@@ -1425,5 +1462,15 @@
     
     <!-- استدعاء ملف الجافاسكريبت كـ Module لدعم Firebase -->
     <script type="module" src="app.js"></script>
+
+    <!-- طبقة الجوال: تُحمَّل فقط عندما يكون الكشف قد حدّد بيئة جوال، فلا أثر لها على الكمبيوتر -->
+    <script>
+    if (document.documentElement.classList.contains('is-mobile')) {
+        var royalMobileLayer = document.createElement('script');
+        royalMobileLayer.type = 'module';
+        royalMobileLayer.src = 'mobile-shell.js';
+        document.head.appendChild(royalMobileLayer);
+    }
+    </script>
 </body>
 </html>
