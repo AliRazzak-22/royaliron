@@ -4395,3 +4395,14 @@ document.addEventListener('mouseover', (e) => {
         target.removeAttribute('title'); 
     }
 });
+
+// ==========================================
+// --- قراءة فقط لطبقة الجوال: لا تُعدّل ولا تحفظ أي شيء ---
+// تُعيد مفتاح تاريخ اليوم بنفس مصدر النظام (getRealTime) ونفس مجموعة الفواتير،
+// فلا تُحسب قيمة ولا يُكتب في قاعدة بيانات. تُستخدم لعرض لوحة «تفاصيل اليوم» فقط.
+window.royalTodayKey = () => getRealTime().date;
+window.royalTodayOrdersValue = () => {
+    const today = getRealTime().date;
+    return (localData.invoices || []).filter((i) => i && i.date === today)
+        .reduce((s, i) => s + (Number(i.total) || 0), 0);
+};
