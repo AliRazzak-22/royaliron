@@ -300,8 +300,67 @@
                             <div style="width: 1px; background: #333; height: 20px;"></div>
                             <div class="monthly-strip-item" style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-gray);">
                                 <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--green-success); box-shadow: 0 0 8px var(--green-success);"></div>
-                                التراكمي الشهري للتسليم: <strong id="bento-month-finished" style="color: #fff; font-size: 14px;">0</strong>
+                                                               التراكمي الشهري للتسليم: <strong id="bento-month-finished" style="color: #fff; font-size: 14px;">0</strong>
                             </div>
+                        </div>
+
+                        <!-- تفاصيل اليوم (تتحدث مباشرة) -->
+                        <div class="daily-details" id="daily-details" style="grid-column: span 2;">
+                            <div class="dd-head">
+                                <span><i class="fa-solid fa-chart-simple"></i> تفاصيل اليوم</span>
+                                <span class="dd-live"><i></i> مباشر</span>
+                            </div>
+                            <div class="dd-grid">
+                                <div class="dd-item">
+                                    <span class="dd-label">المبيعات اليومية</span>
+                                    <b class="dd-val" id="dd-sales">0</b>
+                                </div>
+                                <div class="dd-item">
+                                    <span class="dd-label">مبلغ الطلبات المسجلة</span>
+                                    <b class="dd-val" id="dd-orders" style="color:#4a90e2;">0</b>
+                                </div>
+                                <div class="dd-item">
+                                    <span class="dd-label">الصرفيات</span>
+                                    <b class="dd-val" id="dd-expenses" style="color:var(--red-danger);">0</b>
+                                </div>
+                                <div class="dd-item dd-net">
+                                    <span class="dd-label">الدخل الصافي</span>
+                                    <b class="dd-val" id="dd-net">0</b>
+                                </div>
+                            </div>
+                            <script>
+                            (function () {
+                                var S = { orders: 0, expenses: 0 };
+                                var src = document.getElementById('daily-sales-val');
+                                function num(t) {
+                                    t = String(t == null ? '' : t).replace(/[٠-٩]/g, function (d) { return d.charCodeAt(0) - 1632; });
+                                    var v = parseFloat(t.replace(/[^0-9.\-]/g, ''));
+                                    return isNaN(v) ? 0 : v;
+                                }
+                                function fmt(n) { return Math.round(n).toLocaleString('en-US') + ' د.ع'; }
+                                function render() {
+                                    var sales = src ? num(src.textContent) : 0;
+                                    var net = sales - S.expenses;
+                                    document.getElementById('dd-sales').textContent = fmt(sales);
+                                    document.getElementById('dd-orders').textContent = fmt(S.orders);
+                                    document.getElementById('dd-expenses').textContent = fmt(S.expenses);
+                                    var n = document.getElementById('dd-net');
+                                    n.textContent = fmt(net);
+                                    n.style.color = net < 0 ? 'var(--red-danger)' : 'var(--green-success)';
+                                }
+                                if (src && window.MutationObserver) {
+                                    new MutationObserver(render).observe(src, { childList: true, characterData: true, subtree: true });
+                                }
+                                /* تحديث الطلبات والصرفيات من منطق النظام: window.setDailyDetails({ orders: 0, expenses: 0 }) */
+                                window.setDailyDetails = function (d) {
+                                    d = d || {};
+                                    if (d.orders != null) S.orders = Number(d.orders) || 0;
+                                    if (d.expenses != null) S.expenses = Number(d.expenses) || 0;
+                                    render();
+                                };
+                                render();
+                            })();
+                            </script>
                         </div>
                     </div>
                 </div>
