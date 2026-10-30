@@ -1542,3 +1542,13 @@ input, select { outline: none; }
         display: none !important;
     }
 }
+.daily-details { background: rgba(20,20,20,.85); border: 1px solid rgba(212,175,55,.2); border-radius: 16px; padding: 14px; }
+.dd-head { display: flex; justify-content: space-between; align-items: center; color: var(--gold); font-weight: 800; font-size: 15px; margin-bottom: 12px; }
+.dd-live { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--green-success); font-weight: 700; }
+.dd-live i { width: 7px; height: 7px; border-radius: 50%; background: var(--green-success); box-shadow: 0 0 8px var(--green-success); }
+.dd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dd-item { display: flex; flex-direction: column; gap: 6px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 12px 10px; text-align: center; }
+.dd-label { font-size: 11.5px; color: var(--text-gray); font-weight: 700; }
+.dd-val { font-size: 17px; font-weight: 900; color: var(--text-white); font-family: 'Inter', 'Cairo', sans-serif; }
+.dd-net { grid-column: span 2; border-color: rgba(212,175,55,.45); background: rgba(212,175,55,.08); }
+.dd-net .dd-val { font-size: 22px; }
