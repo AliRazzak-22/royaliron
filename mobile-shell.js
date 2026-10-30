@@ -1390,6 +1390,102 @@ html.is-mobile .input-group .m-otp-input {
     z-index: 4;
 }
 
+/* ---- لوحة الأرقام الزجاجية: بديل كامل للوحة مفاتيح النظام ---- */
+html.is-mobile .m-pad {
+    position: relative;
+    z-index: 1;
+    direction: ltr;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    width: 100%;
+    max-width: 272px;
+    margin: 8px auto 0;
+}
+html.is-mobile .m-pad button {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: clamp(44px, 6.4vh, 56px);
+    margin: 0;
+    padding: 0;
+    border: 0;
+    clip-path: var(--m-facet-sm);
+    font-family: var(--m-lk-num);
+    font-size: 24px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #ffffff;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,0) 30%),
+        linear-gradient(165deg, rgba(196,222,248,.10), rgba(24,42,66,.46));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 0 0 1px rgba(255,255,255,.10);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+    cursor: pointer;
+    animation: mLkCellIn .7s var(--m-ease-out) backwards;
+    animation-delay: calc(var(--k, 0) * 38ms + 420ms);
+    transition: color .45s var(--m-ease), box-shadow .45s var(--m-ease);
+}
+html.is-mobile .m-pad button > span {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+/* طبقة الأخضر: تظهر فوراً عند اللمس وتخبو ببطء بعد رفع الإصبع */
+html.is-mobile .m-pad button::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    background: radial-gradient(95% 95% at 50% 24%, rgba(110,240,160,.62), rgba(34,197,94,.26) 58%, rgba(6,40,22,.55));
+    transition: opacity .6s var(--m-ease);
+}
+html.is-mobile .m-pad button.on {
+    z-index: 3;
+    color: #f0fff5;
+    text-shadow: 0 0 14px rgba(74,222,128,.95);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 0 0 1.5px rgba(34,197,94,.95);
+    transition: none;
+}
+html.is-mobile .m-pad button.on::before { opacity: 1; transition: opacity .05s linear; }
+/* مفتاحا المسح والحذف: نفس الحركة بلون أزرق ليتميّزا عن الأرقام */
+html.is-mobile .m-pad button.fn { font-size: 14px; color: var(--m-muted); }
+html.is-mobile .m-pad button.fn svg { width: 24px; height: 24px; display: block; }
+html.is-mobile .m-pad button.fn::before {
+    background: radial-gradient(95% 95% at 50% 24%, rgba(150,210,255,.55), rgba(56,150,255,.24) 58%, rgba(8,22,44,.55));
+}
+html.is-mobile .m-pad button.fn.on {
+    color: #f2f9ff;
+    text-shadow: 0 0 12px rgba(120,200,255,.9);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset 0 0 0 1.5px rgba(77,163,255,.95);
+}
+html.is-mobile .m-pad .m-rp {
+    position: absolute;
+    z-index: 0;
+    width: 150%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    pointer-events: none;
+    background: radial-gradient(circle, rgba(255,255,255,.6), rgba(255,255,255,0) 62%);
+}
+html.is-mobile .m-lk-card .m-pad ~ .modal-actions { margin-top: 16px; }
+@media (max-height: 700px) {
+    html.is-mobile .m-pad { gap: 8px; margin-top: 4px; }
+    html.is-mobile .m-pad button { height: 42px; font-size: 21px; }
+    html.is-mobile .m-lk-card .m-lk-sub { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    html.is-mobile .m-pad button { animation: none; transition: none; }
+}
+
 /* ---- التذييل: إجراءا النظام محفوظان كما هما + سطر إعادة الضبط ---- */
 html.is-mobile .m-lk-card .modal-actions {
     display: flex; gap: 10px; width: 100%; margin-top: 22px; padding: 0 !important;
@@ -3127,7 +3223,7 @@ html.is-mobile .modal-footer-sticky {
         /* A: الوصف والتذييل والصفيحة تتلاشى بالشفافية وحدها.
            commit=true: تُكتب القيمة النهائية سطرياً بدل fill:forwards، حتى تستطيع
            رسالة الخطأ أن تعود لاحقاً — الحركة المعلّقة كانت تُظلّم على .m-lk-err.on */
-        const fadeA = qsa('.m-lk-sub, .m-lk-foot, .m-lk-hint, .modal-actions, .m-lk-err', st.shell).concat([glideIn(st.shell)]);
+       const fadeA = qsa('.m-lk-sub, .m-lk-foot, .m-lk-hint, .modal-actions, .m-lk-err, .m-pad', st.shell)
         fadeA.forEach((n) => { if (n) spring(n, (p) => ({ opacity: (1 - p).toFixed(3) }), { stiffness: 190, damping: 26 }, keep, true); });
 
         /* B: FLIP — قياس واحد هنا، ثم إزاحة ومقياس فقط لبقية الجوقات */
@@ -3433,7 +3529,110 @@ html.is-mobile .modal-footer-sticky {
         input.addEventListener('keyup', (e) => { if (e.key === 'Enter') lockSubmit(input); });
         input.addEventListener('focus', () => { paintOtp(input); playEntrance(shell); });
         input.addEventListener('blur', () => paintOtp(input));
-        boxes.addEventListener('pointerdown', (e) => { e.preventDefault(); try { input.focus(); } catch (err) {} });
+                boxes.addEventListener('pointerdown', (e) => { e.preventDefault(); try { input.focus(); } catch (err) {} });
+
+        /* ---- لوحة الأرقام الزجاجية: الحقل يبقى مصدر القيمة، واللوحة تكتب فيه وتُطلق onType ---- */
+        const pad = document.createElement('div');
+        pad.className = 'm-pad';
+        pad.setAttribute('role', 'group');
+        pad.setAttribute('aria-label', 'لوحة أرقام الرمز');
+        const DEL_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6-7z"/><path d="m12.5 9.5 5 5m0-5-5 5"/></svg>';
+        pad.innerHTML = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clr', '0', 'del'].map((k, i) => {
+            const isFn = k === 'clr' || k === 'del';
+            const label = k === 'clr' ? 'مسح' : (k === 'del' ? DEL_SVG : k);
+            const aria = k === 'clr' ? 'مسح الكل' : (k === 'del' ? 'حذف رقم' : 'الرقم ' + k);
+            return '<button type="button" data-k="' + k + '" class="' + (isFn ? 'fn' : '') + '" aria-label="' + aria + '" style="--k:' + i + '"><span>' + label + '</span></button>';
+        }).join('');
+        card.insertBefore(pad, card.querySelector('.modal-actions') || card.querySelector('.m-lk-foot'));
+
+        /* لا لوحة مفاتيح للنظام: الحقل للقراءة فقط، واللوحة الزجاجية هي الإدخال */
+        input.readOnly = true;
+        input.setAttribute('inputmode', 'none');
+        input.setAttribute('autocomplete', 'off');
+
+        function padFlash(btn, x, y) {
+            btn.classList.add('on');
+            clearTimeout(btn._offT);
+            btn._offT = setTimeout(() => btn.classList.remove('on'), 380);
+            if (REDUCED || !btn.animate) return;
+            /* تكبير + اهتزاز مُخمَّد */
+            btn.animate([
+                { transform: 'scale(1) rotate(0deg)' },
+                { transform: 'scale(1.3) rotate(-6deg)', offset: .20 },
+                { transform: 'scale(1.24) rotate(6deg)', offset: .38 },
+                { transform: 'scale(1.20) rotate(-4deg)', offset: .54 },
+                { transform: 'scale(1.12) rotate(2.5deg)', offset: .72 },
+                { transform: 'scale(1.04) rotate(-1deg)', offset: .88 },
+                { transform: 'scale(1) rotate(0deg)' }
+            ], { duration: 560, easing: 'cubic-bezier(.2,.8,.3,1)' });
+            /* موجة ضوء زجاجية من نقطة اللمس */
+            const r = btn.getBoundingClientRect();
+            const px = (typeof x === 'number' ? x - r.left : r.width / 2);
+            const py = (typeof y === 'number' ? y - r.top : r.height / 2);
+            const rp = document.createElement('i');
+            rp.className = 'm-rp';
+            rp.style.left = px + 'px';
+            rp.style.top = py + 'px';
+            btn.insertBefore(rp, btn.firstChild);
+            const a = rp.animate([
+                { transform: 'translate(-50%,-50%) scale(.1)', opacity: .9 },
+                { transform: 'translate(-50%,-50%) scale(1)', opacity: 0 }
+            ], { duration: 620, easing: 'cubic-bezier(.2,.7,.3,1)' });
+            a.onfinish = () => rp.remove();
+            a.oncancel = () => rp.remove();
+        }
+
+        function padHit(btn, x, y) {
+            if (fxPending) return;
+            const k = btn.dataset.k;
+            padFlash(btn, x, y);
+            const cur = input.value || '';
+            let next = cur;
+            if (k === 'del') next = cur.slice(0, -1);
+            else if (k === 'clr') next = '';
+            else if (cur.length < OTP_LEN) next = cur + k;
+            else return;
+            if (next === cur) return;
+            if (/^\d$/.test(k)) haptic(10);
+            input.value = next;
+            onType();
+        }
+
+        pad.addEventListener('pointerdown', (e) => {
+            const btn = e.target.closest && e.target.closest('button[data-k]');
+            if (!btn) return;
+            e.preventDefault();
+            btn._pd = Date.now();
+            padHit(btn, e.clientX, e.clientY);
+        });
+        /* click بعد لمس حديث مكرّر فيُتجاهل؛ click وحده يعني تفعيلاً بلوحة المفاتيح/قارئ الشاشة */
+        pad.addEventListener('click', (e) => {
+            const btn = e.target.closest && e.target.closest('button[data-k]');
+            if (!btn || Date.now() - (btn._pd || 0) < 800) return;
+            padHit(btn);
+        });
+
+        /* لوحة مفاتيح فيزيائية (حاسوب/بلوتوث): تحرّك نفس المفاتيح الزجاجية */
+        input.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            let k = null;
+            if (/^[0-9]$/.test(e.key)) k = e.key;
+            else if (/^[\u0660-\u0669]$/.test(e.key)) k = String(e.key.charCodeAt(0) - 0x660);
+            else if (e.key === 'Backspace') k = 'del';
+            if (!k) return;
+            e.preventDefault();
+            const btn = pad.querySelector('[data-k="' + k + '"]');
+            if (btn) padHit(btn);
+        });
+
+        /* عند كل فتح: التركيز على الحقل ليظهر المؤشّر، ولا تظهر لوحة النظام لأن الحقل للقراءة فقط */
+        if (window.MutationObserver) {
+            new MutationObserver(() => {
+                if (/display:\s*(flex|block)/.test(modal.getAttribute('style') || '')) {
+                    setTimeout(() => { try { input.focus({ preventScroll: true }); } catch (err) {} }, 80);
+                }
+            }).observe(modal, { attributes: true, attributeFilter: ['style'] });
+        }
 
         if (enter) enter.addEventListener('click', (e) => { e.preventDefault(); lockSubmit(input); });
         if (cancel) cancel.addEventListener('click', () => {
