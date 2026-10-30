@@ -270,7 +270,7 @@ async function initializeDB() {
                     { id: 'shirt', name: 'قميص', icon: 'fa-shirt', prices: { wash_iron: 3000, iron_only: 2000 } }
                 ];
                 localData.invoices = []; localData.expenses = []; localData.operatingCosts = []; localData.debts = []; localData.logs = []; localData.payments = [];
-                localData.settings = { name: "مكوى رويال VIP", phone: "07800000000", address: "الكوفة، النجف الأشرف", password: "ahmed2003" };
+                localData.settings = { name: "مكوى رويال VIP", phone: "07800000000", address: "الكوفة، النجف الأشرف", password: "2003" };
                 saveDataToCloud();
             }
             
@@ -573,10 +573,12 @@ window.executeConfirm = () => {
     window.closeConfirmModal();
 };
 window.checkAdminPassword = () => {
-    const inputPass = document.getElementById('admin-password').value;
+    const inputPass = String(document.getElementById('admin-password').value || '').trim();
     // التدخل الجراحي: جلب الرمز من السحابة مباشرة لحظة التحقق فقط
     get(ref(database, 'royal_data/settings/password')).then((snapshot) => {
-        const realPassword = snapshot.val() || "ahmed2003";
+        const cloudPass = String(snapshot.val() == null ? '' : snapshot.val());
+        // الرمز يجب أن يكون 4 أرقام (يتوافق مع شاشة الدخول)، وإلا نستخدم 2003
+        const realPassword = /^\d{4}$/.test(cloudPass) ? cloudPass : "2003";
         if(inputPass === realPassword) {
             secureAdminToken = "AUTH_ROYAL_" + Math.random().toString(36).substring(2, 15);
             sessionStorage.setItem('active_screen', 'admin'); 
@@ -1928,7 +1930,7 @@ window.openPartnerTxModal = () => {
 
 window.unlockPartnerTx = () => {
     const pin = document.getElementById('partner-tx-pin').value;
-    if (pin === 'ahmed2003') {
+       if (pin === '2003') {
         // الرمز صحيح، نظهر الواجهة المخفية
         document.getElementById('tx-lock-screen').style.display = 'none';
         document.getElementById('tx-main-screen').style.display = 'block';
@@ -2592,10 +2594,11 @@ window.changePassword = () => {
     const newP = document.getElementById('set-new-pass').value;
     const confP = document.getElementById('set-confirm-pass').value;
 
-    get(ref(database, 'royal_data/settings/password')).then((snapshot) => {
-        const realPassword = snapshot.val() || "ahmed2003";
+       get(ref(database, 'royal_data/settings/password')).then((snapshot) => {
+        const cloudPass = String(snapshot.val() == null ? '' : snapshot.val());
+        const realPassword = /^\d{4}$/.test(cloudPass) ? cloudPass : "2003";
         if (oldP !== realPassword) return window.showAlert('كلمة المرور القديمة غير صحيحة!', 'error');
-        if (newP.length < 4) return window.showAlert('كلمة المرور الجديدة قصيرة جداً', 'error');
+        if (!/^\d{4}$/.test(newP)) return window.showAlert('الرمز الجديد يجب أن يكون 4 أرقام فقط', 'error');
         if (newP !== confP) return window.showAlert('كلمات المرور الجديدة غير متطابقة!', 'error');
 
         set(ref(database, 'royal_data/settings/password'), newP).then(() => {
