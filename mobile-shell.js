@@ -2040,8 +2040,9 @@ html.is-mobile .modal-footer-sticky {
             if (Math.abs(dx) < 7 && Math.abs(dy) < 7) return;
             if (Math.abs(dy) > Math.abs(dx)) { abortGesture(); return; }
             if (blocksHorizontalScroll(e.target, dx)) { abortGesture(); return; }
-            phys.axis = 'x';
+                  phys.axis = 'x';
             document.body.classList.add('m-dragging');
+            setBusy(true);
         }
 
         /* 1:1 مع الإصبع + مرونة عند الحدود — والحد هنا هو مدى الشريط لا كل اللوحات */
@@ -2072,8 +2073,8 @@ html.is-mobile .modal-footer-sticky {
     function onPointerEnd(e) {
         /* إصبع ما زال على الشاشة: لا نهتم بتحرير الحركة */
         if (e && e.touches && e.touches.length > 0) return;
-        if (!phys.touching) {
-            if (state.busy) { setBusy(false); flushRepaint(); }
+       if (!phys.touching) {
+            if (state.busy) { setBusy(false); setTimeout(flushRepaint, 600); }
             return;
         }
         phys.touching = false;
@@ -2128,11 +2129,14 @@ html.is-mobile .modal-footer-sticky {
 
     function stopSpring() { if (phys.raf) { cancelAnimationFrame(phys.raf); phys.raf = 0; } }
 
-    function abortGesture() {
+      function abortGesture() {
+        const moved = Math.abs(phys.P - Math.round(phys.P)) > 0.001;
         phys.touching = false;
         phys.axis = 'none';
         document.body.classList.remove('m-dragging');
-        springTo(Math.round(phys.P), 0);
+        /* سحب عمودي عادي: لا نابض ولا commit ولا حركة دخول */
+        if (moved) { springTo(Math.round(phys.P), 0); return; }
+        phys.P = Math.round(phys.P);
     }
 
     function finishGesture() { setBusy(false); setTimeout(flushRepaint, 260); }
@@ -2148,7 +2152,7 @@ html.is-mobile .modal-footer-sticky {
         syncA11y();
         onArrive(key);
         setBusy(false);
-        enterAnimate(state.pages[i]);
+        if (changed) enterAnimate(state.pages[i]);
         setTimeout(() => { flushRepaint(); syncFlow(); }, 520);
     }
 
@@ -2170,7 +2174,7 @@ html.is-mobile .modal-footer-sticky {
         const lo = clamp(Math.floor(phys.P) - 1, 0, state.n - 1);
         const hi = clamp(Math.ceil(phys.P) + 1, 0, state.n - 1);
         for (let i = lo; i <= hi; i++) {
-            if (state.pages[i]) state.pages[i].style.willChange = v ? 'transform' : 'auto';
+                        if (state.pages[i]) state.pages[i].style.willChange = (v && phys.axis === 'x') ? 'transform' : 'auto';
         }
     }
 
